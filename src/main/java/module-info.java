@@ -4,6 +4,7 @@ module com.example.resumeone {
     requires com.google.gson;
     requires java.xml.crypto;
     requires io.javalin;
+    requires java.desktop;
 
 
     opens com.example.resumeone to javafx.fxml;

@@ -4,6 +4,9 @@ import com.google.gson.Gson;
 import io.javalin.Javalin;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.control.Dialog;
+import javafx.scene.control.Label;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -12,8 +15,11 @@ import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Window;
+import java.net.URI;
+import java.awt.*;
 import java.io.File;
 import java.io.*;
+import java.net.URISyntaxException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -64,7 +70,6 @@ public class HelloController {
             projectFolder = (openFolder(e));
             selectFolder.setText(projectFolder);
 
-//            System.out.println(projectFolder);
                 });
 
         grid.add(selectFolder,1,1);
@@ -112,7 +117,7 @@ public class HelloController {
                     resumeProject(projectObj);
                     activeProject = projectObj;
 
-                } catch (IOException ex) {
+                } catch (IOException | URISyntaxException ex) {
                     throw new RuntimeException(ex);
                 }
             });
@@ -163,7 +168,7 @@ public class HelloController {
         HashSet<String> appset = new HashSet<>();
         while ((line = reader.readLine()) != null) {
             String[] parts = line.split("\\s+");
-//            System.out.println(parts[0]);
+            System.out.println(parts[0]);
             appset.add(parts[0]);
         }
         return appset;
@@ -177,7 +182,8 @@ public class HelloController {
         knownApps.put("firefox.exe", "Browser");
         knownApps.put("msedge.exe", "Browser");
 
-        knownApps.put("code.exe", "IDE");
+        knownApps.put("Code.exe", "IDE");
+        knownApps.put("Visual Studio Code.exe", "IDE");
         knownApps.put("idea64.exe", "IDE");
         knownApps.put("devenv.exe", "IDE");
         knownApps.put("eclipse.exe", "IDE");
@@ -247,28 +253,47 @@ public class HelloController {
         String path = reader.readLine();
         return path != null ? path.trim() : null;
     }
-    public void resumeProject(Project projectObj) throws IOException {
+    public void resumeProject(Project projectObj) throws IOException, URISyntaxException {
         //TODO:add multiple apps checking for path list
-        //DO THIS TODO:open claude cli in the correct folder store the original project folder somewhere
         System.out.println("projectName:"+projectObj.projectName);
-        for (String category: projectObj.apps.keySet()){
-            for (String app : projectObj.apps.get(category)){
-                new ProcessBuilder("cmd.exe", "/c", "start", app.replace(".exe", "")).start();
+        //Opens urls in the default browser for windows
+        for (String url: projectObj.urls){
+            Desktop.getDesktop().browse(new URI(url));
+        }
+
+            for (String category : projectObj.apps.keySet()) {
+                for (String app : projectObj.apps.get(category)) {
+                    String appName = app.replace(".exe", "");
+
+                    if (appName.equalsIgnoreCase("claude")) {
+                        // open claude CLI in project folder
+                            ProcessBuilder pb = new ProcessBuilder("cmd.exe", "/c", "start", "claude");
+                            pb.directory(new File(projectObj.folderPath));
+                            pb.start();
+
+                    } else if (appName.equalsIgnoreCase("Code")) {
+                        // open VS Code in project folder
+                        System.out.println("opening VS Code in: " + projectObj.folderPath);
+                            new ProcessBuilder("cmd.exe", "/c", "code", projectObj.folderPath).start();
+
+                    } else {
+                        new ProcessBuilder("cmd.exe", "/c", "start", appName).start();
+                    }
                 }
             }
-        }
+    }
+
     public String openFolder(ActionEvent event) {
-        // 1. Create the DirectoryChooser
+
         DirectoryChooser directoryChooser = new DirectoryChooser();
         directoryChooser.setTitle("Select Application Folder");
 
-        // 2. Get the current Window reference from the action event
+        // Get the Window reference from the action event
         Window ownerWindow = ((Node) event.getSource()).getScene().getWindow();
 
-        // 3. Show the dialog attached to your application window
+
         File selectedDirectory = directoryChooser.showDialog(ownerWindow);
 
-        // 4. Process the selected folder
         if (selectedDirectory != null) {
            return selectedDirectory.getAbsolutePath() ;
         } else {
