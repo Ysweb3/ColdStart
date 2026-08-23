@@ -2,6 +2,7 @@ package com.example.resumeone;
 
 import com.google.gson.Gson;
 import io.javalin.Javalin;
+import io.javalin.websocket.WsContext;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.Dialog;
@@ -27,6 +28,8 @@ import java.util.concurrent.atomic.AtomicReference;
 public class HelloController {
     @FXML
     public Button btnNewProject;
+
+    private WsContext wsSession;
 
     @FXML
     public VBox projectList;
@@ -127,7 +130,9 @@ public class HelloController {
             checkpointBtn.setText("Add Checkpoint");
             checkpointBtn.setOnAction(e -> {
                 HashSet<String> runningApps = null;
-
+                if (wsSession != null) {
+                    wsSession.send("capture");
+                }
                 try {
                     runningApps = captureRunningApps();
 
@@ -168,7 +173,7 @@ public class HelloController {
         HashSet<String> appset = new HashSet<>();
         while ((line = reader.readLine()) != null) {
             String[] parts = line.split("\\s+");
-            System.out.println(parts[0]);
+//            System.out.println(parts[0]);
             appset.add(parts[0]);
         }
         return appset;
@@ -302,7 +307,26 @@ public class HelloController {
         return "NULL";
     }
     public void startServer(){
-        Javalin app = Javalin.create().start(8765);
+        System.out.println("server starting...");
+        Javalin app = Javalin.create(config -> {
+            config.bundledPlugins.enableCors(cors -> {
+                cors.addRule(rule -> {
+                    rule.anyHost();
+                });
+            });
+        }).start(8765);
+        app.ws("/ws", ws -> {
+            System.out.println("WEB starting...");
+
+            ws.onConnect(ctx -> {
+                wsSession = ctx;
+                System.out.println("extension connected");
+            });
+            ws.onClose(ctx -> {
+                wsSession = null;
+                System.out.println("extension disconnected");
+            });
+        });
         app.post("/tabs", ctx -> {
             System.out.println(ctx.body());
             Map<String , ArrayList<String>> data = gson.fromJson(ctx.body(),Map.class);
