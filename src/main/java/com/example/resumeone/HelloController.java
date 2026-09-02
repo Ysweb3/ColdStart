@@ -22,6 +22,7 @@ import java.io.File;
 import java.io.*;
 import java.net.URISyntaxException;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 
@@ -40,6 +41,7 @@ public class HelloController {
 
     private Project activeProject;
     public ArrayList<String> urls;
+
     public ArrayList<Project> projects = new ArrayList<>();
 
     @FXML
@@ -178,6 +180,7 @@ public class HelloController {
         }
         return appset;
     }
+
     public HashMap<String, HashSet<String>> segregateApps(HashSet<String> appset){
         //takes appset and categorizes it into results hashmap with hashset of item
         HashMap<String, String> knownApps = new HashMap();
@@ -270,19 +273,21 @@ public class HelloController {
                 for (String app : projectObj.apps.get(category)) {
                     String appName = app.replace(".exe", "");
 
-                    if (appName.equalsIgnoreCase("claude")) {
-                        // open claude CLI in project folder
+                    if (projectObj.folderPath != null) {
+                        if (appName.equalsIgnoreCase("claude")) {
+                            // open claude CLI in project folder
                             ProcessBuilder pb = new ProcessBuilder("cmd.exe", "/c", "start", "claude");
                             pb.directory(new File(projectObj.folderPath));
                             pb.start();
 
-                    } else if (appName.equalsIgnoreCase("Code")) {
-                        // open VS Code in project folder
-                        System.out.println("opening VS Code in: " + projectObj.folderPath);
+                        } else if (appName.equalsIgnoreCase("Code")) {
+                            // open VS Code in project folder
+                            System.out.println("opening VS Code in: " + projectObj.folderPath);
                             new ProcessBuilder("cmd.exe", "/c", "code", projectObj.folderPath).start();
 
-                    } else {
-                        new ProcessBuilder("cmd.exe", "/c", "start", appName).start();
+                        } else {
+                            new ProcessBuilder("cmd.exe", "/c", "start", appName).start();
+                        }
                     }
                 }
             }
@@ -319,12 +324,16 @@ public class HelloController {
             System.out.println("WEB starting...");
 
             ws.onConnect(ctx -> {
+                System.out.println(ctx);
                 wsSession = ctx;
                 System.out.println("extension connected");
-            });
+                // ping every 30 seconds
+                });
             ws.onClose(ctx -> {
                 wsSession = null;
                 System.out.println("extension disconnected");
+//                System.out.println("disconnected, code: " + ctx.status());
+
             });
         });
         app.post("/tabs", ctx -> {
@@ -336,7 +345,6 @@ public class HelloController {
                 saveProject(activeProject);
             }
         });
-
     }
 
 }
