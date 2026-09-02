@@ -16,6 +16,8 @@ import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Window;
+import kotlin.reflect.KTypeProjection;
+
 import java.net.URI;
 import java.awt.*;
 import java.io.File;
@@ -46,10 +48,27 @@ public class HelloController {
 
     @FXML
     public void initialize() throws IOException {
-
+        getProjectsJson();
         segregateApps(captureRunningApps());
         startServer();
     }
+    @FXML
+    public void getProjectsJson() throws FileNotFoundException {
+        Gson gson = new Gson();
+
+        String dirPath = System.getenv("APPDATA") + "\\ResumeWork";
+        new File(dirPath).mkdirs();
+        String filePath = dirPath + "\\projects.json";
+
+        try(Reader reader = new FileReader(filePath)){
+            Project project = gson.fromJson(reader , Project.class);
+            System.out.println(project.projectName);
+            createProjectUI(project.projectName);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
 
     @FXML
     public void onNewProjectClick(){
@@ -74,9 +93,7 @@ public class HelloController {
         selectFolder.setOnAction(e -> {
             projectFolder = (openFolder(e));
             selectFolder.setText(projectFolder);
-
                 });
-
         grid.add(selectFolder,1,1);
         dialog.getDialogPane().setContent(grid);
         dialog.getDialogPane().getButtonTypes().addAll(ButtonType.OK, ButtonType.CANCEL);
@@ -85,83 +102,86 @@ public class HelloController {
         if (result.isPresent() && result.get() == ButtonType.OK) {
 
             String name = nameField.getText();
+            createProjectUI(name);
+
+        };
+
+    }
+    //TODO:IDEA:Also add a CLI to start this thing
+    public void createProjectUI(String name){
+
+        HBox projectRow = new HBox(10);
+        Label projectLabel = new Label(name);
+        projectLabel.setStyle("-fx-text-fill: white; -fx-padding: 8px;");
+        System.out.println("PROJECT NAME:"+name);
+
+        //empty project object
+        Project projectObj = new Project(name, projectFolder, new HashMap<>(), new ArrayList<>());
+        projects.add(projectObj);
+
+        //initial capture when new project is made
+        HashSet<String> currentapps = null;
+        try {
+            currentapps = captureRunningApps();
+
+        } catch (IOException ex) {
+            throw new RuntimeException(ex);
+        }
+        try {
+            projectObj.apps = segregateApps(currentapps);
+            saveProject(projectObj);
+
+        } catch (IOException ex) {
+            throw new RuntimeException(ex);
+        }
 
 
-            HBox projectRow = new HBox(10);
-            Label projectLabel = new Label(name);
-            projectLabel.setStyle("-fx-text-fill: white; -fx-padding: 8px;");
-            System.out.println("PROJECT NAME:"+name);
-
-            //empty project object
-            Project projectObj = new Project(name, projectFolder, new HashMap<>(), new ArrayList<>());
-            projects.add(projectObj);
-
-            //initial capture when new project is made
-            HashSet<String> currentapps = null;
+        Button resumeBtn = new Button();
+        resumeBtn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight:bold;");
+        resumeBtn.setText("Resume");
+        resumeBtn.setOnAction(e ->{
             try {
-                currentapps = captureRunningApps();
+
+                resumeProject(projectObj);
+                activeProject = projectObj;
+
+            } catch (IOException | URISyntaxException ex) {
+                throw new RuntimeException(ex);
+            }
+        });
+
+        Button checkpointBtn = new Button();
+        checkpointBtn.setStyle("-fx-background-color: #FFFFFF; -fx-text-fill: black; -fx-font-weight:bold;");
+        checkpointBtn.setText("Add Checkpoint");
+        checkpointBtn.setOnAction(e -> {
+            HashSet<String> runningApps = null;
+            if (wsSession != null) {
+                wsSession.send("capture");
+            }
+            try {
+                runningApps = captureRunningApps();
 
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
             }
             try {
-                projectObj.apps = segregateApps(currentapps);
+                projectObj.apps = segregateApps(runningApps);
                 saveProject(projectObj);
 
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
             }
 
+        });
 
-            Button resumeBtn = new Button();
-            resumeBtn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight:bold;");
-            resumeBtn.setText("Resume");
-            resumeBtn.setOnAction(e ->{
-                try {
+        Button deleteBtn = new Button();
+        deleteBtn.setStyle("-fx-background-color: #d60630; -fx-text-fill: white; -fx-font-weight:bold;");
+        deleteBtn.setText("Delete");
 
-                    resumeProject(projectObj);
-                    activeProject = projectObj;
-
-                } catch (IOException | URISyntaxException ex) {
-                    throw new RuntimeException(ex);
-                }
-            });
-
-            Button checkpointBtn = new Button();
-            checkpointBtn.setStyle("-fx-background-color: #FFFFFF; -fx-text-fill: black; -fx-font-weight:bold;");
-            checkpointBtn.setText("Add Checkpoint");
-            checkpointBtn.setOnAction(e -> {
-                HashSet<String> runningApps = null;
-                if (wsSession != null) {
-                    wsSession.send("capture");
-                }
-                try {
-                    runningApps = captureRunningApps();
-
-                } catch (IOException ex) {
-                    throw new RuntimeException(ex);
-                }
-                try {
-                    projectObj.apps = segregateApps(runningApps);
-                    saveProject(projectObj);
-
-                } catch (IOException ex) {
-                    throw new RuntimeException(ex);
-                }
-
-            });
-
-            Button deleteBtn = new Button();
-            deleteBtn.setStyle("-fx-background-color: #d60630; -fx-text-fill: white; -fx-font-weight:bold;");
-            deleteBtn.setText("Delete");
-
-            projectRow.getChildren().addAll(projectLabel,resumeBtn,deleteBtn,checkpointBtn);
-            projectList.getChildren().add(projectRow);
-
-        };
+        projectRow.getChildren().addAll(projectLabel,resumeBtn,deleteBtn,checkpointBtn);
+        projectList.getChildren().add(projectRow);
 
     }
-    //TODO:IDEA:Also add a CLI to start this thing
 
     public HashSet<String> captureRunningApps() throws IOException {
         //runs tasklist, returns HashSet of running processes
@@ -266,6 +286,8 @@ public class HelloController {
         System.out.println("projectName:"+projectObj.projectName);
         //Opens urls in the default browser for windows
         for (String url: projectObj.urls){
+            //TODO:fix chrome settings urls not working
+            System.out.println(url);
             Desktop.getDesktop().browse(new URI(url));
         }
 
