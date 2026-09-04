@@ -1,6 +1,7 @@
 package com.example.resumeone;
 
 import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import io.javalin.Javalin;
 import io.javalin.websocket.WsContext;
 import javafx.fxml.FXML;
@@ -48,22 +49,27 @@ public class HelloController {
 
     @FXML
     public void initialize() throws IOException {
-        getProjectsJson();
+
+        for (Project project : getProjectsJson()) {
+            createProjectUI(project, false);
+        }
         segregateApps(captureRunningApps());
         startServer();
     }
     @FXML
-    public void getProjectsJson() throws FileNotFoundException {
-        Gson gson = new Gson();
-
+    public ArrayList<Project> getProjectsJson() {
         String dirPath = System.getenv("APPDATA") + "\\ResumeWork";
         new File(dirPath).mkdirs();
         String filePath = dirPath + "\\projects.json";
 
-        try(Reader reader = new FileReader(filePath)){
-            Project project = gson.fromJson(reader , Project.class);
-            System.out.println(project.projectName);
-            createProjectUI(project.projectName);
+        File file = new File(filePath);
+        if (!file.exists()) {
+            return new ArrayList<>();
+        }
+
+        try (Reader reader = new FileReader(file)) {
+            ArrayList<Project> loaded = gson.fromJson(reader, new TypeToken<ArrayList<Project>>(){}.getType());
+            return loaded != null ? loaded : new ArrayList<>();
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -71,7 +77,7 @@ public class HelloController {
 
 
     @FXML
-    public void onNewProjectClick(){
+    public void onNewProjectClick() {
         Dialog<ButtonType> dialog = new Dialog<>();
         dialog.setTitle("New project");
 
@@ -102,39 +108,40 @@ public class HelloController {
         if (result.isPresent() && result.get() == ButtonType.OK) {
 
             String name = nameField.getText();
-            createProjectUI(name);
+            Project projectObj = new Project(name, projectFolder, new HashMap<>(), new ArrayList<>());
+            createProjectUI(projectObj, true);
 
         };
 
     }
     //TODO:IDEA:Also add a CLI to start this thing
-    public void createProjectUI(String name){
+    public void createProjectUI(Project projectObj, boolean isNew) {
 
+        String name = projectObj.projectName;
         HBox projectRow = new HBox(10);
         Label projectLabel = new Label(name);
         projectLabel.setStyle("-fx-text-fill: white; -fx-padding: 8px;");
         System.out.println("PROJECT NAME:"+name);
 
-        //empty project object
-        Project projectObj = new Project(name, projectFolder, new HashMap<>(), new ArrayList<>());
-        projects.add(projectObj);
+        if (isNew) {
+            //initial capture when new project is made
+            HashSet<String> currentapps = null;
+            try {
+                currentapps = captureRunningApps();
 
-        //initial capture when new project is made
-        HashSet<String> currentapps = null;
-        try {
-            currentapps = captureRunningApps();
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+            try {
+                projectObj.apps = segregateApps(currentapps);
+                saveProject(projectObj);
 
-        } catch (IOException ex) {
-            throw new RuntimeException(ex);
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+        } else {
+            projects.add(projectObj);
         }
-        try {
-            projectObj.apps = segregateApps(currentapps);
-            saveProject(projectObj);
-
-        } catch (IOException ex) {
-            throw new RuntimeException(ex);
-        }
-
 
         Button resumeBtn = new Button();
         resumeBtn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight:bold;");
@@ -253,24 +260,31 @@ public class HelloController {
     }
     public void saveProject(Project projectObj) throws IOException {
 
-        ArrayList<String> objFolderPath = null;
-        ArrayList<String> objUrls = new ArrayList<>();
-
-        projects.add(projectObj);
         activeProject = projectObj;
         System.out.println("urls: "+projectObj.urls);
+
+        upsertByName(projects, projectObj);
 
         String dirPath = System.getenv("APPDATA") + "\\ResumeWork";
         new File(dirPath).mkdirs();
         String filePath = dirPath + "\\projects.json";
 
-        String jsonObj = gson.toJson(projectObj);
+        ArrayList<Project> onDisk = getProjectsJson();
+        upsertByName(onDisk, projectObj);
 
-        //TODO:adding multiple projects and fix the json formatting
-        BufferedWriter writer = new BufferedWriter(new FileWriter(filePath));
-        writer.write(jsonObj);
-        writer.newLine();
-        writer.close();
+        try (Writer writer = new FileWriter(filePath, false)) {
+            gson.toJson(onDisk, writer);
+        }
+    }
+
+    private void upsertByName(ArrayList<Project> list, Project projectObj) {
+        for (int i = 0; i < list.size(); i++) {
+            if (list.get(i).projectName.equals(projectObj.projectName)) {
+                list.set(i, projectObj);
+                return;
+            }
+        }
+        list.add(projectObj);
     }
     public String getAppPath(String appName) throws IOException {
         ProcessBuilder pb = new  ProcessBuilder("cmd.exe","/c", "where", appName);
