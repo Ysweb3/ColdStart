@@ -162,6 +162,7 @@ public class HelloController {
         checkpointBtn.setText("Add Checkpoint");
         checkpointBtn.setOnAction(e -> {
             HashSet<String> runningApps = null;
+            activeProject = projectObj;
             if (wsSession != null) {
                 wsSession.send("capture");
             }
