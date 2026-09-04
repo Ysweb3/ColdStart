@@ -25,6 +25,7 @@ import java.io.File;
 import java.io.*;
 import java.net.URISyntaxException;
 import java.util.*;
+import java.util.List; // explicit: java.awt.* also exports List
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -191,9 +192,30 @@ public class HelloController {
 
     }
 
+    // shell/system windows that are never a user's "app" (PowerToys filters the same set)
+    private static final Set<String> IGNORED_WINDOWS = Set.of(
+            "applicationframehost.exe", "textinputhost.exe", "systemsettings.exe",
+            "shellexperiencehost.exe", "searchhost.exe", "lockapp.exe",
+            "nvidia overlay.exe", "rtkuwp.exe"
+    );
+
+    static boolean isIgnoredWindow(String name) {
+        String lower = name.toLowerCase();
+        // every real value is ProcessName + '.exe'; anything else means the shell command
+        // misfired and we must not persist its output as an app
+        if (!lower.endsWith(".exe")) return true;
+        // PowerToys surfaces (QuickAccess, WorkspacesEditor, ...) are transient UI, not apps to resume
+        return IGNORED_WINDOWS.contains(lower) || lower.startsWith("powertoys.");
+    }
+
     public HashSet<String> captureRunningApps() throws IOException {
-        //runs tasklist, returns HashSet of running processes
-        ProcessBuilder pb = new ProcessBuilder("cmd.exe", "/c", "tasklist");
+        // only processes that own a visible main window count as apps the user opened.
+        // .NET's MainWindowTitle is EnumWindows + GetWindowThreadProcessId under the hood,
+        // single quotes only: a double quote inside this argument breaks ProcessBuilder's
+        // windows quoting and powershell ends up echoing the rest of the script back
+        ProcessBuilder pb = new ProcessBuilder("powershell.exe", "-NoProfile", "-Command",
+                "Get-Process | Where-Object { $_.MainWindowTitle -ne '' } | " +
+                        "ForEach-Object { $_.Id.ToString() + '|' + $_.ProcessName + '.exe' }");
         pb.redirectErrorStream(true);
         Process process = pb.start();
         BufferedReader reader = new BufferedReader(
@@ -201,63 +223,80 @@ public class HelloController {
         );
         String line;
         HashSet<String> appset = new HashSet<>();
+        long ownPid = ProcessHandle.current().pid();
         while ((line = reader.readLine()) != null) {
-            String[] parts = line.split("\\s+");
-//            System.out.println(parts[0]);
-            appset.add(parts[0]);
+            String[] parts = line.split("\\|", 2);
+            if (parts.length != 2) continue;
+            // our own JavaFX window is owned by java.exe and would otherwise relaunch itself
+            if (parts[0].trim().equals(String.valueOf(ownPid))) continue;
+            String name = parts[1].trim();
+            if (name.isBlank() || isIgnoredWindow(name)) continue;
+            appset.add(name);
         }
         return appset;
     }
 
+    static final String OTHER = "Other";
+
+    // purely for labelling: an app missing from this map is still captured, under OTHER
+    private static final Map<String, List<String>> KNOWN_APPS = Map.ofEntries(
+            Map.entry("Browser", List.of("chrome.exe", "brave.exe", "firefox.exe", "msedge.exe",
+                    "opera.exe", "vivaldi.exe", "arc.exe", "zen.exe", "librewolf.exe", "chromium.exe")),
+            Map.entry("IDE", List.of("Code.exe", "Code - Insiders.exe", "cursor.exe", "windsurf.exe",
+                    "zed.exe", "trae.exe", "fleet.exe", "idea64.exe", "devenv.exe", "eclipse.exe",
+                    "sublime_text.exe", "notepad++.exe", "pycharm64.exe", "webstorm64.exe",
+                    "phpstorm64.exe", "clion64.exe", "rider64.exe", "goland64.exe", "rubymine64.exe",
+                    "studio64.exe", "netbeans64.exe", "qtcreator.exe", "gvim.exe", "emacs.exe")),
+            Map.entry("Terminal", List.of("WindowsTerminal.exe", "alacritty.exe", "wezterm-gui.exe",
+                    "Hyper.exe", "ConEmu64.exe", "mintty.exe", "Tabby.exe", "warp.exe")),
+            Map.entry("AI", List.of("claude.exe", "ChatGPT.exe", "Perplexity.exe", "LM Studio.exe",
+                    "ollama app.exe", "Copilot.exe")),
+            Map.entry("Database", List.of("dbeaver.exe", "datagrip64.exe", "pgAdmin4.exe", "Ssms.exe",
+                    "MySQLWorkbench.exe", "TablePlus.exe", "MongoDBCompass.exe", "redisinsight.exe",
+                    "HeidiSQL.exe")),
+            Map.entry("API", List.of("Postman.exe", "Insomnia.exe", "Bruno.exe", "Hoppscotch.exe")),
+            Map.entry("Containers", List.of("Docker Desktop.exe", "Rancher Desktop.exe",
+                    "podman-desktop.exe", "VirtualBox.exe", "vmware.exe")),
+            Map.entry("VersionControl", List.of("GitHubDesktop.exe", "SourceTree.exe", "gitkraken.exe",
+                    "Fork.exe", "smartgit.exe", "sublime_merge.exe")),
+            Map.entry("Design", List.of("Figma.exe", "Photoshop.exe", "Illustrator.exe", "blender.exe",
+                    "inkscape.exe", "krita.exe", "Canva.exe")),
+            Map.entry("Communication", List.of("discord.exe", "slack.exe", "teams.exe", "ms-teams.exe",
+                    "Zoom.exe", "Telegram.exe", "WhatsApp.exe", "Signal.exe", "Skype.exe", "Element.exe")),
+            Map.entry("Notes", List.of("notion.exe", "obsidian.exe", "onenote.exe", "Logseq.exe",
+                    "Typora.exe", "Joplin.exe", "anytype.exe")),
+            Map.entry("Music", List.of("spotify.exe", "amazonmusic.exe", "AppleMusic.exe", "Tidal.exe",
+                    "MusicBee.exe", "foobar2000.exe", "vlc.exe"))
+    );
+
     public HashMap<String, HashSet<String>> segregateApps(HashSet<String> appset){
-        //takes appset and categorizes it into results hashmap with hashset of item
-        HashMap<String, String> knownApps = new HashMap();
+        // KNOWN_APPS only labels an app's category; capture no longer depends on it, so anything
+        // unrecognised still gets kept under "Other" instead of being dropped
         HashMap<String, HashSet<String>> result = new HashMap<>();
-        knownApps.put("brave.exe", "Browser");
-        knownApps.put("chrome.exe", "Browser");
-        knownApps.put("firefox.exe", "Browser");
-        knownApps.put("msedge.exe", "Browser");
+        for (String category : KNOWN_APPS.keySet()) {
+            result.put(category, new HashSet<>());
+        }
+        result.put(OTHER, new HashSet<>());
 
-        knownApps.put("Code.exe", "IDE");
-        knownApps.put("Visual Studio Code.exe", "IDE");
-        knownApps.put("idea64.exe", "IDE");
-        knownApps.put("devenv.exe", "IDE");
-        knownApps.put("eclipse.exe", "IDE");
-
-        knownApps.put("spotify.exe", "Music");
-        knownApps.put("amazonmusic.exe", "Music");
-
-        knownApps.put("claude.exe", "AI");
-
-        knownApps.put("discord.exe", "Communication");
-        knownApps.put("slack.exe", "Communication");
-        knownApps.put("teams.exe", "Communication");
-
-        knownApps.put("notion.exe", "Notes");
-        knownApps.put("obsidian.exe", "Notes");
-        knownApps.put("onenote.exe", "Notes");
-
-//        knownApps.put("windowsterminal.exe", "Terminal");
-//        knownApps.put("cmd.exe", "Terminal");
-//        knownApps.put("powershell.exe", "Terminal");
-
-        result.put("IDE", new HashSet<>());
-        result.put("Browser",new HashSet<>());
-        result.put("Music",new HashSet<>());
-        result.put("Communication",new HashSet<>());
-        result.put("Notes",new HashSet<>());
-        result.put("Terminal",new HashSet<>());
-        result.put("AI",new HashSet<>());
-
-        for (String item: knownApps.keySet()){
-            if (appset.contains(item)){
-               result.get(knownApps.get(item)).add(item);
-            }
+        for (String app : appset) {
+            result.get(categoryOf(app)).add(app);
         }
         for (String item : result.keySet()) {
             System.out.println(item + " -> " + result.get(item));
         }
         return result;
+    }
+
+    // windows reports real executable casing (WindowsTerminal.exe, Spotify.exe), so match lowercased
+    static String categoryOf(String app) {
+        for (Map.Entry<String, List<String>> entry : KNOWN_APPS.entrySet()) {
+            for (String known : entry.getValue()) {
+                if (known.equalsIgnoreCase(app)) {
+                    return entry.getKey();
+                }
+            }
+        }
+        return OTHER;
     }
     public void saveProject(Project projectObj) throws IOException {
 
@@ -296,9 +335,35 @@ public class HelloController {
         String path = reader.readLine();
         return path != null ? path.trim() : null;
     }
+    // claude keeps transcripts at ~/.claude/projects/<folder with : and \ swapped for ->/<uuid>.jsonl
+    static String claudeSessionSlug(String folderPath) {
+        return folderPath.replace(":", "-").replace("\\", "-");
+    }
+
+    boolean hasClaudeSession(String folderPath) {
+        File dir = new File(System.getProperty("user.home"),
+                ".claude/projects/" + claudeSessionSlug(folderPath));
+        String[] transcripts = dir.list((d, name) -> name.endsWith(".jsonl"));
+        return transcripts != null && transcripts.length > 0;
+    }
+
+    // an app that is already open should be left alone rather than opened a second time.
+    // browsers are skipped whenever the project has urls: Desktop.browse hands them to the
+    // running browser as new tabs, so launching it as well is what creates the duplicate window.
+    static boolean shouldLaunch(String app, Set<String> running, boolean hasUrls) {
+        for (String open : running) {
+            if (open.equalsIgnoreCase(app)) {
+                return false;
+            }
+        }
+        return !(hasUrls && "Browser".equals(categoryOf(app)));
+    }
+
     public void resumeProject(Project projectObj) throws IOException, URISyntaxException {
         //TODO:add multiple apps checking for path list
         System.out.println("projectName:"+projectObj.projectName);
+        HashSet<String> running = captureRunningApps();
+        boolean hasUrls = !projectObj.urls.isEmpty();
         //Opens urls in the default browser for windows
         for (String url: projectObj.urls){
             //TODO:fix chrome settings urls not working
@@ -310,10 +375,18 @@ public class HelloController {
                 for (String app : projectObj.apps.get(category)) {
                     String appName = app.replace(".exe", "");
 
+                    if (!shouldLaunch(app, running, hasUrls)) {
+                        System.out.println("skipping (already open or handled): " + app);
+                        continue;
+                    }
+
                     if (projectObj.folderPath != null) {
                         if (appName.equalsIgnoreCase("claude")) {
-                            // open claude CLI in project folder
-                            ProcessBuilder pb = new ProcessBuilder("cmd.exe", "/c", "start", "claude");
+                            // open claude CLI in project folder; --continue reopens the most recent
+                            // conversation, but it errors out when the folder has no history yet
+                            ProcessBuilder pb = hasClaudeSession(projectObj.folderPath)
+                                    ? new ProcessBuilder("cmd.exe", "/c", "start", "claude", "--continue")
+                                    : new ProcessBuilder("cmd.exe", "/c", "start", "claude");
                             pb.directory(new File(projectObj.folderPath));
                             pb.start();
 
