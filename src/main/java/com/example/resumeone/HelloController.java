@@ -213,8 +213,11 @@ public class HelloController {
         // .NET's MainWindowTitle is EnumWindows + GetWindowThreadProcessId under the hood,
         // single quotes only: a double quote inside this argument breaks ProcessBuilder's
         // windows quoting and powershell ends up echoing the rest of the script back
+        // claude runs as a console app inside a terminal window (Windows Terminal, conhost, ...),
+        // so the OS attributes MainWindowTitle to the terminal host, never to claude.exe itself -
+        // it must be matched by process name too or it's invisible to capture/resume entirely
         ProcessBuilder pb = new ProcessBuilder("powershell.exe", "-NoProfile", "-Command",
-                "Get-Process | Where-Object { $_.MainWindowTitle -ne '' } | " +
+                "Get-Process | Where-Object { $_.MainWindowTitle -ne '' -or $_.ProcessName -ieq 'claude' } | " +
                         "ForEach-Object { $_.Id.ToString() + '|' + $_.ProcessName + '.exe' }");
         pb.redirectErrorStream(true);
         Process process = pb.start();
@@ -351,6 +354,11 @@ public class HelloController {
     // browsers are skipped whenever the project has urls: Desktop.browse hands them to the
     // running browser as new tabs, so launching it as well is what creates the duplicate window.
     static boolean shouldLaunch(String app, Set<String> running, boolean hasUrls) {
+        // claude sessions are per-project-folder, not a singleton: a claude window open for
+        // some other project must never suppress opening this project's own session.
+        if (app.replace(".exe", "").equalsIgnoreCase("claude")) {
+            return true;
+        }
         for (String open : running) {
             if (open.equalsIgnoreCase(app)) {
                 return false;
@@ -381,22 +389,33 @@ public class HelloController {
                     }
 
                     if (projectObj.folderPath != null) {
-                        if (appName.equalsIgnoreCase("claude")) {
-                            // open claude CLI in project folder; --continue reopens the most recent
-                            // conversation, but it errors out when the folder has no history yet
-                            ProcessBuilder pb = hasClaudeSession(projectObj.folderPath)
-                                    ? new ProcessBuilder("cmd.exe", "/c", "start", "claude", "--continue")
-                                    : new ProcessBuilder("cmd.exe", "/c", "start", "claude");
-                            pb.directory(new File(projectObj.folderPath));
-                            pb.start();
+                        try {
+                            if (appName.equalsIgnoreCase("claude")) {
+                                // open claude CLI in project folder; --continue reopens the most recent
+                                // conversation, but it errors out when the folder has no history yet
+                                ProcessBuilder pb = hasClaudeSession(projectObj.folderPath)
+                                        ? new ProcessBuilder("cmd.exe", "/c", "start", "claude", "--continue")
+                                        : new ProcessBuilder("cmd.exe", "/c", "start", "claude");
+                                pb.directory(new File(projectObj.folderPath));
+                                pb.start();
 
-                        } else if (appName.equalsIgnoreCase("Code")) {
-                            // open VS Code in project folder
-                            System.out.println("opening VS Code in: " + projectObj.folderPath);
-                            new ProcessBuilder("cmd.exe", "/c", "code", projectObj.folderPath).start();
+                            } else if (appName.equalsIgnoreCase("Code")) {
+                                // open VS Code in project folder
+                                System.out.println("opening VS Code in: " + projectObj.folderPath);
+                                new ProcessBuilder("cmd.exe", "/c", "code", projectObj.folderPath).start();
 
-                        } else {
-                            new ProcessBuilder("cmd.exe", "/c", "start", appName).start();
+                            } else if (appName.equalsIgnoreCase("WindowsTerminal")) {
+                                // WindowsTerminal.exe is the process name, but "wt" is the actual
+                                // launch command - "start WindowsTerminal" can't resolve it
+                                new ProcessBuilder("cmd.exe", "/c", "start", "wt").start();
+
+                            } else {
+                                new ProcessBuilder("cmd.exe", "/c", "start", appName).start();
+                            }
+                        } catch (IOException ex) {
+                            // one app failing to launch (bad folder, missing exe, ...) must not
+                            // silently abort every app still left in the loop
+                            System.err.println("failed to launch " + app + ": " + ex.getMessage());
                         }
                     }
                 }
