@@ -60,12 +60,14 @@ public class HelloController {
         startServer();
     }
     @FXML
-    public ArrayList<Project> getProjectsJson() {
-        String dirPath = System.getenv("APPDATA") + "\\ResumeWork";
-        new File(dirPath).mkdirs();
-        String filePath = dirPath + "\\projects.json";
+    static File projectsFile() {
+        File dir = new File(System.getenv("APPDATA"), "ResumeWork");
+        dir.mkdirs();
+        return new File(dir, "projects.json");
+    }
 
-        File file = new File(filePath);
+    public ArrayList<Project> getProjectsJson() {
+        File file = projectsFile();
         if (!file.exists()) {
             return new ArrayList<>();
         }
@@ -195,6 +197,13 @@ public class HelloController {
         Button deleteBtn = new Button();
         deleteBtn.setStyle("-fx-background-color: #d60630; -fx-text-fill: white; -fx-font-weight:bold;");
         deleteBtn.setText("Delete");
+        deleteBtn.setOnAction(e -> {
+            try {
+                deleteProject(projectObj, projectRow);
+            } catch (IOException ex) {
+                throw new RuntimeException(ex);
+            }
+        });
 
         projectRow.getChildren().addAll(projectLabel,resumeBtn,deleteBtn,checkpointBtn);
         projectList.getChildren().add(projectRow);
@@ -317,16 +326,35 @@ public class HelloController {
 
         upsertByName(projects, projectObj);
 
-        String dirPath = System.getenv("APPDATA") + "\\ResumeWork";
-        new File(dirPath).mkdirs();
-        String filePath = dirPath + "\\projects.json";
-
         ArrayList<Project> onDisk = getProjectsJson();
         upsertByName(onDisk, projectObj);
+        writeProjects(onDisk);
+    }
 
-        try (Writer writer = new FileWriter(filePath, false)) {
-            gson.toJson(onDisk, writer);
+    // the whole list is always rewritten, never appended to - saveProject and deleteProject
+    // both go through here so the file only has one writer
+    private void writeProjects(ArrayList<Project> list) throws IOException {
+        try (Writer writer = new FileWriter(projectsFile(), false)) {
+            gson.toJson(list, writer);
         }
+    }
+
+    public void deleteProject(Project projectObj, HBox projectRow) throws IOException {
+        removeByName(projects, projectObj.projectName);
+
+        ArrayList<Project> onDisk = getProjectsJson();
+        removeByName(onDisk, projectObj.projectName);
+        writeProjects(onDisk);
+
+        // a deleted project must not stay the target of an incoming /tabs post
+        if (activeProject != null && activeProject.projectName.equals(projectObj.projectName)) {
+            activeProject = null;
+        }
+        projectList.getChildren().remove(projectRow);
+    }
+
+    static void removeByName(ArrayList<Project> list, String projectName) {
+        list.removeIf(p -> p.projectName.equals(projectName));
     }
 
     private void upsertByName(ArrayList<Project> list, Project projectObj) {
