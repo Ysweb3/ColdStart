@@ -13,7 +13,10 @@ public class Project {
     public boolean active;
     public String folderPath;
     public HashMap<String, HashSet<String>> apps;
+    // legacy: url list from before capture recorded which browser the tabs came from.
+    // still read so an existing projects.json is not silently emptied - see getProjectsJson().
     public ArrayList<String> urls;
+    public HashMap<String, ArrayList<String>> urlsByBrowser = new HashMap<>();
 
 
 public Project(String projectName,String folderPath, HashMap<String, HashSet<String>> apps,ArrayList<String> urls){
@@ -43,6 +46,9 @@ public HashMap<String, HashSet<String>> getApps() {
 }
 public ArrayList<String> getUrls() {
     return urls;
+}
+public HashMap<String, ArrayList<String>> getUrlsByBrowser() {
+    return urlsByBrowser;
 }
 
 }

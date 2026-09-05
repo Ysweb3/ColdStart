@@ -26,6 +26,7 @@ import java.io.*;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.List; // explicit: java.awt.* also exports List
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -34,7 +35,9 @@ public class HelloController {
     @FXML
     public Button btnNewProject;
 
-    private WsContext wsSession;
+    // one extension per browser, each with its own socket: a single field meant the second
+    // browser to connect silently replaced the first, and only it ever got the capture push
+    private final Set<WsContext> wsSessions = ConcurrentHashMap.newKeySet();
 
     @FXML
     public VBox projectList;
@@ -44,7 +47,6 @@ public class HelloController {
     public Gson gson = new Gson();
 
     private Project activeProject;
-    public ArrayList<String> urls;
 
     public ArrayList<Project> projects = new ArrayList<>();
 
@@ -70,7 +72,13 @@ public class HelloController {
 
         try (Reader reader = new FileReader(file)) {
             ArrayList<Project> loaded = gson.fromJson(reader, new TypeToken<ArrayList<Project>>(){}.getType());
-            return loaded != null ? loaded : new ArrayList<>();
+            if (loaded == null) {
+                return new ArrayList<>();
+            }
+            for (Project p : loaded) {
+                migrateLegacyUrls(p);
+            }
+            return loaded;
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -164,9 +172,10 @@ public class HelloController {
         checkpointBtn.setOnAction(e -> {
             HashSet<String> runningApps = null;
             activeProject = projectObj;
-            if (wsSession != null) {
-                wsSession.send("capture");
-            }
+            // clear first so a browser closed since the last checkpoint drops out: only the
+            // extensions still connected answer, and only they put their bucket back
+            projectObj.urlsByBrowser.clear();
+            wsSessions.forEach(session -> session.send("capture"));
             try {
                 runningApps = captureRunningApps();
 
@@ -350,10 +359,84 @@ public class HelloController {
         return transcripts != null && transcripts.length > 0;
     }
 
+    // the extension puts its brand in the socket url, so the browser is known at connect time
+    // rather than only after its first /tabs post - the User-Agent cannot be used instead
+    // because brave reports itself as chrome there
+    static String wsBrowser(WsContext ctx) {
+        String browser = ctx.queryParam("browser");
+        return browser == null || browser.isEmpty() ? "unknown browser" : browser;
+    }
+
+    // the bucket for urls whose browser we could not identify - opened with the system default
+    static final String DEFAULT_BROWSER = "default";
+
+    // browser names as the extension's getBrowserFromBrands() reports them; it sends "brave"
+    // lowercased and the rest capitalised, so every lookup here goes through toLowerCase()
+    static final Map<String, String> BROWSER_EXE = Map.of(
+            "chrome", "chrome.exe",
+            "edge", "msedge.exe",
+            "brave", "brave.exe",
+            "opera", "opera.exe",
+            "firefox", "firefox.exe");
+
+    // projects saved before capture recorded the browser keep their urls in the legacy flat list
+    static void migrateLegacyUrls(Project projectObj) {
+        if (projectObj.urlsByBrowser == null) {
+            projectObj.urlsByBrowser = new HashMap<>();
+        }
+        if (projectObj.urlsByBrowser.isEmpty() && projectObj.urls != null && !projectObj.urls.isEmpty()) {
+            projectObj.urlsByBrowser.put(DEFAULT_BROWSER, new ArrayList<>(projectObj.urls));
+        }
+    }
+
+    // reg prints "    (Default)    REG_SZ    C:\Program Files\...\chrome.exe" - the path holds
+    // spaces, so only the trailing side can be trimmed
+    static String parseRegPath(String regOutput) {
+        for (String line : regOutput.split("\r?\n")) {
+            int marker = line.indexOf("REG_SZ");
+            if (marker >= 0) {
+                String value = line.substring(marker + "REG_SZ".length()).trim();
+                if (!value.isEmpty()) {
+                    return value;
+                }
+            }
+        }
+        return null;
+    }
+
+    // browsers are not on PATH, so `where chrome` finds nothing - windows resolves them through
+    // the App Paths registry keys instead. per-user installs (common for chrome and brave) land
+    // in HKCU, machine-wide ones in HKLM.
+    String browserPath(String browser) throws IOException {
+        String exe = browser == null ? null : BROWSER_EXE.get(browser.toLowerCase());
+        if (exe == null) {
+            return null;
+        }
+        for (String hive : List.of("HKCU", "HKLM")) {
+            ProcessBuilder pb = new ProcessBuilder("reg", "query",
+                    hive + "\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\" + exe, "/ve");
+            pb.redirectErrorStream(true);
+            Process process = pb.start();
+            StringBuilder output = new StringBuilder();
+            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    output.append(line).append('\n');
+                }
+            }
+            String path = parseRegPath(output.toString());
+            if (path != null && new File(path).exists()) {
+                return path;
+            }
+        }
+        return null;
+    }
+
     // an app that is already open should be left alone rather than opened a second time.
-    // browsers are skipped whenever the project has urls: Desktop.browse hands them to the
-    // running browser as new tabs, so launching it as well is what creates the duplicate window.
-    static boolean shouldLaunch(String app, Set<String> running, boolean hasUrls) {
+    // a browser we are about to hand urls to is skipped as well - resumeProject launches it with
+    // those tabs as arguments, so launching it here too is what creates the duplicate window.
+    // browsers with no saved urls are not skipped: nothing else would bring their window back.
+    static boolean shouldLaunch(String app, Set<String> running, Set<String> handledBrowsers) {
         // claude sessions are per-project-folder, not a singleton: a claude window open for
         // some other project must never suppress opening this project's own session.
         if (app.replace(".exe", "").equalsIgnoreCase("claude")) {
@@ -364,26 +447,50 @@ public class HelloController {
                 return false;
             }
         }
-        return !(hasUrls && "Browser".equals(categoryOf(app)));
+        return !handledBrowsers.contains(app.toLowerCase());
     }
 
     public void resumeProject(Project projectObj) throws IOException, URISyntaxException {
         //TODO:add multiple apps checking for path list
         System.out.println("projectName:"+projectObj.projectName);
         HashSet<String> running = captureRunningApps();
-        boolean hasUrls = !projectObj.urls.isEmpty();
-        //Opens urls in the default browser for windows
-        for (String url: projectObj.urls){
+        migrateLegacyUrls(projectObj);
+
+        Set<String> handledBrowsers = new HashSet<>();
+        for (Map.Entry<String, ArrayList<String>> entry : projectObj.urlsByBrowser.entrySet()) {
             //TODO:fix chrome settings urls not working
-            System.out.println(url);
-            Desktop.getDesktop().browse(new URI(url));
+            System.out.println(entry.getKey() + " -> " + entry.getValue());
+            String exePath = null;
+            try {
+                exePath = browserPath(entry.getKey());
+                if (exePath == null) {
+                    // unknown brand, browser not installed, or urls saved before we tracked the
+                    // browser: fall back to whatever windows considers the default
+                    for (String url : entry.getValue()) {
+                        Desktop.getDesktop().browse(new URI(url));
+                    }
+                } else {
+                    // every url as its own argument, launched with no shell in between: cmd would
+                    // split a query string on its & (java only quotes args containing spaces).
+                    // one invocation also means one window of tabs rather than one window each.
+                    List<String> command = new ArrayList<>();
+                    command.add(exePath);
+                    command.addAll(entry.getValue());
+                    new ProcessBuilder(command).start();
+                }
+            } catch (IOException | URISyntaxException ex) {
+                System.err.println("failed to open urls for " + entry.getKey() + ": " + ex.getMessage());
+            }
+            if (exePath != null) {
+                handledBrowsers.add(new File(exePath).getName().toLowerCase());
+            }
         }
 
             for (String category : projectObj.apps.keySet()) {
                 for (String app : projectObj.apps.get(category)) {
                     String appName = app.replace(".exe", "");
 
-                    if (!shouldLaunch(app, running, hasUrls)) {
+                    if (!shouldLaunch(app, running, handledBrowsers)) {
                         System.out.println("skipping (already open or handled): " + app);
                         continue;
                     }
@@ -453,24 +560,29 @@ public class HelloController {
             System.out.println("WEB starting...");
 
             ws.onConnect(ctx -> {
-                System.out.println(ctx);
-                wsSession = ctx;
-                System.out.println("extension connected");
-                // ping every 30 seconds
+                wsSessions.add(ctx);
+                System.out.println("extension connected: " + wsBrowser(ctx)
+                        + " (" + wsSessions.size() + " connected)");
                 });
             ws.onClose(ctx -> {
-                wsSession = null;
-                System.out.println("extension disconnected");
-//                System.out.println("disconnected, code: " + ctx.status());
-
+                wsSessions.remove(ctx);
+                System.out.println("extension disconnected: " + wsBrowser(ctx)
+                        + " (" + wsSessions.size() + " connected)");
             });
         });
         app.post("/tabs", ctx -> {
             System.out.println(ctx.body());
-            Map<String , ArrayList<String>> data = gson.fromJson(ctx.body(),Map.class);
-            urls = data.get("urls");
-            if (activeProject != null) {
-                activeProject.urls = new ArrayList<>(urls);
+            // gson gives back Object values here - browser is a String, urls a List, so the
+            // map cannot be typed as Map<String, ArrayList<String>> without a bad cast
+            Map<String, Object> data = gson.fromJson(ctx.body(), Map.class);
+            @SuppressWarnings("unchecked")
+            List<String> incoming = (List<String>) data.get("urls");
+            Object browser = data.get("browser");
+            if (activeProject != null && incoming != null) {
+                // browser is absent when getBrowserFromBrands() recognises no brand
+                activeProject.urlsByBrowser.put(
+                        browser != null ? browser.toString() : DEFAULT_BROWSER,
+                        new ArrayList<>(incoming));
                 saveProject(activeProject);
             }
         });
