@@ -1,0 +1,187 @@
+/* Resume Work HUD v2 — theme A "slate terminal".
+   Ported from claude.ai/design project b78487db, artboard 1b.
+   ponytail: static prototype styling only, no states (hover/pressed/focus). */
+
+/* Sora + Space Mono ship with the app and are registered by
+   HelloApplication.loadFonts() — JavaFX CSS has no @font-face. */
+
+.root {
+    -rw-g:    #0B0C0D;
+    -rw-g1:   #111315;
+    -rw-g2:   #171A1D;
+    -rw-g3:   #212529;
+    -rw-ln:   #333A40;
+    -rw-tx:   #E8D8C9;
+    -rw-tx2:  #A99B8D;
+    -rw-tx3:  #6F655C;
+    -rw-hud:  #7A94BC;
+    -rw-go:   #F3701E;
+    -rw-goi:  #1A0C03;
+    -rw-ck:   #4B607F;
+    -rw-live: #8B9E7C;
+
+    -fx-background-color: -rw-g;
+    -fx-font-family: "Sora";
+}
+
+/* Space Mono is the machine face: paths, process names, counts, labels. */
+.mono, .rail-label, .rail-count, .side-count, .project-path, .resume-spec,
+.checkpoint-sub, .card-title, .card-note, .cat-label, .cat-arg, .cat-more,
+.browser-name, .cat-foot, .chip .label {
+    -fx-font-family: "Space Mono";
+}
+
+/* ── title bar ─────────────────────────────────────────────────────── */
+.titlebar {
+    -fx-background-color: -rw-g1;
+    -fx-border-color: transparent transparent -rw-ln transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.wordmark      { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.wordmark-dot  { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-go; }
+/* 28x28 hit box per the design; the glyph inside is an SVGPath in the FXML */
+.winctl { -fx-min-width: 28; -fx-pref-width: 28; -fx-max-width: 28;
+          -fx-min-height: 28; -fx-pref-height: 28; -fx-max-height: 28; }
+
+.dot-live {
+    -fx-background-color: -rw-live;
+    -fx-background-radius: 999;
+    -fx-effect: dropshadow(gaussian, #8B9E7C, 8, 0.2, 0, 0);
+}
+
+/* ── sidebar ───────────────────────────────────────────────────────── */
+.sidebar {
+    -fx-background-color: -rw-g1;
+    -fx-border-color: transparent -rw-ln transparent transparent;
+    -fx-border-width: 0 1 0 0;
+}
+.rail-label { -fx-font-size: 10px; -fx-text-fill: -rw-hud; }
+.rail-count { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3; }
+
+.side-item        { -fx-background-radius: 7; }
+.side-item .label  { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+/* active row: bone bar painted under a 2px-left-inset panel */
+.side-item-active {
+    -fx-background-color: -rw-tx, -rw-g3;
+    -fx-background-insets: 0, 0 0 0 2;
+    -fx-background-radius: 7, 7;
+}
+.side-item-active .label { -fx-text-fill: -rw-tx; }
+.side-item .side-count { -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
+.side-count           { -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
+
+.sidebar-foot {
+    -fx-border-color: -rw-ln transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+.btn-secondary {
+    -fx-background-color: -rw-g2;
+    -fx-background-radius: 7;
+    -fx-border-color: -rw-ln;
+    -fx-border-radius: 7;
+    -fx-font-size: 13px;
+    -fx-text-fill: -rw-tx;
+}
+
+/* ── main column ───────────────────────────────────────────────────── */
+.project-name { -fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.project-path { -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
+
+/* The signature notched blocks. JavaFX has no clip-path; -fx-shape does it,
+   which is why both blocks are pinned to the design's exact pixel size. */
+.resume {
+    -fx-background-color: -rw-go;
+    -fx-shape: "M0 0 L432 0 L450 18 L450 104 L18 104 L0 86 Z";
+}
+.resume-word { -fx-font-size: 34px; -fx-font-family: "Sora ExtraBold"; -fx-text-fill: -rw-goi; }
+.resume-spec { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-goi; -fx-opacity: 0.68; }
+
+.checkpoint {
+    -fx-background-color: -rw-ck, -rw-g2;
+    -fx-background-insets: 0, 1;
+    -fx-shape: "M0 0 L267 0 L281 14 L281 104 L14 104 L0 90 Z";
+}
+.checkpoint-word { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.checkpoint-sub  { -fx-font-size: 12px; -fx-text-fill: -rw-hud; }
+
+/* ── "what gets saved" card ────────────────────────────────────────── */
+.card {
+    -fx-background-color: -rw-g1;
+    -fx-background-radius: 13;
+    -fx-border-color: -rw-ln;
+    -fx-border-radius: 13;
+}
+.card-head {
+    -fx-border-color: transparent transparent -rw-ln transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.card-title { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-hud; }
+.card-note  { -fx-font-size: 11px; -fx-text-fill: -rw-tx2; }
+
+.cat-label  { -fx-font-size: 10px; -fx-text-fill: -rw-hud; }
+.cat-arg    { -fx-font-size: 10.5px; -fx-text-fill: -rw-live; }
+.cat-more   { -fx-font-size: 10.5px; -fx-text-fill: -rw-tx2; }
+.cat-foot   { -fx-font-size: 11px;   -fx-text-fill: -rw-tx3; }
+
+.chip {
+    -fx-background-color: -rw-g3;
+    -fx-background-radius: 7;
+    -fx-border-color: -rw-ln;
+    -fx-border-radius: 7;
+}
+.chip .label { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx; }
+
+.tabs-col {
+    -fx-border-color: transparent transparent transparent -rw-ln;
+    -fx-border-width: 0 0 0 1;
+}
+.browser-name { -fx-font-size: 10.5px; -fx-font-weight: bold; -fx-text-fill: -rw-hud; }
+.tab-title    { -fx-font-size: 11px; -fx-text-fill: -rw-tx2; }
+
+/* the stage is undecorated, so the app draws its own outer edge */
+.shell { -fx-border-color: -rw-ln; -fx-border-width: 1; }
+
+/* ── extras for the wired-up view ─────────────────────────────────── */
+.port { -fx-font-size: 11px; -fx-text-fill: -rw-tx3; -fx-font-family: "Space Mono"; }
+
+.dot-idle {
+    -fx-background-color: -rw-tx3;
+    -fx-background-radius: 999;
+}
+
+/* Buttons carry the platform look by default; flatten it back to the design. */
+.button {
+    -fx-background-insets: 0;
+    -fx-focus-color: transparent;
+    -fx-faint-focus-color: transparent;
+    -fx-cursor: hand;
+}
+.btn-secondary:hover { -fx-background-color: -rw-g3; }
+
+.btn-checkpoint {
+    -fx-background-color: -rw-ck;
+    -fx-background-radius: 7;
+    -fx-padding: 0 18 0 18;
+    -fx-font-size: 13px;
+    -fx-text-fill: -rw-tx;
+}
+.btn-checkpoint:hover { -fx-background-color: -rw-hud; -fx-text-fill: #0E0D0C; }
+
+.btn-secondary-lg {
+    -fx-background-color: -rw-g2;
+    -fx-background-radius: 7;
+    -fx-border-color: -rw-ln;
+    -fx-border-radius: 7;
+    -fx-padding: 0 18 0 18;
+    -fx-font-size: 13px;
+    -fx-text-fill: -rw-tx2;
+}
+
+.empty-title { -fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.empty-body  { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+
+/* clickable affordances */
+.resume, .checkpoint, .side-item, .winctl { -fx-cursor: hand; }
+.resume:hover { -fx-background-color: #FF8C42; }
+.checkpoint:hover { -fx-background-color: -rw-ck, #171C23; }
+.side-item:hover { -fx-background-color: -rw-g3; }

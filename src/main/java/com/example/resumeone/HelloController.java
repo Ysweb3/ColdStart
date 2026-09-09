@@ -15,6 +15,14 @@ import javafx.scene.layout.VBox;
 import javafx.event.ActionEvent;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
+import javafx.application.Platform;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
+import javafx.scene.layout.Priority;
+import javafx.scene.layout.Region;
+import javafx.scene.layout.StackPane;
+import javafx.scene.paint.Color;
+import javafx.scene.shape.SVGPath;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Window;
 import kotlin.reflect.KTypeProjection;
@@ -23,12 +31,16 @@ import java.net.URI;
 import java.awt.*;
 import java.io.File;
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.StandardCopyOption;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.List; // explicit: java.awt.* also exports List
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 
 
 public class HelloController {
@@ -41,6 +53,18 @@ public class HelloController {
 
     @FXML
     public VBox projectList;
+
+    // ── HUD v2 (hud-view.fxml). All null when the old hello-view.fxml is loaded,
+    //    so every use is guarded by isHud().
+    @FXML public VBox detailPane, emptyPane, categoryRows, tabsList;
+    @FXML public HBox btnResume, btnCheckpoint;
+    @FXML public StackPane btnMore;
+    @FXML public Region statusDot;
+    @FXML public Label projectNameLabel, projectPathLabel, resumeSpec, checkpointSub,
+            capturedNote, projectCount, tabsCount;
+
+    /** Sidebar row per project name, so deleteProject() can be handed the row to remove. */
+    private final Map<String, HBox> rowsByProject = new LinkedHashMap<>();
 
     public String projectFolder;
 
@@ -58,6 +82,22 @@ public class HelloController {
         }
         segregateApps(captureRunningApps());
         startServer();
+
+        if (!isHud()) return;
+        btnResume.setOnMouseClicked(e -> onResume());
+        btnCheckpoint.setOnMouseClicked(e -> onCheckpoint());
+        btnMore.setOnMouseClicked(e -> onDeleteActive());
+        refreshCount();
+        if (projects.isEmpty()) {
+            showEmpty(true);
+        } else {
+            selectProject(projects.get(0));
+        }
+    }
+
+    /** True when the loaded view is hud-view.fxml rather than the older hello-view.fxml. */
+    private boolean isHud() {
+        return detailPane != null;
     }
     @FXML
     static File projectsFile() {
@@ -121,6 +161,10 @@ public class HelloController {
             String name = nameField.getText();
             Project projectObj = new Project(name, projectFolder, new HashMap<>(), new ArrayList<>());
             createProjectUI(projectObj, true);
+            // A new project captures apps in createProjectUI but tabs only arrive by asking:
+            // same push checkpoint uses. It has to run after createProjectUI, because the
+            // POST /tabs reply lands on whichever project selectProject() left active.
+            wsSessions.forEach(session -> session.send("capture"));
 
         };
 
@@ -128,25 +172,11 @@ public class HelloController {
     //TODO:IDEA:Also add a CLI to start this thing
     public void createProjectUI(Project projectObj, boolean isNew) {
 
-        String name = projectObj.projectName;
-        HBox projectRow = new HBox(10);
-        Label projectLabel = new Label(name);
-        projectLabel.setStyle("-fx-text-fill: white; -fx-padding: 8px;");
-        System.out.println("PROJECT NAME:"+name);
-
         if (isNew) {
-            //initial capture when new project is made
-            HashSet<String> currentapps = null;
+            // initial capture when a new project is made; saveProject() upserts into projects
             try {
-                currentapps = captureRunningApps();
-
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
-            }
-            try {
-                projectObj.apps = segregateApps(currentapps);
+                projectObj.apps = segregateApps(captureRunningApps());
                 saveProject(projectObj);
-
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
             }
@@ -154,60 +184,284 @@ public class HelloController {
             projects.add(projectObj);
         }
 
-        Button resumeBtn = new Button();
-        resumeBtn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight:bold;");
-        resumeBtn.setText("Resume");
-        resumeBtn.setOnAction(e ->{
-            try {
+        HBox row = new HBox(12);
+        row.getStyleClass().add("side-item");
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setMinHeight(34);
+        row.setPrefHeight(34);
+        row.setPadding(new Insets(0, 10, 0, 10));
 
-                resumeProject(projectObj);
-                activeProject = projectObj;
+        SVGPath folder = new SVGPath();
+        folder.setContent("M1 3 L6 3 L7.5 4.8 L14 4.8 L14 12.5 L1 12.5 Z");
+        folder.setFill(Color.web("#A99B8D"));
 
-            } catch (IOException | URISyntaxException ex) {
-                throw new RuntimeException(ex);
+        Label name = new Label(projectObj.projectName);
+        name.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(name, Priority.ALWAYS);
+
+        Label age = new Label(ago(projectObj.lastCheckpoint));
+        age.getStyleClass().add("side-count");
+
+        row.getChildren().addAll(folder, name, age);
+        row.setOnMouseClicked(e -> selectProject(projectObj));
+
+        rowsByProject.put(projectObj.projectName, row);
+        projectList.getChildren().add(row);
+
+        if (isHud()) {
+            refreshCount();
+            if (isNew) {
+                selectProject(projectObj);
+            }
+        }
+    }
+
+    // == HUD rendering =====================================================
+
+    private void showEmpty(boolean empty) {
+        detailPane.setVisible(!empty);
+        detailPane.setManaged(!empty);
+        emptyPane.setVisible(empty);
+        emptyPane.setManaged(empty);
+    }
+
+    private void refreshCount() {
+        projectCount.setText(String.format("%02d", projects.size()));
+    }
+
+    private void selectProject(Project projectObj) {
+        activeProject = projectObj;
+        rowsByProject.forEach((n, r) -> {
+            r.getStyleClass().remove("side-item-active");
+            if (n.equals(projectObj.projectName)) {
+                r.getStyleClass().add("side-item-active");
             }
         });
+        showEmpty(false);
+        renderDetail(projectObj);
+    }
 
-        Button checkpointBtn = new Button();
-        checkpointBtn.setStyle("-fx-background-color: #FFFFFF; -fx-text-fill: black; -fx-font-weight:bold;");
-        checkpointBtn.setText("Add Checkpoint");
-        checkpointBtn.setOnAction(e -> {
-            HashSet<String> runningApps = null;
-            activeProject = projectObj;
-            // clear first so a browser closed since the last checkpoint drops out: only the
-            // extensions still connected answer, and only they put their bucket back
-            projectObj.urlsByBrowser.clear();
-            wsSessions.forEach(session -> session.send("capture"));
-            try {
-                runningApps = captureRunningApps();
+    private void renderDetail(Project projectObj) {
+        migrateLegacyUrls(projectObj);
 
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
+        projectNameLabel.setText(projectObj.projectName);
+        projectPathLabel.setText(projectObj.folderPath == null ? "no folder" : projectObj.folderPath);
+
+        int apps = 0;
+        if (projectObj.apps != null) {
+            for (HashSet<String> bucket : projectObj.apps.values()) apps += bucket.size();
+        }
+        int tabs = 0;
+        for (ArrayList<String> urls : projectObj.urlsByBrowser.values()) tabs += urls.size();
+
+        resumeSpec.setText(apps + " APPS \u00b7 " + tabs + " TABS \u00b7 "
+                + (projectObj.folderPath == null ? 0 : 1) + " FOLDER");
+        String age = ago(projectObj.lastCheckpoint);
+        checkpointSub.setText("today".equals(age)
+                ? "overwrite \u00b7 saved today" : "overwrite \u00b7 " + age + " old");
+        capturedNote.setText("today".equals(age) ? "captured today" : "captured " + age + " ago");
+        tabsCount.setText(String.valueOf(tabs));
+
+        renderCategories(projectObj);
+        renderTabs(projectObj);
+    }
+
+    // the design folds at four categories and links to an inspector; that artboard is not
+    // built, so every non-empty category is listed rather than hidden behind a dead link
+    private static final List<String> CATEGORY_ORDER = List.of(
+            "IDE", "AI", "Terminal", "Browser", "Database", "API", "Containers",
+            "VersionControl", "Design", "Communication", "Notes", "Music");
+
+    private void renderCategories(Project projectObj) {
+        categoryRows.getChildren().clear();
+        if (projectObj.apps == null) return;
+
+        for (String category : CATEGORY_ORDER) {
+            HashSet<String> bucket = projectObj.apps.get(category);
+            if (bucket == null || bucket.isEmpty()) continue;
+
+            HBox labelBox = new HBox(6);
+            labelBox.setAlignment(Pos.CENTER_LEFT);
+            labelBox.setMinWidth(96);
+            labelBox.setPrefWidth(96);
+            labelBox.setMaxWidth(96);
+            labelBox.getChildren().addAll(categoryIcon(category),
+                    styled(new Label(category.toUpperCase()), "cat-label"));
+
+            HBox chips = new HBox(5);
+            chips.setAlignment(Pos.CENTER_LEFT);
+            for (String app : new TreeSet<>(bucket)) {
+                chips.getChildren().add(chip(app));
             }
-            try {
-                projectObj.apps = segregateApps(runningApps);
-                saveProject(projectObj);
 
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
+            HBox row = new HBox(10);
+            row.setAlignment(Pos.CENTER_LEFT);
+            row.getChildren().addAll(labelBox, chips);
+
+            String note = trailingNote(category, projectObj);
+            if (note != null) row.getChildren().add(styled(new Label(note), "cat-arg"));
+
+            categoryRows.getChildren().add(row);
+        }
+
+        // "Other" is captured but never relaunched, which the design calls out by name
+        HashSet<String> other = projectObj.apps.get(OTHER);
+        if (other != null && !other.isEmpty()) {
+            String first = new TreeSet<>(other).first();
+            String rest = other.size() > 1 ? " (+" + (other.size() - 1) + ")" : "";
+            categoryRows.getChildren().add(styled(
+                    new Label(first + rest + " under Other \u2014 captured, not relaunched"), "cat-foot"));
+        }
+    }
+
+    /** The extra argument resumeProject() will actually use for this category. */
+    private String trailingNote(String category, Project projectObj) {
+        if (projectObj.folderPath == null) return null;
+        if ("IDE".equals(category)) {
+            return "\u2026\\" + new File(projectObj.folderPath).getName();
+        }
+        if ("AI".equals(category) && hasClaudeSession(projectObj.folderPath)) {
+            return "--continue";
+        }
+        return null;
+    }
+
+    private static final int TABS_SHOWN = 3;
+
+    private void renderTabs(Project projectObj) {
+        tabsList.getChildren().clear();
+        projectObj.urlsByBrowser.forEach((browser, urls) -> {
+            HBox head = new HBox(8);
+            head.setAlignment(Pos.CENTER_LEFT);
+            Region dot = new Region();
+            dot.getStyleClass().add("dot-live");
+            dot.setMinSize(5, 5);
+            dot.setPrefSize(5, 5);
+            dot.setMaxSize(5, 5);
+            head.getChildren().addAll(dot, styled(new Label(browser), "browser-name"),
+                    styled(new Label(String.valueOf(urls.size())), "side-count"));
+            tabsList.getChildren().add(head);
+
+            urls.stream().limit(TABS_SHOWN).forEach(url -> {
+                Label item = styled(new Label(tidy(url)), "tab-title");
+                item.setMaxWidth(256);
+                item.setTextOverrun(OverrunStyle.ELLIPSIS);
+                tabsList.getChildren().add(item);
+            });
+            if (urls.size() > TABS_SHOWN) {
+                tabsList.getChildren().add(styled(
+                        new Label((urls.size() - TABS_SHOWN) + " more"), "cat-more"));
             }
-
         });
+    }
 
-        Button deleteBtn = new Button();
-        deleteBtn.setStyle("-fx-background-color: #d60630; -fx-text-fill: white; -fx-font-weight:bold;");
-        deleteBtn.setText("Delete");
-        deleteBtn.setOnAction(e -> {
-            try {
-                deleteProject(projectObj, projectRow);
-            } catch (IOException ex) {
-                throw new RuntimeException(ex);
-            }
-        });
+    private static String tidy(String url) {
+        return url.replaceFirst("^https?://", "");
+    }
 
-        projectRow.getChildren().addAll(projectLabel,resumeBtn,deleteBtn,checkpointBtn);
-        projectList.getChildren().add(projectRow);
+    private static Label styled(Label label, String styleClass) {
+        label.getStyleClass().add(styleClass);
+        return label;
+    }
 
+    private static HBox chip(String app) {
+        HBox chip = new HBox();
+        chip.getStyleClass().add("chip");
+        chip.setAlignment(Pos.CENTER_LEFT);
+        chip.setMinHeight(26);
+        chip.setPrefHeight(26);
+        chip.setPadding(new Insets(0, 8, 0, 8));
+        chip.getChildren().add(new Label(app));
+        return chip;
+    }
+
+    // lucide-ish 12px glyphs; anything without its own mark gets a generic window
+    private static final Map<String, String> CATEGORY_ICONS = Map.of(
+            "IDE", "M8 3 L11 6 L8 9 M4 3 L1 6 L4 9",
+            "AI", "M6 1.2 L7.1 4.7 L10.8 6 L7.1 7.3 L6 10.8 L4.9 7.3 L1.2 6 L4.9 4.7 Z",
+            "Terminal", "M2 3.2 L4.8 6 L2 8.8 M6.4 9 H10.2",
+            "Browser", "M1 6 A5 5 0 1 0 11 6 A5 5 0 1 0 1 6 M1 6 H11 M6 1 A3.2 5 0 0 0 6 11 A3.2 5 0 0 0 6 1");
+
+    private static SVGPath categoryIcon(String category) {
+        SVGPath icon = new SVGPath();
+        icon.setContent(CATEGORY_ICONS.getOrDefault(category, "M1 2 H11 V10 H1 Z M1 4.4 H11"));
+        icon.setFill(Color.TRANSPARENT);
+        icon.setStroke(Color.web("#7A94BC"));
+        icon.setStrokeWidth(1.3);
+        return icon;
+    }
+
+    /** "today", "3d", "2w", "5mo" - the sidebar and the checkpoint block both read this. */
+    static String ago(String isoDate) {
+        if (isoDate == null || isoDate.isBlank()) return "never";
+        try {
+            long days = ChronoUnit.DAYS.between(LocalDate.parse(isoDate), LocalDate.now());
+            if (days <= 0) return "today";
+            if (days < 7) return days + "d";
+            if (days < 30) return (days / 7) + "w";
+            return (days / 30) + "mo";
+        } catch (RuntimeException e) {
+            return isoDate;
+        }
+    }
+
+    // == HUD actions =======================================================
+
+    private void onResume() {
+        if (activeProject == null) return;
+        try {
+            resumeProject(activeProject);
+        } catch (IOException | URISyntaxException ex) {
+            throw new RuntimeException(ex);
+        }
+    }
+
+    private void onCheckpoint() {
+        if (activeProject == null) return;
+        Project projectObj = activeProject;
+        // clear first so a browser closed since the last checkpoint drops out: only the
+        // extensions still connected answer, and only they put their bucket back
+        projectObj.urlsByBrowser.clear();
+        wsSessions.forEach(session -> session.send("capture"));
+        try {
+            projectObj.apps = segregateApps(captureRunningApps());
+            projectObj.lastCheckpoint = LocalDate.now().toString();
+            saveProject(projectObj);
+        } catch (IOException ex) {
+            throw new RuntimeException(ex);
+        }
+        HBox row = rowsByProject.get(projectObj.projectName);
+        if (row != null) ((Label) row.getChildren().get(2)).setText(ago(projectObj.lastCheckpoint));
+        renderDetail(projectObj);
+    }
+
+    private void onDeleteActive() {
+        if (activeProject == null) return;
+        Project projectObj = activeProject;
+        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
+                "Delete " + projectObj.projectName + "? The folder and its files are not touched.",
+                ButtonType.CANCEL, ButtonType.OK);
+        confirm.setHeaderText(null);
+        if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) return;
+
+        try {
+            deleteProject(projectObj, rowsByProject.remove(projectObj.projectName));
+        } catch (IOException ex) {
+            throw new RuntimeException(ex);
+        }
+        refreshCount();
+        if (projects.isEmpty()) {
+            showEmpty(true);
+        } else {
+            selectProject(projects.get(0));
+        }
+    }
+
+    /** Title-bar dot: sage while any extension holds the socket, grey otherwise. */
+    private void refreshStatusDot() {
+        if (!isHud()) return;
+        Platform.runLater(() -> statusDot.getStyleClass()
+                .setAll(wsSessions.isEmpty() ? "dot-idle" : "dot-live"));
     }
 
     // shell/system windows that are never a user's "app" (PowerToys filters the same set)
@@ -334,9 +588,16 @@ public class HelloController {
     // the whole list is always rewritten, never appended to - saveProject and deleteProject
     // both go through here so the file only has one writer
     private void writeProjects(ArrayList<Project> list) throws IOException {
-        try (Writer writer = new FileWriter(projectsFile(), false)) {
+        // Write a sibling file and swap it in. FileWriter(file, false) truncates the real
+        // file the moment it opens, so anything that killed the app mid-write - a crash, a
+        // force-quit - left projects.json empty and took every project with it.
+        File target = projectsFile();
+        File temp = new File(target.getParentFile(), target.getName() + ".tmp");
+        try (Writer writer = new FileWriter(temp, false)) {
             gson.toJson(list, writer);
         }
+        Files.move(temp.toPath(), target.toPath(),
+                StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     }
 
     public void deleteProject(Project projectObj, HBox projectRow) throws IOException {
@@ -591,13 +852,18 @@ public class HelloController {
                 wsSessions.add(ctx);
                 System.out.println("extension connected: " + wsBrowser(ctx)
                         + " (" + wsSessions.size() + " connected)");
+                refreshStatusDot();
                 });
             ws.onClose(ctx -> {
                 wsSessions.remove(ctx);
                 System.out.println("extension disconnected: " + wsBrowser(ctx)
                         + " (" + wsSessions.size() + " connected)");
+                refreshStatusDot();
             });
         });
+        // the extension popup reads this to name the project its tabs will land on, and
+        // treats any reply at all as "the desktop app is running"
+        app.get("/project", ctx -> ctx.result(activeProject == null ? "" : activeProject.projectName));
         app.post("/tabs", ctx -> {
             System.out.println(ctx.body());
             // gson gives back Object values here - browser is a String, urls a List, so the
@@ -612,6 +878,12 @@ public class HelloController {
                         browser != null ? browser.toString() : DEFAULT_BROWSER,
                         new ArrayList<>(incoming));
                 saveProject(activeProject);
+                // tabs arrive after the checkpoint button has already returned, so the
+                // card has to be redrawn off the javalin thread
+                if (isHud()) {
+                    Project posted = activeProject;
+                    Platform.runLater(() -> renderDetail(posted));
+                }
             }
         });
     }
