@@ -11,6 +11,7 @@
     -rw-g2:   #171A1D;
     -rw-g3:   #212529;
     -rw-ln:   #333A40;
+    -rw-ln2:  #454E56;
     -rw-tx:   #E8D8C9;
     -rw-tx2:  #A99B8D;
     -rw-tx3:  #6F655C;
@@ -19,6 +20,8 @@
     -rw-goi:  #1A0C03;
     -rw-ck:   #4B607F;
     -rw-live: #8B9E7C;
+    -rw-act:  #A8986F;   /* neutral active: every interactive that is not a verb */
+    -rw-bad:  #D96C5E;   /* brick-bright: destructive only, per the two-verb rule */
 
     -fx-background-color: -rw-g;
     -fx-font-family: "Sora";
@@ -43,11 +46,24 @@
 .winctl { -fx-min-width: 28; -fx-pref-width: 28; -fx-max-width: 28;
           -fx-min-height: 28; -fx-pref-height: 28; -fx-max-height: 28; }
 
+/* Lucide stroke icon: 1.75 in the 24-unit box, so ~1.02 once scaled to 14. */
+.winctl-glyph, .winctl-danger {
+    -fx-fill: transparent;
+    -fx-stroke: -rw-tx3;
+    -fx-stroke-width: 1.75;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+.winctl:hover .winctl-danger { -fx-stroke: -rw-bad; }
+
 .dot-live {
     -fx-background-color: -rw-live;
     -fx-background-radius: 999;
-    -fx-effect: dropshadow(gaussian, #8B9E7C, 8, 0.2, 0, 0);
+    -fx-effect: dropshadow(gaussian, #8B9E7C, 10, 0.55, 0, 0);
 }
+
+/* the ":8765" label turns into "connected" while an extension holds the socket */
+.port-live { -fx-font-size: 11px; -fx-text-fill: -rw-live; -fx-font-family: "Space Mono"; }
 
 /* ── sidebar ───────────────────────────────────────────────────────── */
 .sidebar {
@@ -179,6 +195,132 @@
 
 .empty-title { -fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .empty-body  { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+
+/* ── scrollbars ─────────────────────────────────────────────────────
+   Modena paints these light grey with arrow buttons at each end. Styled
+   globally rather than scoped to .settings-scroll, so any surface that
+   starts scrolling later inherits the theme instead of repeating this. */
+.scroll-bar { -fx-background-color: transparent; }
+.scroll-bar:vertical   { -fx-pref-width: 10; }
+.scroll-bar:horizontal { -fx-pref-height: 10; }
+.scroll-bar > .track {
+    -fx-background-color: transparent;
+    -fx-background-radius: 0;
+    -fx-border-color: transparent;
+}
+.scroll-bar > .thumb {
+    -fx-background-color: -rw-ln;
+    -fx-background-insets: 2;
+    -fx-background-radius: 4;
+}
+.scroll-bar > .thumb:hover   { -fx-background-color: -rw-ln2; }
+.scroll-bar > .thumb:pressed { -fx-background-color: -rw-tx3; }
+/* the design has no stepper control, so the end buttons collapse to nothing */
+.scroll-bar > .increment-button, .scroll-bar > .decrement-button {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+.scroll-bar > .increment-button > .increment-arrow,
+.scroll-bar > .decrement-button > .decrement-arrow {
+    -fx-shape: " ";
+    -fx-padding: 0;
+}
+.scroll-pane > .corner { -fx-background-color: transparent; }
+
+/* ── settings · saving · delete ─────────────────────────────────────── */
+.settings-scroll,
+.settings-scroll > .viewport { -fx-background-color: -rw-g; -fx-background: -rw-g; }
+.settings-scroll { -fx-padding: 0; }
+.settings-h1 { -fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.settings-section {
+    -fx-border-color: transparent transparent -rw-ln transparent;
+    -fx-border-width: 0 0 1 0;
+}
+
+.check-box { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+.check-box .box {
+    -fx-background-color: -rw-g2;
+    -fx-background-radius: 4;
+    -fx-border-color: -rw-ln;
+    -fx-border-radius: 4;
+}
+.check-box:selected .box { -fx-background-color: -rw-act; -fx-border-color: -rw-act; }
+.check-box:selected .mark { -fx-background-color: -rw-goi; }
+
+.text-field, .combo-box {
+    -fx-background-color: -rw-g2;
+    -fx-background-radius: 7;
+    -fx-border-color: -rw-ln;
+    -fx-border-radius: 7;
+    -fx-text-fill: -rw-tx;
+    -fx-prompt-text-fill: -rw-tx3;
+    -fx-font-family: "Space Mono";
+    -fx-font-size: 11px;
+    -fx-highlight-fill: -rw-ck;
+}
+.combo-box .list-cell { -fx-text-fill: -rw-tx; -fx-background-color: transparent; }
+.combo-box .arrow { -fx-background-color: -rw-tx3; }
+
+/* Scrim: opaque enough to demote the view underneath without hiding it. */
+.scrim { -fx-background-color: rgba(11, 12, 13, 0.74); }
+.dialog {
+    -fx-background-color: -rw-g1;
+    -fx-background-radius: 13;
+    -fx-border-color: -rw-ln;
+    -fx-border-radius: 13;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.55), 28, 0.16, 0, 8);
+}
+.dialog-title { -fx-font-size: 17px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.dialog-sub   { -fx-font-size: 11px; -fx-text-fill: -rw-tx3; -fx-font-family: "Space Mono"; }
+
+.inset-row {
+    -fx-background-color: -rw-g;
+    -fx-background-radius: 7;
+    -fx-border-color: -rw-ln;
+    -fx-border-radius: 7;
+}
+
+/* the checkpoint bar from motion-checkpoint, held at its resting state */
+.save-bar   { -fx-background-color: -rw-hud; -fx-background-radius: 3.5; }
+.save-stamp {
+    -fx-font-family: "Space Mono";
+    -fx-font-size: 11px;
+    -fx-font-weight: bold;
+    -fx-text-fill: -rw-hud;
+}
+
+.btn-danger {
+    -fx-background-color: -rw-bad;
+    -fx-background-radius: 7;
+    -fx-padding: 0 18 0 18;
+    -fx-font-size: 13px;
+    -fx-text-fill: #FBEDEA;
+}
+.btn-danger:hover { -fx-background-color: #C0453A; }
+
+.btn-ghost {
+    -fx-background-color: transparent;
+    -fx-background-radius: 7;
+    -fx-padding: 0 14 0 14;
+    -fx-font-size: 13px;
+    -fx-text-fill: -rw-tx2;
+}
+.btn-ghost:hover { -fx-background-color: -rw-g2; -fx-text-fill: -rw-tx; }
+.button:disabled { -fx-opacity: 0.45; }
+
+/* the name is prose, not a path, so it opts out of the mono .text-field default */
+.input-name { -fx-font-family: "Sora"; -fx-font-size: 13px; }
+.divider-top {
+    -fx-border-color: -rw-ln transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+}
+.btn-glyph {
+    -fx-fill: transparent;
+    -fx-stroke: -rw-tx;
+    -fx-stroke-width: 1.75;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
 
 /* clickable affordances */
 .resume, .checkpoint, .side-item, .winctl { -fx-cursor: hand; }

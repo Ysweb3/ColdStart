@@ -8,6 +8,7 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
+import javafx.scene.control.ScrollPane; // explicit: java.awt.* also exports ScrollPane
 import javafx.scene.control.TextField;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -16,6 +17,7 @@ import javafx.event.ActionEvent;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.application.Platform;
+import javafx.beans.binding.Bindings;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.layout.Priority;
@@ -25,6 +27,7 @@ import javafx.scene.paint.Color;
 import javafx.scene.shape.SVGPath;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Window;
+import javafx.util.Duration;
 import kotlin.reflect.KTypeProjection;
 
 import java.net.URI;
@@ -57,11 +60,25 @@ public class HelloController {
     // ── HUD v2 (hud-view.fxml). All null when the old hello-view.fxml is loaded,
     //    so every use is guarded by isHud().
     @FXML public VBox detailPane, emptyPane, categoryRows, tabsList;
-    @FXML public HBox btnResume, btnCheckpoint;
-    @FXML public StackPane btnMore;
+    @FXML public VBox savingPane, deletePane, newProjectPane;
+    @FXML public TextField npName;
+    @FXML public Label npFolder;
+    @FXML public CheckBox npCapture;
+    @FXML public Button btnNpBrowse, btnNpCancel, btnNpCreate;
+    @FXML public ScrollPane settingsPane;
+    @FXML public StackPane btnSettings;
+    @FXML public Label savingSpec, deleteBody, deletePath;
+    @FXML public Button btnSavingDone, btnDeleteCancel, btnSettingsBack;
+    @FXML public HBox btnResume, btnCheckpoint, statusBox;
+    @FXML public StackPane btnDelete;
     @FXML public Region statusDot;
     @FXML public Label projectNameLabel, projectPathLabel, resumeSpec, checkpointSub,
-            capturedNote, projectCount, tabsCount;
+            capturedNote, projectCount, tabsCount, statusLabel;
+
+    /** Hover-only: names the browsers on the socket, so the dot itself stays uncluttered. */
+    // built in initialize(), not here: a Tooltip needs the JavaFX toolkit, which the unit tests
+    // (new HelloController()) never start
+    private Tooltip statusTip;
 
     /** Sidebar row per project name, so deleteProject() can be handed the row to remove. */
     private final Map<String, HBox> rowsByProject = new LinkedHashMap<>();
@@ -86,7 +103,26 @@ public class HelloController {
         if (!isHud()) return;
         btnResume.setOnMouseClicked(e -> onResume());
         btnCheckpoint.setOnMouseClicked(e -> onCheckpoint());
-        btnMore.setOnMouseClicked(e -> onDeleteActive());
+        // The delete confirmation is a view now, not an Alert. Its Delete button is
+        // deliberately inert - onDeleteActive() below still holds the working delete and
+        // one setOnAction re-arms it.
+        btnDelete.setOnMouseClicked(e -> showDeleteView());
+        btnSettings.setOnMouseClicked(e -> showBase(settingsPane));
+        btnSavingDone.setOnAction(e -> backToProjects());
+        btnDeleteCancel.setOnAction(e -> backToProjects());
+        btnSettingsBack.setOnAction(e -> backToProjects());
+        btnNpCancel.setOnAction(e -> backToProjects());
+        btnNpBrowse.setOnAction(e -> {
+            String chosen = openFolder(e);          // returns the "NULL" sentinel on cancel
+            if (!"NULL".equals(chosen)) npFolder.setText(chosen);
+        });
+        btnNpCreate.disableProperty().bind(Bindings.createBooleanBinding(
+                () -> npName.getText().trim().isEmpty(), npName.textProperty()));
+        btnNpCreate.setOnAction(e -> createFromDialog());
+        statusTip = new Tooltip();
+        statusTip.setShowDelay(Duration.millis(150));
+        Tooltip.install(statusBox, statusTip);
+        refreshStatusDot();
         refreshCount();
         if (projects.isEmpty()) {
             showEmpty(true);
@@ -127,8 +163,36 @@ public class HelloController {
     }
 
 
+    private static final String NO_FOLDER = "no folder chosen";
+
     @FXML
     public void onNewProjectClick() {
+        if (!isHud()) {
+            legacyNewProjectDialog();
+            return;
+        }
+        npName.clear();
+        npFolder.setText(NO_FOLDER);
+        npCapture.setSelected(true);
+        showOverlay(newProjectPane);
+        npName.requestFocus();
+    }
+
+    /** Create + checkpoint: same work the old dialog's OK branch did. */
+    private void createFromDialog() {
+        String name = npName.getText().trim();
+        if (name.isEmpty()) return;
+        String folder = NO_FOLDER.equals(npFolder.getText()) ? null : npFolder.getText();
+        Project projectObj = new Project(name, folder, new HashMap<>(), new ArrayList<>());
+        // createProjectUI -> selectProject -> showBase() clears the overlay for us
+        createProjectUI(projectObj, true);
+        if (npCapture.isSelected()) {
+            wsSessions.forEach(session -> session.send("capture"));
+        }
+    }
+
+    /** Only reachable from the older hello-view.fxml, which has no scrim to show. */
+    private void legacyNewProjectDialog() {
         Dialog<ButtonType> dialog = new Dialog<>();
         dialog.setTitle("New project");
 
@@ -218,11 +282,35 @@ public class HelloController {
 
     // == HUD rendering =====================================================
 
+    /** detailPane / emptyPane / settingsPane are the base views: exactly one shows. */
+    private void showBase(Node target) {
+        for (Node pane : List.of(detailPane, emptyPane, settingsPane)) {
+            pane.setVisible(pane == target);
+            pane.setManaged(pane == target);
+        }
+        showOverlay(null);
+    }
+
+    /** savingPane / deletePane / newProjectPane are scrims stacked over whichever base is showing. */
+    private void showOverlay(Node target) {
+        for (Node pane : List.of(savingPane, deletePane, newProjectPane)) {
+            pane.setVisible(pane == target);
+            pane.setManaged(pane == target);
+        }
+    }
+
+    private void backToProjects() {
+        showEmpty(projects.isEmpty());
+    }
+
     private void showEmpty(boolean empty) {
-        detailPane.setVisible(!empty);
-        detailPane.setManaged(!empty);
-        emptyPane.setVisible(empty);
-        emptyPane.setManaged(empty);
+        showBase(empty ? emptyPane : detailPane);
+    }
+
+    private void showDeleteView() {
+        if (activeProject == null) return;
+        deletePath.setText(activeProject.folderPath == null ? "no folder" : activeProject.folderPath);
+        showOverlay(deletePane);
     }
 
     private void refreshCount() {
@@ -261,6 +349,9 @@ public class HelloController {
                 ? "overwrite \u00b7 saved today" : "overwrite \u00b7 " + age + " old");
         capturedNote.setText("today".equals(age) ? "captured today" : "captured " + age + " ago");
         tabsCount.setText(String.valueOf(tabs));
+        // tabs land after the capture push returns, so the saving stamp is refreshed here
+        // rather than read once at checkpoint time
+        savingSpec.setText(apps + " APPS \u00b7 " + tabs + " TABS");
 
         renderCategories(projectObj);
         renderTabs(projectObj);
@@ -432,6 +523,7 @@ public class HelloController {
         }
         HBox row = rowsByProject.get(projectObj.projectName);
         if (row != null) ((Label) row.getChildren().get(2)).setText(ago(projectObj.lastCheckpoint));
+        showOverlay(savingPane);
         renderDetail(projectObj);
     }
 
@@ -460,8 +552,17 @@ public class HelloController {
     /** Title-bar dot: sage while any extension holds the socket, grey otherwise. */
     private void refreshStatusDot() {
         if (!isHud()) return;
-        Platform.runLater(() -> statusDot.getStyleClass()
-                .setAll(wsSessions.isEmpty() ? "dot-idle" : "dot-live"));
+        // one name per browser: every window of a browser shares one extension worker, so a
+        // reconnect racing its own retry would otherwise list the same brand twice
+        List<String> browsers = wsSessions.stream()
+                .map(HelloController::wsBrowser).distinct().sorted().toList();
+        Platform.runLater(() -> {
+            boolean live = !browsers.isEmpty();
+            statusDot.getStyleClass().setAll(live ? "dot-live" : "dot-idle");
+            statusLabel.setText(live ? "connected" : ":8765");
+            statusLabel.getStyleClass().setAll(live ? "port-live" : "port");
+            statusTip.setText(live ? String.join(", ", browsers) : "no extension connected");
+        });
     }
 
     // shell/system windows that are never a user's "app" (PowerToys filters the same set)
@@ -766,6 +867,7 @@ public class HelloController {
         System.out.println("projectName:"+projectObj.projectName);
         HashSet<String> running = captureRunningApps();
         migrateLegacyUrls(projectObj);
+        boolean claudeInTerminal = hasApp(projectObj, "claude.exe") && hasApp(projectObj, "WindowsTerminal.exe");
 
         Set<String> handledBrowsers = new HashSet<>();
         for (Map.Entry<String, ArrayList<String>> entry : projectObj.urlsByBrowser.entrySet()) {
@@ -809,11 +911,9 @@ public class HelloController {
                     if (projectObj.folderPath != null) {
                         try {
                             if (appName.equalsIgnoreCase("claude")) {
-                                // open claude CLI in project folder; --continue reopens the most recent
-                                // conversation, but it errors out when the folder has no history yet
-                                ProcessBuilder pb = hasClaudeSession(projectObj.folderPath)
-                                        ? new ProcessBuilder("cmd.exe", "/c", "start", "claude", "--continue")
-                                        : new ProcessBuilder("cmd.exe", "/c", "start", "claude");
+                                // open claude CLI in project folder
+                                ProcessBuilder pb = new ProcessBuilder(claudeCommand(projectObj.folderPath,
+                                        hasClaudeSession(projectObj.folderPath), claudeInTerminal));
                                 pb.directory(new File(projectObj.folderPath));
                                 pb.start();
 
@@ -823,6 +923,10 @@ public class HelloController {
                                 new ProcessBuilder("cmd.exe", "/c", "code", projectObj.folderPath).start();
 
                             } else if (appName.equalsIgnoreCase("WindowsTerminal")) {
+                                if (claudeInTerminal) {
+                                    System.out.println("skipping wt: claude launches inside it");
+                                    continue;
+                                }
                                 // WindowsTerminal.exe is the process name, but "wt" is the actual
                                 // launch command - "start WindowsTerminal" can't resolve it
                                 new ProcessBuilder("cmd.exe", "/c", "start", "wt").start();

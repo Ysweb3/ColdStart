@@ -6,8 +6,15 @@
      HelloApplication hooks drag/resize/window buttons, because the stage is undecorated. -->
 
 <?import javafx.geometry.Insets?>
+<?import javafx.collections.FXCollections?>
+<?import java.lang.String?>
 <?import javafx.scene.control.Button?>
+<?import javafx.scene.control.CheckBox?>
+<?import javafx.scene.control.ComboBox?>
+<?import javafx.scene.control.ScrollPane?>
+<?import javafx.scene.control.TextField?>
 <?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.FlowPane?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Pane?>
 <?import javafx.scene.layout.Region?>
@@ -38,15 +45,23 @@
     <Region HBox.hgrow="ALWAYS"/>
 
     <!-- live once a browser extension holds the socket -->
-    <HBox alignment="CENTER_LEFT" spacing="8.0">
+    <HBox fx:id="statusBox" alignment="CENTER_LEFT" spacing="7.0">
       <HBox.margin><Insets right="14.0"/></HBox.margin>
-      <Region fx:id="statusDot" styleClass="dot-idle" minWidth="7.0" prefWidth="7.0" maxWidth="7.0"
-              minHeight="7.0" prefHeight="7.0" maxHeight="7.0"/>
-      <Label styleClass="port" text=":8765"/>
+      <Region fx:id="statusDot" styleClass="dot-idle" minWidth="9.0" prefWidth="9.0" maxWidth="9.0"
+              minHeight="9.0" prefHeight="9.0" maxHeight="9.0"/>
+      <Label fx:id="statusLabel" styleClass="port" text=":8765"/>
     </HBox>
 
-    <StackPane fx:id="btnMore" styleClass="winctl" pickOnBounds="true">
-      <SVGPath content="M1 5 A1 1 0 1 0 3 5 A1 1 0 1 0 1 5 M5 5 A1 1 0 1 0 7 5 A1 1 0 1 0 5 5 M9 5 A1 1 0 1 0 11 5 A1 1 0 1 0 9 5" fill="#6F655C"/>
+    <!-- lucide settings, same native-24 + scale treatment as the trash -->
+    <StackPane fx:id="btnSettings" styleClass="winctl" pickOnBounds="true">
+      <SVGPath styleClass="winctl-glyph" scaleX="0.5833" scaleY="0.5833" content="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z M15 12 A3 3 0 1 1 9 12 A3 3 0 1 1 15 12"/>
+    </StackPane>
+
+    <!-- lucide trash-2, kept in its native 24x24 so it stays diffable against the
+         icon set; scale draws it at 14. Paint + hover live in hud.css. -->
+    <StackPane fx:id="btnDelete" styleClass="winctl" pickOnBounds="true">
+      <SVGPath styleClass="winctl-danger" scaleX="0.5833" scaleY="0.5833"
+               content="M10 11 V17 M14 11 V17 M19 6 V20 A2 2 0 0 1 17 22 H7 A2 2 0 0 1 5 20 V6 M3 6 H21 M8 6 V4 A2 2 0 0 1 10 2 H14 A2 2 0 0 1 16 4 V6"/>
     </StackPane>
 
     <!-- the three window buttons are one tight cluster, gap 2 -->
@@ -180,6 +195,198 @@
         <Label styleClass="cat-foot" text="the extension connects on :8765 and records open tabs">
           <VBox.margin><Insets top="6.0"/></VBox.margin>
         </Label>
+      </VBox>
+
+      <!-- Base view: replaces the project detail rather than covering it. -->
+      <ScrollPane fx:id="settingsPane" styleClass="settings-scroll" fitToWidth="true" hbarPolicy="NEVER"
+                  visible="false" managed="false">
+        <VBox spacing="0.0" maxWidth="720.0">
+          <padding><Insets top="24.0" right="28.0" bottom="40.0" left="28.0"/></padding>
+
+          <HBox alignment="CENTER_LEFT" spacing="12.0">
+            <Label styleClass="settings-h1" text="Settings"/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="btnSettingsBack" styleClass="btn-secondary-lg" text="Done"
+                    prefHeight="34.0" minHeight="34.0"/>
+          </HBox>
+
+          <VBox styleClass="settings-section" spacing="12.0">
+            <VBox.margin><Insets top="22.0"/></VBox.margin>
+            <padding><Insets bottom="20.0"/></padding>
+            <Label styleClass="rail-label" text="CAPTURE"/>
+            <CheckBox selected="true" text="Capture browser tabs"/>
+            <CheckBox selected="true" text="Capture music and media apps"/>
+            <CheckBox text="Skip apps that are already running on resume"/>
+            <VBox spacing="6.0">
+              <Label styleClass="cat-foot" text="Fallback browser for unidentified tabs"/>
+              <ComboBox promptText="System default" prefWidth="260.0">
+                <items>
+                  <FXCollections fx:factory="observableArrayList">
+                    <String fx:value="System default"/>
+                    <String fx:value="Chrome"/>
+                    <String fx:value="Edge"/>
+                    <String fx:value="Brave"/>
+                  </FXCollections>
+                </items>
+              </ComboBox>
+            </VBox>
+          </VBox>
+
+          <VBox styleClass="settings-section" spacing="10.0">
+            <VBox.margin><Insets top="20.0"/></VBox.margin>
+            <padding><Insets bottom="20.0"/></padding>
+            <Label styleClass="rail-label" text="BROWSER EXTENSION"/>
+            <HBox styleClass="card" alignment="CENTER_LEFT" spacing="14.0">
+              <padding><Insets top="12.0" right="16.0" bottom="12.0" left="16.0"/></padding>
+              <VBox spacing="5.0" HBox.hgrow="ALWAYS">
+                <HBox alignment="CENTER_LEFT" spacing="9.0">
+                  <Region styleClass="dot-live" minWidth="7.0" prefWidth="7.0" maxWidth="7.0"
+                          minHeight="7.0" prefHeight="7.0" maxHeight="7.0"/>
+                  <Label styleClass="checkpoint-sub" text="Brave"/>
+                </HBox>
+                <Label styleClass="cat-foot" text="ws://localhost:8765/ws?browser=brave"/>
+              </VBox>
+              <Label styleClass="btn-secondary-lg" text="Disconnect" prefHeight="30.0" minHeight="30.0"/>
+            </HBox>
+            <HBox styleClass="card" alignment="CENTER_LEFT" spacing="14.0">
+              <padding><Insets top="12.0" right="16.0" bottom="12.0" left="16.0"/></padding>
+              <VBox spacing="5.0" HBox.hgrow="ALWAYS">
+                <HBox alignment="CENTER_LEFT" spacing="9.0">
+                  <Region styleClass="dot-idle" minWidth="7.0" prefWidth="7.0" maxWidth="7.0"
+                          minHeight="7.0" prefHeight="7.0" maxHeight="7.0"/>
+                  <Label styleClass="cat-more" text="Chrome"/>
+                </HBox>
+                <Label styleClass="cat-foot" text="not connected"/>
+              </VBox>
+              <Label styleClass="btn-secondary-lg" text="Install" prefHeight="30.0" minHeight="30.0"/>
+            </HBox>
+          </VBox>
+
+          <VBox styleClass="settings-section" spacing="10.0">
+            <VBox.margin><Insets top="20.0"/></VBox.margin>
+            <padding><Insets bottom="20.0"/></padding>
+            <Label styleClass="rail-label" text="LOCAL SERVER"/>
+            <HBox spacing="12.0">
+              <VBox spacing="6.0" minWidth="120.0" prefWidth="120.0" maxWidth="120.0">
+                <Label styleClass="cat-foot" text="Port"/>
+                <TextField text="8765"/>
+              </VBox>
+              <VBox spacing="6.0" HBox.hgrow="ALWAYS">
+                <Label styleClass="cat-foot" text="Checkpoint store"/>
+                <TextField text="\%APPDATA%\ResumeWork\projects.json"/>
+              </VBox>
+            </HBox>
+            <Label styleClass="cat-foot" wrapText="true"
+                   text="every project in one file &#183; one writer &#183; rewritten whole on each save"/>
+          </VBox>
+
+          <VBox spacing="10.0">
+            <VBox.margin><Insets top="20.0"/></VBox.margin>
+            <Label styleClass="rail-label" text="IGNORED PROCESSES"/>
+            <FlowPane hgap="7.0" vgap="7.0">
+              <HBox styleClass="chip" alignment="CENTER_LEFT"><padding><Insets top="4.0" right="8.0" bottom="4.0" left="8.0"/></padding><Label text="applicationframehost.exe"/></HBox>
+              <HBox styleClass="chip" alignment="CENTER_LEFT"><padding><Insets top="4.0" right="8.0" bottom="4.0" left="8.0"/></padding><Label text="textinputhost.exe"/></HBox>
+              <HBox styleClass="chip" alignment="CENTER_LEFT"><padding><Insets top="4.0" right="8.0" bottom="4.0" left="8.0"/></padding><Label text="systemsettings.exe"/></HBox>
+              <HBox styleClass="chip" alignment="CENTER_LEFT"><padding><Insets top="4.0" right="8.0" bottom="4.0" left="8.0"/></padding><Label text="shellexperiencehost.exe"/></HBox>
+              <HBox styleClass="chip" alignment="CENTER_LEFT"><padding><Insets top="4.0" right="8.0" bottom="4.0" left="8.0"/></padding><Label text="searchhost.exe"/></HBox>
+              <HBox styleClass="chip" alignment="CENTER_LEFT"><padding><Insets top="4.0" right="8.0" bottom="4.0" left="8.0"/></padding><Label text="lockapp.exe"/></HBox>
+            </FlowPane>
+            <Label styleClass="cat-foot" wrapText="true"
+                   text="Shell surfaces that own a window but are never a tool you opened."/>
+          </VBox>
+        </VBox>
+      </ScrollPane>
+
+      <!-- Scrims: these two sit ON TOP of whichever base view is showing, so they
+           must stay last in the StackPane. Per motion-checkpoint, saving is the
+           one confirmation in the system. -->
+      <VBox fx:id="savingPane" styleClass="scrim" alignment="CENTER" visible="false" managed="false">
+        <VBox styleClass="dialog" alignment="CENTER" spacing="12.0"
+              maxWidth="380.0" maxHeight="232.0">
+          <padding><Insets top="26.0" right="26.0" bottom="20.0" left="26.0"/></padding>
+          <Region styleClass="save-bar" minWidth="7.0" prefWidth="7.0" maxWidth="7.0"
+                  minHeight="40.0" prefHeight="40.0" maxHeight="40.0"/>
+          <Label styleClass="dialog-title" text="Checkpoint saved">
+            <VBox.margin><Insets top="4.0"/></VBox.margin>
+          </Label>
+          <Label fx:id="savingSpec" styleClass="save-stamp" text="0 APPS &#183; 0 TABS"/>
+          <Label styleClass="cat-foot" text="written to %APPDATA%\ResumeWork\projects.json"/>
+          <Button fx:id="btnSavingDone" styleClass="btn-checkpoint" text="Done"
+                  prefHeight="34.0" minHeight="34.0">
+            <VBox.margin><Insets top="6.0"/></VBox.margin>
+          </Button>
+        </VBox>
+      </VBox>
+
+      <!-- DeleteDialog from the design kit's Dialogs.jsx -->
+      <VBox fx:id="deletePane" styleClass="scrim" alignment="CENTER" visible="false" managed="false">
+        <VBox styleClass="dialog" spacing="10.0" maxWidth="440.0" maxHeight="256.0">
+          <padding><Insets top="20.0" right="22.0" bottom="18.0" left="22.0"/></padding>
+          <Label styleClass="dialog-title" text="Delete project?"/>
+          <Label styleClass="dialog-sub" text="removes the checkpoint, not the folder"/>
+          <Label fx:id="deleteBody" styleClass="empty-body" wrapText="true" maxWidth="400.0">
+            <VBox.margin><Insets top="4.0"/></VBox.margin>
+          </Label>
+          <HBox styleClass="inset-row" alignment="CENTER_LEFT" spacing="8.0">
+            <padding><Insets top="9.0" right="11.0" bottom="9.0" left="11.0"/></padding>
+            <SVGPath content="M1 3 L6 3 L7.5 4.8 L14 4.8 L14 12.5 L1 12.5 Z" fill="#6F655C"/>
+            <Label fx:id="deletePath" styleClass="project-path" text=""/>
+          </HBox>
+          <HBox alignment="CENTER_RIGHT" spacing="10.0">
+            <VBox.margin><Insets top="6.0"/></VBox.margin>
+            <Button fx:id="btnDeleteCancel" styleClass="btn-ghost" text="Cancel"
+                    prefHeight="34.0" minHeight="34.0"/>
+            <Button styleClass="btn-danger" text="Delete" prefHeight="34.0" minHeight="34.0"/>
+          </HBox>
+        </VBox>
+      </VBox>
+
+      <!-- NewProjectDialog from the design kit's Dialogs.jsx -->
+      <VBox fx:id="newProjectPane" styleClass="scrim" alignment="CENTER" visible="false" managed="false">
+        <VBox styleClass="dialog" spacing="15.0" maxWidth="480.0" maxHeight="400.0">
+          <padding><Insets top="20.0" right="22.0" bottom="18.0" left="22.0"/></padding>
+
+          <VBox spacing="4.0">
+            <Label styleClass="dialog-title" text="New project"/>
+            <Label styleClass="dialog-sub" text="captures the apps and tabs open right now"/>
+          </VBox>
+
+          <VBox spacing="6.0">
+            <Label styleClass="cat-foot" text="Project name"/>
+            <TextField fx:id="npName" styleClass="input-name" promptText="ledger-api"/>
+            <Label styleClass="cat-foot" text="shown in the sidebar &#8212; used as the key in projects.json"/>
+          </VBox>
+
+          <VBox spacing="6.0">
+            <Label styleClass="cat-foot" text="Project folder"/>
+            <HBox styleClass="inset-row" alignment="CENTER_LEFT" spacing="8.0">
+              <padding><Insets top="6.0" right="6.0" bottom="6.0" left="11.0"/></padding>
+              <SVGPath content="M1 3 L6 3 L7.5 4.8 L14 4.8 L14 12.5 L1 12.5 Z" fill="#6F655C"/>
+              <Label fx:id="npFolder" styleClass="project-path" text="no folder chosen"
+                     maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+              <Button fx:id="btnNpBrowse" styleClass="btn-ghost" text="Browse"
+                      prefHeight="28.0" minHeight="28.0"/>
+            </HBox>
+          </VBox>
+
+          <VBox styleClass="divider-top" spacing="4.0">
+            <padding><Insets top="14.0"/></padding>
+            <CheckBox fx:id="npCapture" selected="true" text="Checkpoint immediately"/>
+            <Label styleClass="cat-foot" wrapText="true" maxWidth="420.0"
+                   text="records every window with a visible title, plus tabs from connected browsers"/>
+          </VBox>
+
+          <HBox alignment="CENTER_RIGHT" spacing="10.0">
+            <Button fx:id="btnNpCancel" styleClass="btn-ghost" text="Cancel"
+                    prefHeight="34.0" minHeight="34.0"/>
+            <Button fx:id="btnNpCreate" styleClass="btn-checkpoint" text="Create + checkpoint"
+                    graphicTextGap="8.0" prefHeight="34.0" minHeight="34.0">
+              <graphic>
+                <SVGPath styleClass="btn-glyph" scaleX="0.5833" scaleY="0.5833" content="M19 21 L12 17 L5 21 V5 A2 2 0 0 1 7 3 H14 A2 2 0 0 1 16 5 V11 M16 9 H22 M19 6 V12"/>
+              </graphic>
+            </Button>
+          </HBox>
+        </VBox>
       </VBox>
     </StackPane>
   </HBox>
