@@ -739,6 +739,28 @@ public class HelloController {
         return !handledBrowsers.contains(app.toLowerCase());
     }
 
+    // claude was captured next to WindowsTerminal.exe because it ran inside a terminal tab.
+    // launched separately, `start wt` only brings back an empty PowerShell window beside the
+    // one claude's console opens - so claude is launched *through* wt and wt itself is skipped.
+    static List<String> claudeCommand(String folder, boolean hasSession, boolean inTerminal) {
+        List<String> command = new ArrayList<>(List.of("cmd.exe", "/c", "start"));
+        if (inTerminal) {
+            command.addAll(List.of("wt", "-d", folder));
+        }
+        command.add("claude");
+        // --continue reopens the most recent conversation, but errors out with no history yet
+        if (hasSession) {
+            command.add("--continue");
+        }
+        return command;
+    }
+
+    static boolean hasApp(Project projectObj, String exe) {
+        return projectObj.apps.values().stream()
+                .flatMap(Set::stream)
+                .anyMatch(exe::equalsIgnoreCase);
+    }
+
     public void resumeProject(Project projectObj) throws IOException, URISyntaxException {
         //TODO:add multiple apps checking for path list
         System.out.println("projectName:"+projectObj.projectName);
