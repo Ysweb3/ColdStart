@@ -28,6 +28,17 @@ import javafx.scene.shape.SVGPath;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Window;
 import javafx.util.Duration;
+import javafx.css.PseudoClass;
+import javafx.animation.Interpolator;
+import javafx.animation.KeyFrame;
+import javafx.animation.KeyValue;
+import javafx.animation.PauseTransition;
+import javafx.animation.Timeline;
+import javafx.beans.property.DoubleProperty;
+import javafx.beans.property.SimpleDoubleProperty;
+import javafx.scene.shape.StrokeLineCap;
+import javafx.scene.shape.StrokeLineJoin;
+import java.util.concurrent.CopyOnWriteArrayList;
 import kotlin.reflect.KTypeProjection;
 
 import java.net.URI;
@@ -46,6 +57,26 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
 
+/**
+ * The whole app in one class. It wears four hats, in this order down the file:
+ *
+ * <ol>
+ *   <li><b>UI controller</b> — bound to hud-view.fxml via fx:controller. Every @FXML field is a
+ *       node from that file; the "HUD rendering" / "HUD actions" sections draw the project card
+ *       and react to its buttons.</li>
+ *   <li><b>Persistence</b> — projects live in one Gson-serialised list at
+ *       %APPDATA%\ResumeWork\projects.json (see {@link #projectsFile()}, {@link #saveProject}).</li>
+ *   <li><b>Capture / resume</b> — {@link #captureRunningApps()} asks PowerShell which processes
+ *       own a window, {@link #segregateApps} labels them, {@link #resumeProject} relaunches them
+ *       and reopens the saved browser tabs.</li>
+ *   <li><b>Embedded server</b> — {@link #startServer()} runs Javalin on :8765; the browser
+ *       extension holds a WebSocket at /ws and POSTs its tabs to /tabs.</li>
+ * </ol>
+ *
+ * Threading: JavaFX owns the UI thread; Javalin callbacks run on its own threads, so anything
+ * they touch in the UI goes through {@code Platform.runLater}.
+ * Windows-only: cmd.exe, powershell.exe, reg.exe and %APPDATA% are all assumed.
+ */
 public class HelloController {
     @FXML
     public Button btnNewProject;
@@ -61,6 +92,23 @@ public class HelloController {
     //    so every use is guarded by isHud().
     @FXML public VBox detailPane, emptyPane, categoryRows, tabsList;
     @FXML public VBox savingPane, deletePane, newProjectPane;
+    // 1e / 1l (resume in progress, resume done) - see the resume section below
+    @FXML public VBox resumingPane, restoredPane, resumingRows, restoredRows;
+    @FXML public HBox titleState, resumingMeter, restoredMeter, countdownTrack;
+    @FXML public Region titleStateDot, resumingFill, restoredFill, restoredFailFill, countdownFill;
+    @FXML public Label titleStateVerb, titleStateName, resumingCount, resumingPct, resumingName,
+            resumingSkipped, restoredCount, restoredTook, restoredSpec, restoredNote;
+    @FXML public Button btnResumeStop, btnStayHere, btnOpenProject;
+    private final DoubleProperty resumingFrac = new SimpleDoubleProperty();
+    private final DoubleProperty restoredFrac = new SimpleDoubleProperty();
+    private final DoubleProperty restoredFailFrac = new SimpleDoubleProperty();
+    private final DoubleProperty countdownFrac = new SimpleDoubleProperty();
+    private volatile boolean resuming, stopRequested;
+    private Timeline countdown;
+    private static final PseudoClass PC_LAUNCHING = PseudoClass.getPseudoClass("launching");
+    private static final PseudoClass PC_FAILED    = PseudoClass.getPseudoClass("failed");
+    /** the design's --ease-out */
+    private static final Interpolator EASE_OUT = Interpolator.SPLINE(0.16, 1, 0.3, 1);
     @FXML public TextField npName;
     @FXML public Label npFolder;
     @FXML public CheckBox npCapture;
@@ -83,14 +131,19 @@ public class HelloController {
     /** Sidebar row per project name, so deleteProject() can be handed the row to remove. */
     private final Map<String, HBox> rowsByProject = new LinkedHashMap<>();
 
+    /** Folder picked in the legacy dialog; the HUD dialog reads npFolder instead. */
     public String projectFolder;
 
     public Gson gson = new Gson();
 
+    /** The project the card shows and that an incoming POST /tabs lands on. Null when none. */
     private Project activeProject;
 
+    /** In-memory copy of projects.json, in sidebar order. */
     public ArrayList<Project> projects = new ArrayList<>();
 
+    /** Called by FXMLLoader once every @FXML field is injected: load projects, snapshot the
+        running apps (only logged - proves capture works), start the server, wire buttons. */
     @FXML
     public void initialize() throws IOException {
 
@@ -119,6 +172,16 @@ public class HelloController {
         btnNpCreate.disableProperty().bind(Bindings.createBooleanBinding(
                 () -> npName.getText().trim().isEmpty(), npName.textProperty()));
         btnNpCreate.setOnAction(e -> createFromDialog());
+        btnResumeStop.setGraphic(icon(ICON_X, 13, TX2));
+        btnResumeStop.setOnAction(e -> stopRequested = true);
+        btnStayHere.setOnAction(e -> stopCountdown());
+        btnOpenProject.setGraphic(icon(ICON_CHEVRON, 13, TX));
+        btnOpenProject.setOnAction(e -> { stopCountdown(); backToProjects(); });
+        // meters are fractions bound to their track, so they are right before first layout
+        resumingFill.prefWidthProperty().bind(resumingMeter.widthProperty().multiply(resumingFrac));
+        restoredFill.prefWidthProperty().bind(restoredMeter.widthProperty().multiply(restoredFrac));
+        restoredFailFill.prefWidthProperty().bind(restoredMeter.widthProperty().multiply(restoredFailFrac));
+        countdownFill.prefWidthProperty().bind(countdownTrack.widthProperty().multiply(countdownFrac));
         statusTip = new Tooltip();
         statusTip.setShowDelay(Duration.millis(150));
         Tooltip.install(statusBox, statusTip);
@@ -135,6 +198,9 @@ public class HelloController {
     private boolean isHud() {
         return detailPane != null;
     }
+    // == Persistence =======================================================
+
+    /** %APPDATA%\ResumeWork\projects.json - the single file every project is stored in. */
     @FXML
     static File projectsFile() {
         File dir = new File(System.getenv("APPDATA"), "ResumeWork");
@@ -142,6 +208,7 @@ public class HelloController {
         return new File(dir, "projects.json");
     }
 
+    /** Reads projects.json from disk (empty list if missing/blank) and upgrades old entries. */
     public ArrayList<Project> getProjectsJson() {
         File file = projectsFile();
         if (!file.exists()) {
@@ -163,8 +230,15 @@ public class HelloController {
     }
 
 
+    // == New project flow ==================================================
+    //   New Project button -> onNewProjectClick (shows newProjectPane scrim)
+    //   Create + checkpoint -> createFromDialog -> createProjectUI(isNew=true)
+    //                          -> captures apps, saves, adds sidebar row, selects it
+    //                          -> then asks every extension for its tabs
+
     private static final String NO_FOLDER = "no folder chosen";
 
+    /** Sidebar "+ New Project" and the empty-state button both land here (onAction in fxml). */
     @FXML
     public void onNewProjectClick() {
         if (!isHud()) {
@@ -234,6 +308,10 @@ public class HelloController {
 
     }
     //TODO:IDEA:Also add a CLI to start this thing
+    /**
+     * Adds a project to the sidebar. isNew=true means "just created": capture the running apps,
+     * persist, and select it. isNew=false means "loaded from disk at startup": just list it.
+     */
     public void createProjectUI(Project projectObj, boolean isNew) {
 
         if (isNew) {
@@ -281,14 +359,34 @@ public class HelloController {
     }
 
     // == HUD rendering =====================================================
+    //   The centre of the window is a StackPane with two layers:
+    //     base views  (detailPane | emptyPane | settingsPane) - exactly one visible
+    //     overlays    (savingPane | deletePane | newProjectPane) - at most one, drawn on top
+    //   Nothing is created or destroyed; panes are toggled with visible+managed.
 
     /** detailPane / emptyPane / settingsPane are the base views: exactly one shows. */
     private void showBase(Node target) {
-        for (Node pane : List.of(detailPane, emptyPane, settingsPane)) {
+        for (Node pane : List.of(detailPane, emptyPane, settingsPane, resumingPane, restoredPane)) {
             pane.setVisible(pane == target);
             pane.setManaged(pane == target);
         }
         showOverlay(null);
+        if (target != resumingPane && target != restoredPane) titleState(null, null, false);
+    }
+
+    /** "RESUMING atlas-api" in the title bar; null verb puts the port cluster back. */
+    private void titleState(String verb, String name, boolean dot) {
+        boolean on = verb != null;
+        titleState.setVisible(on);
+        titleState.setManaged(on);
+        statusBox.setVisible(!on);
+        statusBox.setManaged(!on);
+        titleStateDot.setVisible(dot);
+        titleStateDot.setManaged(dot);
+        if (on) {
+            titleStateVerb.setText(verb);
+            titleStateName.setText(name);
+        }
     }
 
     /** savingPane / deletePane / newProjectPane are scrims stacked over whichever base is showing. */
@@ -317,6 +415,7 @@ public class HelloController {
         projectCount.setText(String.format("%02d", projects.size()));
     }
 
+    /** Highlights the sidebar row, makes it the active project and draws its card. */
     private void selectProject(Project projectObj) {
         activeProject = projectObj;
         rowsByProject.forEach((n, r) -> {
@@ -329,6 +428,8 @@ public class HelloController {
         renderDetail(projectObj);
     }
 
+    /** Fills every label on the project card from the Project; safe to call repeatedly
+        (checkpoint and the /tabs handler both re-run it). */
     private void renderDetail(Project projectObj) {
         migrateLegacyUrls(projectObj);
 
@@ -450,11 +551,6 @@ public class HelloController {
         return url.replaceFirst("^https?://", "");
     }
 
-    private static Label styled(Label label, String styleClass) {
-        label.getStyleClass().add(styleClass);
-        return label;
-    }
-
     private static HBox chip(String app) {
         HBox chip = new HBox();
         chip.getStyleClass().add("chip");
@@ -497,14 +593,257 @@ public class HelloController {
     }
 
     // == HUD actions =======================================================
+    //   Resume     -> onResume     -> resumeProject
+    //   Checkpoint -> onCheckpoint -> re-capture apps, ask extensions for tabs, save
+    //   Trash      -> showDeleteView (confirm scrim); onDeleteActive holds the actual delete
+
+    // == resume: 1e in progress -> 1l done ==================================
+    //   onResume runs planResume() on a worker thread, one LaunchStep per LAUNCH_GAP_MS. Every
+    //   state change re-renders resumingPane (1e). The run finishes into restoredPane (1l),
+    //   which keeps failures visible with a Retry and auto-returns to the project in 3s.
+
+    // ponytail: 750ms between spawns is a first guess at what stops ten processes landing
+    // on the machine at once; the design paces its prototype at 220ms for looks. Tune by feel.
+    static final long LAUNCH_GAP_MS = 750;
 
     private void onResume() {
-        if (activeProject == null) return;
-        try {
-            resumeProject(activeProject);
-        } catch (IOException | URISyntaxException ex) {
-            throw new RuntimeException(ex);
+        if (activeProject == null || resuming) return;
+        resuming = true;
+        stopRequested = false;
+        ResumeRun r = new ResumeRun(activeProject);
+        titleState("RESUMING", r.project.projectName, false);
+        resumingName.setText(r.project.projectName);
+        showBase(resumingPane);
+        renderResuming(r);
+
+        Thread worker = new Thread(() -> {
+            try {
+                // the PowerShell capture takes seconds: off the FX thread it no longer freezes the HUD
+                r.plan = planResume(r.project, captureRunningApps(), r.log);
+                Platform.runLater(() -> renderResuming(r));
+                for (LaunchStep step : r.plan.steps()) {
+                    if (stopRequested) {
+                        r.log.add("stopped by user");
+                        break;
+                    }
+                    step.state = LaunchStep.State.LAUNCHING;
+                    Platform.runLater(() -> renderResuming(r));
+                    step.run();
+                    r.log.add(step.state == LaunchStep.State.DONE
+                            ? step.label + " → " + step.command
+                            : step.label + " failed: " + step.error);
+                    Platform.runLater(() -> renderResuming(r));
+                    Thread.sleep(LAUNCH_GAP_MS);
+                }
+            } catch (IOException ex) {
+                r.log.add("resume failed: " + ex.getMessage());
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+            } finally {
+                r.tookMs = (System.nanoTime() - r.startNanos) / 1_000_000;
+                resuming = false;
+                Platform.runLater(() -> showRestored(r));
+            }
+        }, "resume");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    /** 1e. Rebuilt whole on every change - a run is a dozen rows at most. */
+    private void renderResuming(ResumeRun r) {
+        int total = r.total();
+        long started = r.started();
+        resumingCount.setText(started + " / " + (total == 0 ? "?" : String.valueOf(total)));
+        double frac = total == 0 ? 0 : (double) started / total;
+        resumingPct.setText(Math.round(frac * 100) + "%");
+        new Timeline(new KeyFrame(Duration.millis(220), new KeyValue(resumingFrac, frac, EASE_OUT))).play();
+
+        resumingRows.getChildren().clear();
+        List<String> queued = new ArrayList<>();
+        for (LaunchStep step : r.plan.steps()) {
+            if (step.state == LaunchStep.State.QUEUED) {
+                queued.add(step.label);
+            } else {
+                resumingRows.getChildren().add(stepRow(step));
+            }
         }
+        if (!queued.isEmpty()) {
+            resumingRows.getChildren().add(foldRow(ICON_CLOCK, queued.size() + " queued", names(queued)));
+        }
+        resumingRows.getChildren().add(foldRow(ICON_TERMINAL, "Resume log", r.log.size() + " lines"));
+
+        List<String> skipped = r.plan.skipped();
+        resumingSkipped.setText(skipped.isEmpty() ? "" : "skipping " + skipped.size()
+                + " already open · " + String.join(" · ", skipped));
+    }
+
+    /** 1l. Orange closes the verb; failures stay on screen; three seconds later, back to 1b. */
+    private void showRestored(ResumeRun r) {
+        titleState("RESUMED", r.project.projectName, true);
+        showBase(restoredPane);
+        renderRestored(r);
+        startCountdown(r);
+    }
+
+    private void renderRestored(ResumeRun r) {
+        int total = r.total();
+        restoredCount.setText(r.done() + " / " + total);
+        restoredTook.setText(String.format("took %.1fs", r.tookMs / 1000.0));
+        restoredFrac.set(total == 0 ? 0 : (double) r.done() / total);
+        restoredFailFrac.set(total == 0 ? 0 : (double) r.failed() / total);
+        String folder = r.project.folderPath == null ? "no folder" : r.project.folderPath;
+        restoredSpec.setText(r.appsDone() + " apps · " + countTabs(r.project) + " tabs · " + folder);
+
+        restoredRows.getChildren().clear();
+        List<String> browsers = new ArrayList<>();
+        for (LaunchStep step : r.plan.steps()) {
+            if (step.state == LaunchStep.State.FAILED) restoredRows.getChildren().add(failRow(r, step));
+            if (step.state == LaunchStep.State.DONE && step.browser) browsers.add(step.label);
+        }
+        restoredRows.getChildren().add(foldRow(ICON_APP_WINDOW, r.appsDone() + " apps launched", "on the project card"));
+        restoredRows.getChildren().add(foldRow(ICON_GLOBE, countTabs(r.project) + " tabs handed back",
+                browsers.isEmpty() ? "no browser connected" : String.join(" · ", browsers)));
+        long failed = r.failed();
+        restoredRows.getChildren().add(foldRow(ICON_TERMINAL, "Resume log", r.log.size() + " lines"
+                + (failed == 0 ? "" : " · " + failed + (failed == 1 ? " failure" : " failures"))));
+    }
+
+    private void startCountdown(ResumeRun r) {
+        String name = r.project.projectName;
+        countdownFrac.set(0);
+        countdown = new Timeline(
+                new KeyFrame(Duration.ZERO,       e -> restoredNote.setText("returning to " + name + " in 3s")),
+                new KeyFrame(Duration.seconds(1), e -> restoredNote.setText("returning to " + name + " in 2s")),
+                new KeyFrame(Duration.seconds(2), e -> restoredNote.setText("returning to " + name + " in 1s")),
+                new KeyFrame(Duration.seconds(3), e -> backToProjects(),
+                        new KeyValue(countdownFrac, 1, Interpolator.LINEAR)));
+        countdown.play();
+    }
+
+    private void stopCountdown() {
+        if (countdown != null) {
+            countdown.stop();
+            countdown = null;
+        }
+        restoredNote.setText("");
+        countdownFrac.set(0);
+    }
+
+    private void retry(ResumeRun r, LaunchStep step) {
+        stopCountdown();
+        Thread t = new Thread(() -> {
+            step.run();
+            r.log.add(step.state == LaunchStep.State.DONE
+                    ? step.label + " → " + step.command + " (retry)"
+                    : step.label + " failed again: " + step.error);
+            Platform.runLater(() -> renderRestored(r));
+        }, "retry");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    // ── rows ────────────────────────────────────────────────────────────
+
+    private HBox stepRow(LaunchStep step) {
+        HBox row = rowShell("step-row");
+        row.pseudoClassStateChanged(PC_LAUNCHING, step.state == LaunchStep.State.LAUNCHING);
+        row.pseudoClassStateChanged(PC_FAILED, step.state == LaunchStep.State.FAILED);
+        SVGPath mark = switch (step.state) {
+            case LAUNCHING -> icon(ICON_PLAY, 14, GO);
+            case FAILED -> icon(ICON_ALERT, 14, BAD);
+            default -> icon(ICON_CHECK, 14, TX3);
+        };
+        String cmd = switch (step.state) {
+            case LAUNCHING -> "launching · " + step.command;
+            case FAILED -> "failed to launch";
+            default -> step.command;
+        };
+        Label name = styled(new Label(step.label), "step-label");
+        name.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(name, Priority.ALWAYS);
+        row.getChildren().addAll(mark, name, styled(new Label(cmd), "step-cmd"));
+        return row;
+    }
+
+    private HBox foldRow(String iconPath, String title, String meta) {
+        HBox row = rowShell("fold-row");
+        Label t = styled(new Label(title), "fold-title");
+        t.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(t, Priority.ALWAYS);
+        row.getChildren().addAll(icon(ICON_CHEVRON, 13, HUD), icon(iconPath, 14, TX3), t,
+                styled(new Label(meta), "fold-meta"));
+        return row;
+    }
+
+    private HBox failRow(ResumeRun r, LaunchStep step) {
+        HBox row = rowShell("fail-row");
+        row.setMinHeight(54);
+        row.setPrefHeight(54);
+        Label why = styled(new Label("failed to launch"), "fail-why");
+        why.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(why, Priority.ALWAYS);
+        Button retry = styled(new Button("Retry"), "btn-ghost");
+        retry.setGraphic(icon(ICON_REFRESH, 13, TX));
+        retry.setGraphicTextGap(8);
+        retry.setOnAction(e -> retry(r, step));
+        row.getChildren().addAll(icon(ICON_ALERT, 14, BAD), styled(new Label(step.label), "step-label"), why, retry);
+        return row;
+    }
+
+    private static HBox rowShell(String styleClass) {
+        HBox row = new HBox(10);
+        row.getStyleClass().add(styleClass);
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setMinHeight(46);
+        row.setPrefHeight(46);
+        row.setPadding(new Insets(0, 16, 0, 12));
+        return row;
+    }
+
+    private static <T extends Labeled> T styled(T node, String styleClass) {
+        node.getStyleClass().add(styleClass);
+        return node;
+    }
+
+    /** "GitHubDesktop · obsidian · discord", three names then a count. */
+    private static String names(List<String> labels) {
+        List<String> shown = new ArrayList<>();
+        for (String l : labels.subList(0, Math.min(3, labels.size()))) shown.add(l.replace(".exe", ""));
+        String out = String.join(" · ", shown);
+        return labels.size() > 3 ? out + " +" + (labels.size() - 3) : out;
+    }
+
+    // lucide, native 24 box, scaled to size; stroke 1.75 per brand-iconography
+    private static final String
+            ICON_CHECK = "M20 6 L9 17 L4 12",
+            ICON_PLAY = "M6 3 L20 12 L6 21 Z",
+            ICON_ALERT = "M12 2 A10 10 0 1 0 12 22 A10 10 0 1 0 12 2 Z M12 8 V12 M12 16 V16.01",
+            ICON_CHEVRON = "M9 18 L15 12 L9 6",
+            ICON_CLOCK = "M12 2 A10 10 0 1 0 12 22 A10 10 0 1 0 12 2 Z M12 6 V12 L16 14",
+            ICON_TERMINAL = "M4 17 L10 11 L4 5 M12 19 H20",
+            ICON_APP_WINDOW = "M2 6 A2 2 0 0 1 4 4 H20 A2 2 0 0 1 22 6 V18 A2 2 0 0 1 20 20 H4 A2 2 0 0 1 2 18 Z M10 4 V8 M2 8 H22 M6 4 V8",
+            ICON_GLOBE = "M12 2 A10 10 0 1 0 12 22 A10 10 0 1 0 12 2 Z M2 12 H22 M12 2 A14.5 14.5 0 0 0 12 22 A14.5 14.5 0 0 0 12 2",
+            ICON_REFRESH = "M3 12 A9 9 0 0 1 12 3 A9.75 9.75 0 0 1 18.74 5.74 L21 8 M21 3 V8 H16 M21 12 A9 9 0 0 1 12 21 A9.75 9.75 0 0 1 5.26 18.26 L3 16 M8 16 H3 V21",
+            ICON_X = "M18 6 L6 18 M6 6 L18 18";
+    private static final String TX = "#E8D8C9", TX2 = "#A99B8D", TX3 = "#6F655C",
+            GO = "#F3701E", BAD = "#D96C5E", HUD = "#7A94BC";
+
+    private static SVGPath icon(String path, double size, String color) {
+        SVGPath p = new SVGPath();
+        p.setContent(path);
+        p.setFill(Color.TRANSPARENT);
+        p.setStroke(Color.web(color));
+        p.setStrokeWidth(1.75);
+        p.setStrokeLineCap(StrokeLineCap.ROUND);
+        p.setStrokeLineJoin(StrokeLineJoin.ROUND);
+        p.setScaleX(size / 24);
+        p.setScaleY(size / 24);
+        return p;
+    }
+
+    static int countTabs(Project projectObj) {
+        if (projectObj == null) return 0;
+        return projectObj.urlsByBrowser.values().stream().mapToInt(List::size).sum();
     }
 
     private void onCheckpoint() {
@@ -559,11 +898,16 @@ public class HelloController {
         Platform.runLater(() -> {
             boolean live = !browsers.isEmpty();
             statusDot.getStyleClass().setAll(live ? "dot-live" : "dot-idle");
-            statusLabel.setText(live ? "connected" : ":8765");
+            statusLabel.setStyle("-fx-font-weight: bold;");
+            statusLabel.setText(live ? "connected" : "disconnected:8765");
             statusLabel.getStyleClass().setAll(live ? "port-live" : "port");
             statusTip.setText(live ? String.join(", ", browsers) : "no extension connected");
         });
     }
+
+    // == Capture ===========================================================
+    //   captureRunningApps() -> set of "name.exe"  -> segregateApps() -> {category -> set}
+    //   The result is what gets stored in Project.apps and shown as chips on the card.
 
     // shell/system windows that are never a user's "app" (PowerToys filters the same set)
     private static final Set<String> IGNORED_WINDOWS = Set.of(
@@ -581,6 +925,10 @@ public class HelloController {
         return IGNORED_WINDOWS.contains(lower) || lower.startsWith("powertoys.");
     }
 
+    /**
+     * Every process that owns a visible window, as "name.exe" (e.g. "Code.exe", "chrome.exe").
+     * Runs a PowerShell one-liner that prints "pid|name.exe" per line and parses it.
+     */
     public HashSet<String> captureRunningApps() throws IOException {
         // only processes that own a visible main window count as apps the user opened.
         // .NET's MainWindowTitle is EnumWindows + GetWindowThreadProcessId under the hood,
@@ -645,6 +993,8 @@ public class HelloController {
                     "MusicBee.exe", "foobar2000.exe", "vlc.exe"))
     );
 
+    /** Buckets captured exe names by category: {"IDE": [Code.exe], "Browser": [chrome.exe], ...}.
+        Every category key is always present (possibly empty) so the UI can iterate blindly. */
     public HashMap<String, HashSet<String>> segregateApps(HashSet<String> appset){
         // KNOWN_APPS only labels an app's category; capture no longer depends on it, so anything
         // unrecognised still gets kept under "Other" instead of being dropped
@@ -674,6 +1024,8 @@ public class HelloController {
         }
         return OTHER;
     }
+    /** Makes the project active and writes it to projects.json (replacing any entry with the
+        same name). Both the in-memory list and the on-disk list are updated. */
     public void saveProject(Project projectObj) throws IOException {
 
         activeProject = projectObj;
@@ -728,6 +1080,13 @@ public class HelloController {
         }
         list.add(projectObj);
     }
+    // == Resume ============================================================
+    //   resumeProject(): 1. capture what is running now (so we don't open it twice)
+    //                    2. open each browser with its saved urls as arguments
+    //                    3. `start` every other captured app, with special cases for
+    //                       claude (project folder, --continue), VS Code (project folder), wt
+
+    /** `where <name>` - first PATH hit or null. Currently unused; browsers go via browserPath(). */
     public String getAppPath(String appName) throws IOException {
         ProcessBuilder pb = new  ProcessBuilder("cmd.exe","/c", "where", appName);
         Process process = pb.start();
@@ -862,88 +1221,169 @@ public class HelloController {
                 .anyMatch(exe::equalsIgnoreCase);
     }
 
-    public void resumeProject(Project projectObj) throws IOException, URISyntaxException {
+    @FunctionalInterface
+    interface Launch { void start() throws IOException, URISyntaxException; }
+
+    /** One process launch: the row's label, the command it shows, and how it went. */
+    static final class LaunchStep {
+        enum State { QUEUED, LAUNCHING, DONE, FAILED }
+        final String label, command;
+        final boolean browser;
+        final Launch launch;
+        volatile State state = State.QUEUED;
+        volatile String error;
+
+        LaunchStep(String label, String command, boolean browser, Launch launch) {
+            this.label = label;
+            this.command = command;
+            this.browser = browser;
+            this.launch = launch;
+        }
+
+        /** one app failing to launch (bad folder, missing exe, ...) must not abort the rest */
+        void run() {
+            state = State.LAUNCHING;
+            try {
+                launch.start();
+                state = State.DONE;
+            } catch (IOException | URISyntaxException ex) {
+                error = ex.getMessage();
+                state = State.FAILED;
+                System.err.println("failed to launch " + label + ": " + error);
+            }
+        }
+    }
+
+    record ResumePlan(List<LaunchStep> steps, List<String> skipped) {}
+
+    /** Everything one press of Resume produced; 1e and 1l render from it. */
+    static final class ResumeRun {
+        final Project project;
+        final long startNanos = System.nanoTime();
+        final List<String> log = new CopyOnWriteArrayList<>();
+        volatile ResumePlan plan = new ResumePlan(List.of(), List.of());
+        long tookMs;
+
+        ResumeRun(Project project) { this.project = project; }
+
+        int total()     { return plan.steps().size(); }
+        long started()  { return plan.steps().stream().filter(s -> s.state != LaunchStep.State.QUEUED).count(); }
+        long done()     { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.DONE).count(); }
+        long failed()   { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.FAILED).count(); }
+        long appsDone() { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.DONE && !s.browser).count(); }
+    }
+
+    /** Brings a saved project back: browsers with their tabs, then every other captured app.
+        Synchronous - the HUD's Resume runs the same plan staggered on its own thread. */
+    public void resumeProject(Project projectObj) throws IOException {
+        for (LaunchStep step : planResume(projectObj, captureRunningApps(), new ArrayList<>()).steps()) {
+            step.run();
+        }
+    }
+
+    /** Decides what to launch, in order, without starting anything. */
+    ResumePlan planResume(Project projectObj, Set<String> running, List<String> log) {
         //TODO:add multiple apps checking for path list
-        System.out.println("projectName:"+projectObj.projectName);
-        HashSet<String> running = captureRunningApps();
+        System.out.println("projectName:" + projectObj.projectName);
         migrateLegacyUrls(projectObj);
         boolean claudeInTerminal = hasApp(projectObj, "claude.exe") && hasApp(projectObj, "WindowsTerminal.exe");
+        List<LaunchStep> steps = new ArrayList<>();
+        List<String> skipped = new ArrayList<>();
 
         Set<String> handledBrowsers = new HashSet<>();
         for (Map.Entry<String, ArrayList<String>> entry : projectObj.urlsByBrowser.entrySet()) {
             //TODO:fix chrome settings urls not working
-            System.out.println(entry.getKey() + " -> " + entry.getValue());
-            String exePath = null;
+            String browser = entry.getKey();
+            List<String> urls = entry.getValue();
+            System.out.println(browser + " -> " + urls);
+            String exePath;
             try {
-                exePath = browserPath(entry.getKey());
+                exePath = browserPath(browser);
+            } catch (IOException ex) {
+                log.add("failed to open urls for " + browser + ": " + ex.getMessage());
+                System.err.println(log.get(log.size() - 1));
+                continue;
+            }
+            if (exePath != null) {
+                handledBrowsers.add(new File(exePath).getName().toLowerCase());
+            }
+            String command = urls.size() + " urls · " + (exePath == null ? "default browser" : "one window");
+            steps.add(new LaunchStep(browser, command, true, () -> {
                 if (exePath == null) {
                     // unknown brand, browser not installed, or urls saved before we tracked the
                     // browser: fall back to whatever windows considers the default
-                    for (String url : entry.getValue()) {
+                    for (String url : urls) {
                         Desktop.getDesktop().browse(new URI(url));
                     }
                 } else {
                     // every url as its own argument, launched with no shell in between: cmd would
                     // split a query string on its & (java only quotes args containing spaces).
                     // one invocation also means one window of tabs rather than one window each.
-                    List<String> command = new ArrayList<>();
-                    command.add(exePath);
-                    command.addAll(entry.getValue());
-                    new ProcessBuilder(command).start();
+                    List<String> cmd = new ArrayList<>();
+                    cmd.add(exePath);
+                    cmd.addAll(urls);
+                    new ProcessBuilder(cmd).start();
                 }
-            } catch (IOException | URISyntaxException ex) {
-                System.err.println("failed to open urls for " + entry.getKey() + ": " + ex.getMessage());
-            }
-            if (exePath != null) {
-                handledBrowsers.add(new File(exePath).getName().toLowerCase());
-            }
+            }));
         }
 
-            for (String category : projectObj.apps.keySet()) {
-                for (String app : projectObj.apps.get(category)) {
-                    String appName = app.replace(".exe", "");
+        // CATEGORY_ORDER first so the rows walk the card top to bottom; anything the design
+        // does not list (Other) still launches after, as it always has
+        List<String> categories = new ArrayList<>(CATEGORY_ORDER);
+        for (String category : projectObj.apps.keySet()) {
+            if (!categories.contains(category)) categories.add(category);
+        }
+        String folder = projectObj.folderPath;
+        for (String category : categories) {
+            HashSet<String> bucket = projectObj.apps.get(category);
+            if (bucket == null) continue;
+            for (String app : new TreeSet<>(bucket)) {
+                if (!shouldLaunch(app, running, handledBrowsers)) {
+                    skipped.add(app);
+                    log.add("skipping (already open or handled): " + app);
+                    continue;
+                }
+                String appName = app.replace(".exe", "");
 
-                    if (!shouldLaunch(app, running, handledBrowsers)) {
-                        System.out.println("skipping (already open or handled): " + app);
+                if (appName.equalsIgnoreCase("claude")) {
+                    if (folder == null) continue;     // a session is per folder; nowhere to open it
+                    List<String> cmd = claudeCommand(folder, hasClaudeSession(folder), claudeInTerminal);
+                    // open claude CLI in project folder
+                    steps.add(new LaunchStep(app, String.join(" ", cmd.subList(2, cmd.size())), false, () -> {
+                        ProcessBuilder pb = new ProcessBuilder(cmd);
+                        pb.directory(new File(folder));
+                        pb.start();
+                    }));
+
+                } else if (appName.equalsIgnoreCase("Code")) {
+                    if (folder == null) continue;
+                    // open VS Code in project folder
+                    steps.add(new LaunchStep(app, "code " + folder, false, () ->
+                            new ProcessBuilder("cmd.exe", "/c", "code", folder).start()));
+
+                } else if (appName.equalsIgnoreCase("WindowsTerminal")) {
+                    if (claudeInTerminal) {
+                        log.add("skipping wt: claude launches inside it");
                         continue;
                     }
+                    // WindowsTerminal.exe is the process name, but "wt" is the actual
+                    // launch command - "start WindowsTerminal" can't resolve it
+                    steps.add(new LaunchStep(app, "start wt", false, () ->
+                            new ProcessBuilder("cmd.exe", "/c", "start", "wt").start()));
 
-                    if (projectObj.folderPath != null) {
-                        try {
-                            if (appName.equalsIgnoreCase("claude")) {
-                                // open claude CLI in project folder
-                                ProcessBuilder pb = new ProcessBuilder(claudeCommand(projectObj.folderPath,
-                                        hasClaudeSession(projectObj.folderPath), claudeInTerminal));
-                                pb.directory(new File(projectObj.folderPath));
-                                pb.start();
-
-                            } else if (appName.equalsIgnoreCase("Code")) {
-                                // open VS Code in project folder
-                                System.out.println("opening VS Code in: " + projectObj.folderPath);
-                                new ProcessBuilder("cmd.exe", "/c", "code", projectObj.folderPath).start();
-
-                            } else if (appName.equalsIgnoreCase("WindowsTerminal")) {
-                                if (claudeInTerminal) {
-                                    System.out.println("skipping wt: claude launches inside it");
-                                    continue;
-                                }
-                                // WindowsTerminal.exe is the process name, but "wt" is the actual
-                                // launch command - "start WindowsTerminal" can't resolve it
-                                new ProcessBuilder("cmd.exe", "/c", "start", "wt").start();
-
-                            } else {
-                                new ProcessBuilder("cmd.exe", "/c", "start", appName).start();
-                            }
-                        } catch (IOException ex) {
-                            // one app failing to launch (bad folder, missing exe, ...) must not
-                            // silently abort every app still left in the loop
-                            System.err.println("failed to launch " + app + ": " + ex.getMessage());
-                        }
-                    }
+                } else {
+                    // no folder needed: this used to sit under the folderPath guard too, so a
+                    // project without a folder relaunched nothing at all
+                    steps.add(new LaunchStep(app, "start " + appName, false, () ->
+                            new ProcessBuilder("cmd.exe", "/c", "start", appName).start()));
                 }
             }
+        }
+        return new ResumePlan(steps, skipped);
     }
 
+    /** Native folder picker. Returns the absolute path, or the string "NULL" on cancel -
+        callers compare against that sentinel. */
     public String openFolder(ActionEvent event) {
 
         DirectoryChooser directoryChooser = new DirectoryChooser();
@@ -962,6 +1402,12 @@ public class HelloController {
         }
         return "NULL";
     }
+    // == Embedded server (the contract with ResumeOneExtension) ============
+    //   WS  /ws?browser=X   extension keeps this open; app pushes "capture" to request tabs
+    //   GET /project        active project name ("" if none) - the popup's "is the app up?"
+    //   POST /tabs          {browser, urls[]} -> stored on the active project and saved
+    //   Port 8765, CORS open, because the extension's fetch comes from a chrome-extension:// origin.
+
     public void startServer(){
         System.out.println("server starting...");
         Javalin app = Javalin.create(config -> {

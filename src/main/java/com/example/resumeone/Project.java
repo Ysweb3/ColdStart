@@ -7,6 +7,23 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 
+/**
+ * One saved working context. Plain data: Gson serialises these public fields straight into
+ * projects.json, so a field name here IS the JSON key - renaming one silently drops that
+ * value for every already-saved project.
+ *
+ * <pre>
+ * {
+ *   "projectName":   "ColdStart project",             //primary key
+ *   "lastCheckpoint": "2026-09-09",                 // ISO date, shown as "3d" / "2w" in the UI
+ *   "active":        false,                         // unused; the active project is runtime state
+ *   "folderPath":    "C:\...\ResumeOne",           // null when no folder was chosen
+ *   "apps":          {"IDE": ["Code.exe"], "AI": ["claude.exe"], ...},   // category -> exe names
+ *   "urls":          [],                            // legacy, see below
+ *   "urlsByBrowser": {"Chrome": ["https://..."], "brave": [...]}       // extension brand -> tabs
+ * }
+ * </pre>
+ */
 public class Project {
     public String projectName;
     public String lastCheckpoint;
@@ -16,6 +33,7 @@ public class Project {
     // legacy: url list from before capture recorded which browser the tabs came from.
     // still read so an existing projects.json is not silently emptied - see getProjectsJson().
     public ArrayList<String> urls;
+
     public HashMap<String, ArrayList<String>> urlsByBrowser = new HashMap<>();
 
 

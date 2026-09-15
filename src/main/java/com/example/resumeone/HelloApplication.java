@@ -13,6 +13,11 @@ import javafx.scene.text.Font;
 import java.io.IOException;
 import java.io.InputStream;
 
+/**
+ * JavaFX entry point. Owns only window-level concerns: bundled fonts, the undecorated stage,
+ * and the drag/resize/min/max/close handling that an undecorated stage loses. Everything
+ * inside the window is hud-view.fxml + HelloController.
+ */
 public class HelloApplication extends Application {
 
     /** How close to an edge the pointer has to be to start a resize drag. */

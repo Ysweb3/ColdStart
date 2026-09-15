@@ -44,6 +44,15 @@
 
     <Region HBox.hgrow="ALWAYS"/>
 
+    <!-- 1e/1l: "RESUMING atlas-api" stands in for the port cluster during a run -->
+    <HBox fx:id="titleState" alignment="CENTER_LEFT" spacing="8.0" visible="false" managed="false">
+      <HBox.margin><Insets right="14.0"/></HBox.margin>
+      <Region fx:id="titleStateDot" styleClass="dot-go" minWidth="7.0" prefWidth="7.0" maxWidth="7.0"
+              minHeight="7.0" prefHeight="7.0" maxHeight="7.0"/>
+      <Label fx:id="titleStateVerb" styleClass="title-verb" text="RESUMING"/>
+      <Label fx:id="titleStateName" styleClass="title-name" text=""/>
+    </HBox>
+
     <!-- live once a browser extension holds the socket -->
     <HBox fx:id="statusBox" alignment="CENTER_LEFT" spacing="7.0">
       <HBox.margin><Insets right="14.0"/></HBox.margin>
@@ -296,6 +305,78 @@
           </VBox>
         </VBox>
       </ScrollPane>
+
+      <!-- ══ 1e · resume in progress. Rows are built by renderResuming(). ══ -->
+      <VBox fx:id="resumingPane" visible="false" managed="false">
+        <HBox styleClass="strip" alignment="CENTER_LEFT" spacing="14.0"
+              minHeight="44.0" prefHeight="44.0" maxHeight="44.0">
+          <padding><Insets left="22.0" right="22.0"/></padding>
+          <Label styleClass="strip-verb" text="LAUNCHING"/>
+          <Label fx:id="resumingCount" styleClass="strip-count" text="0 / ?"/>
+          <HBox fx:id="resumingMeter" styleClass="meter-track" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS"
+                minHeight="6.0" prefHeight="6.0" maxHeight="6.0">
+            <Region fx:id="resumingFill" styleClass="meter-fill" maxWidth="-Infinity"
+                    minHeight="6.0" prefHeight="6.0" maxHeight="6.0"/>
+          </HBox>
+          <Label fx:id="resumingPct" styleClass="strip-pct" text="0%"/>
+        </HBox>
+        <VBox spacing="20.0" VBox.vgrow="ALWAYS">
+          <padding><Insets top="22.0" right="28.0" bottom="20.0" left="28.0"/></padding>
+          <VBox spacing="0.0">
+            <Label styleClass="hero-word" text="RESUMING"/>
+            <Label fx:id="resumingName" styleClass="hero-name" text=""/>
+          </VBox>
+          <VBox fx:id="resumingRows" spacing="8.0" maxWidth="720.0"/>
+          <Region VBox.vgrow="ALWAYS"/>
+          <HBox alignment="CENTER_LEFT" spacing="12.0">
+            <Label fx:id="resumingSkipped" styleClass="foot-note" text=""/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="btnResumeStop" styleClass="btn-ghost" text="Stop" graphicTextGap="8.0"
+                    prefHeight="34.0" minHeight="34.0"/>
+          </HBox>
+        </VBox>
+      </VBox>
+
+      <!-- ══ 1l · resume done. Auto-returns to the project in 3s. ═════════ -->
+      <VBox fx:id="restoredPane" visible="false" managed="false">
+        <HBox styleClass="strip" alignment="CENTER_LEFT" spacing="14.0"
+              minHeight="44.0" prefHeight="44.0" maxHeight="44.0">
+          <padding><Insets left="22.0" right="22.0"/></padding>
+          <Label styleClass="strip-verb" text="RESTORED"/>
+          <Label fx:id="restoredCount" styleClass="strip-count" text="0 / 0"/>
+          <HBox fx:id="restoredMeter" styleClass="meter-track" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS"
+                minHeight="6.0" prefHeight="6.0" maxHeight="6.0">
+            <Region fx:id="restoredFill" styleClass="meter-fill" maxWidth="-Infinity"
+                    minHeight="6.0" prefHeight="6.0" maxHeight="6.0"/>
+            <Region fx:id="restoredFailFill" styleClass="meter-fail" maxWidth="-Infinity"
+                    minHeight="6.0" prefHeight="6.0" maxHeight="6.0"/>
+          </HBox>
+          <Label fx:id="restoredTook" styleClass="strip-took" text=""/>
+        </HBox>
+        <VBox spacing="20.0" VBox.vgrow="ALWAYS">
+          <padding><Insets top="22.0" right="28.0" bottom="20.0" left="28.0"/></padding>
+          <VBox spacing="0.0">
+            <Label styleClass="hero-word" text="ENVIRONMENT"/>
+            <Label styleClass="hero-name" text="RESTORED"/>
+          </VBox>
+          <Label fx:id="restoredSpec" styleClass="hero-spec" text=""/>
+          <VBox fx:id="restoredRows" spacing="8.0" maxWidth="720.0"/>
+          <Region VBox.vgrow="ALWAYS"/>
+          <HBox fx:id="countdownTrack" styleClass="countdown-track" alignment="CENTER_LEFT" maxWidth="720.0"
+                minHeight="3.0" prefHeight="3.0" maxHeight="3.0">
+            <Region fx:id="countdownFill" styleClass="countdown-fill" maxWidth="-Infinity"
+                    minHeight="3.0" prefHeight="3.0" maxHeight="3.0"/>
+          </HBox>
+          <HBox alignment="CENTER_LEFT" spacing="10.0" maxWidth="720.0">
+            <Label fx:id="restoredNote" styleClass="foot-note" text=""/>
+            <Region HBox.hgrow="ALWAYS"/>
+            <Button fx:id="btnStayHere" styleClass="btn-ghost" text="Stay here"
+                    prefHeight="34.0" minHeight="34.0"/>
+            <Button fx:id="btnOpenProject" styleClass="btn-checkpoint" text="Open project" graphicTextGap="8.0"
+                    prefHeight="34.0" minHeight="34.0"/>
+          </HBox>
+        </VBox>
+      </VBox>
 
       <!-- Scrims: these two sit ON TOP of whichever base view is showing, so they
            must stay last in the StackPane. Per motion-checkpoint, saving is the

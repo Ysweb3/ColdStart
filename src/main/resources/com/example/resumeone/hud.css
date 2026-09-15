@@ -322,6 +322,68 @@
     -fx-stroke-line-join: round;
 }
 
+/* ── 1e resume in progress · 1l resume done ─────────────────────────── */
+.dot-go { -fx-background-color: -rw-go; -fx-background-radius: 999; }
+.title-verb { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-go; }
+.title-name { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx2; }
+
+.strip {
+    -fx-background-color: -rw-g1;
+    -fx-border-color: transparent transparent -rw-ln transparent;
+    -fx-border-width: 0 0 1 0;
+}
+.strip-verb  { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-go; }
+.strip-count { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx; }
+.strip-pct   { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-go; }
+.strip-took  { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
+.meter-track { -fx-background-color: -rw-g3; -fx-background-radius: 3; }
+.meter-fill  { -fx-background-color: -rw-go; -fx-background-radius: 3 0 0 3; }
+.meter-fail  { -fx-background-color: #C0453A; -fx-background-radius: 0 3 3 0; }
+
+.hero-word { -fx-font-family: "Sora ExtraBold"; -fx-font-size: 44px; -fx-text-fill: -rw-tx; }
+.hero-name { -fx-font-family: "Sora ExtraBold"; -fx-font-size: 44px; -fx-text-fill: -rw-go; }
+.hero-spec { -fx-font-family: "Space Mono"; -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+
+/* one launch per row; the row's border carries its state */
+.step-row {
+    -fx-background-color: -rw-g2;
+    -fx-background-radius: 7;
+    -fx-border-color: -rw-ln;
+    -fx-border-radius: 7;
+}
+.step-row:launching {
+    -fx-border-color: #C2540F;
+    -fx-effect: dropshadow(gaussian, -rw-go, 18, 0.0, 0, 0);
+}
+.step-row:failed { -fx-border-color: -rw-bad; }
+.step-label { -fx-font-family: "Space Mono"; -fx-font-size: 13px; -fx-text-fill: -rw-tx; }
+.step-cmd   { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
+.step-row:launching .step-cmd { -fx-text-fill: -rw-go; }
+.step-row:failed    .step-cmd { -fx-text-fill: -rw-bad; }
+
+/* folded groups: queued, the log, launched, handed back */
+.fold-row {
+    -fx-background-color: -rw-g1;
+    -fx-background-radius: 7;
+    -fx-border-color: -rw-ln;
+    -fx-border-radius: 7;
+}
+.fold-title { -fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.fold-meta  { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx2; }
+
+/* 1l keeps every failure visible, on the danger wash, with a Retry */
+.fail-row {
+    -fx-background-color: #26120F;
+    -fx-background-radius: 7;
+    -fx-border-color: -rw-bad;
+    -fx-border-radius: 7;
+}
+.fail-why { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-bad; }
+
+.foot-note { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
+.countdown-track { -fx-background-color: -rw-g3; }
+.countdown-fill  { -fx-background-color: -rw-ck; }
+
 /* clickable affordances */
 .resume, .checkpoint, .side-item, .winctl { -fx-cursor: hand; }
 .resume:hover { -fx-background-color: #FF8C42; }
