@@ -9,6 +9,7 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.scene.text.Font;
+import javafx.scene.input.KeyCode;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -49,9 +50,9 @@ public class HelloApplication extends Application {
             stage.setX(e.getScreenX() - grab[0]);
             stage.setY(e.getScreenY() - grab[1]);
         });
-        root.lookup("#btnMin").setOnMouseClicked(e -> stage.setIconified(true));
-        root.lookup("#btnMax").setOnMouseClicked(e -> stage.setMaximized(!stage.isMaximized()));
-        root.lookup("#btnClose").setOnMouseClicked(e -> stage.close());
+        windowButton(root.lookup("#btnMin"), () -> stage.setIconified(true));
+        windowButton(root.lookup("#btnMax"), () -> stage.setMaximized(!stage.isMaximized()));
+        windowButton(root.lookup("#btnClose"), stage::close);
 
         // ponytail: right/bottom/corner only. Add the other five edges if anyone
         // actually misses them.
@@ -86,6 +87,18 @@ public class HelloApplication extends Application {
         stage.setScene(scene);
         stage.show();
 
+    }
+
+    /** The window buttons are StackPanes; this puts them in the Tab order and on Enter/Space. */
+    private static void windowButton(Node node, Runnable action) {
+        node.setFocusTraversable(true);
+        node.setOnMouseClicked(e -> action.run());
+        node.setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.SPACE) {
+                action.run();
+                e.consume();
+            }
+        });
     }
 
     /** JavaFX CSS silently ignores @font-face, so the bundled faces are registered here

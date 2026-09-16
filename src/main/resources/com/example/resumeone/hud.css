@@ -1,6 +1,6 @@
 /* Resume Work HUD v2 — theme A "slate terminal".
    Ported from claude.ai/design project b78487db, artboard 1b.
-   ponytail: static prototype styling only, no states (hover/pressed/focus). */
+   States: hover on every control, :focus-visible everywhere, no pressed yet. */
 
 /* Sora + Space Mono ship with the app and are registered by
    HelloApplication.loadFonts() — JavaFX CSS has no @font-face. */
@@ -22,6 +22,19 @@
     -rw-live: #8B9E7C;
     -rw-act:  #A8986F;   /* neutral active: every interactive that is not a verb */
     -rw-bad:  #D96C5E;   /* brick-bright: destructive only, per the two-verb rule */
+
+    /* muted TEXT. #6F655C (tx3) is 3.1-3.4:1 on these grounds - fine for a glyph or a dot,
+       under AA for 11px text. One step up clears 4.5:1 on ink-800/900/black. Glyphs keep tx3. */
+    -rw-tx3t: #8E8275;
+
+    /* the rest of the ramps this file reaches for, so no rule carries a bare literal */
+    -rw-go2:      #FF8C42;   /* orange-bright: resume hover */
+    -rw-gop:      #C2540F;   /* orange-pressed: the launching ring */
+    -rw-ck-tint:  #171C23;   /* checkpoint hover ground */
+    -rw-brick:    #C0453A;   /* brick base: the failed fraction of a meter */
+    -rw-bad-fill: #B03D33;   /* brick one rung deeper: #C0453A sits at 4.43:1 under On Danger, just short */
+    -rw-bad-tint: #26120F;   /* the danger wash under a failed row */
+    -rw-on-bad:   #FBEDEA;   /* ink on brick */
 
     -fx-background-color: -rw-g;
     -fx-font-family: "Sora";
@@ -59,11 +72,24 @@
 .dot-live {
     -fx-background-color: -rw-live;
     -fx-background-radius: 999;
-    -fx-effect: dropshadow(gaussian, #8B9E7C, 10, 0.55, 0, 0);
+    -fx-effect: dropshadow(gaussian, -rw-live, 10, 0.55, 0, 0);
 }
 
-/* the ":8765" label turns into "connected" while an extension holds the socket */
-.port-live { -fx-font-size: 11px; -fx-text-fill: -rw-live; -fx-font-family: "Space Mono"; }
+/* tooltips are popups with their own scene; the selector still reaches them */
+.tooltip {
+    -fx-background-color: -rw-g3;
+    -fx-background-radius: 5;
+    -fx-border-color: -rw-ln;
+    -fx-border-radius: 5;
+    -fx-text-fill: -rw-tx;
+    -fx-font-family: "Space Mono";
+    -fx-font-size: 11px;
+    -fx-padding: 5 8 5 8;
+    -fx-effect: none;
+}
+
+/* the ":8765 · no extension" label turns into "connected · brave" while an extension holds the socket */
+.port-live { -fx-font-size: 11px; -fx-text-fill: -rw-live; -fx-font-family: "Space Mono"; -fx-font-weight: bold; }
 
 /* ── sidebar ───────────────────────────────────────────────────────── */
 .sidebar {
@@ -72,7 +98,7 @@
     -fx-border-width: 0 1 0 0;
 }
 .rail-label { -fx-font-size: 10px; -fx-text-fill: -rw-hud; }
-.rail-count { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3; }
+.rail-count { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3t; }
 
 .side-item        { -fx-background-radius: 7; }
 .side-item .label  { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
@@ -83,8 +109,8 @@
     -fx-background-radius: 7, 7;
 }
 .side-item-active .label { -fx-text-fill: -rw-tx; }
-.side-item .side-count { -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
-.side-count           { -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
+.side-item .side-count { -fx-font-size: 11px; -fx-text-fill: -rw-tx3t; }
+.side-count           { -fx-font-size: 11px; -fx-text-fill: -rw-tx3t; }
 
 .sidebar-foot {
     -fx-border-color: -rw-ln transparent transparent transparent;
@@ -101,7 +127,7 @@
 
 /* ── main column ───────────────────────────────────────────────────── */
 .project-name { -fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.project-path { -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
+.project-path { -fx-font-size: 11px; -fx-text-fill: -rw-tx3t; }
 
 /* The signature notched blocks. JavaFX has no clip-path; -fx-shape does it,
    which is why both blocks are pinned to the design's exact pixel size. */
@@ -110,7 +136,8 @@
     -fx-shape: "M0 0 L432 0 L450 18 L450 104 L18 104 L0 86 Z";
 }
 .resume-word { -fx-font-size: 34px; -fx-font-family: "Sora ExtraBold"; -fx-text-fill: -rw-goi; }
-.resume-spec { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-goi; -fx-opacity: 0.68; }
+/* 0.68 composited to 3.9:1; 0.85 clears AA at 5.3:1 and still reads as a sub-line */
+.resume-spec { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-goi; -fx-opacity: 0.85; }
 
 .checkpoint {
     -fx-background-color: -rw-ck, -rw-g2;
@@ -137,7 +164,7 @@
 .cat-label  { -fx-font-size: 10px; -fx-text-fill: -rw-hud; }
 .cat-arg    { -fx-font-size: 10.5px; -fx-text-fill: -rw-live; }
 .cat-more   { -fx-font-size: 10.5px; -fx-text-fill: -rw-tx2; }
-.cat-foot   { -fx-font-size: 11px;   -fx-text-fill: -rw-tx3; }
+.cat-foot   { -fx-font-size: 11px;   -fx-text-fill: -rw-tx3t; }
 
 .chip {
     -fx-background-color: -rw-g3;
@@ -158,7 +185,7 @@
 .shell { -fx-border-color: -rw-ln; -fx-border-width: 1; }
 
 /* ── extras for the wired-up view ─────────────────────────────────── */
-.port { -fx-font-size: 11px; -fx-text-fill: -rw-tx3; -fx-font-family: "Space Mono"; }
+.port { -fx-font-size: 11px; -fx-text-fill: -rw-tx3t; -fx-font-family: "Space Mono"; }
 
 .dot-idle {
     -fx-background-color: -rw-tx3;
@@ -168,7 +195,7 @@
 /* Buttons carry the platform look by default; flatten it back to the design. */
 .button {
     -fx-background-insets: 0;
-    -fx-focus-color: transparent;
+    -fx-focus-color: -rw-act;
     -fx-faint-focus-color: transparent;
     -fx-cursor: hand;
 }
@@ -181,7 +208,7 @@
     -fx-font-size: 13px;
     -fx-text-fill: -rw-tx;
 }
-.btn-checkpoint:hover { -fx-background-color: -rw-hud; -fx-text-fill: #0E0D0C; }
+.btn-checkpoint:hover { -fx-background-color: -rw-hud; -fx-text-fill: -rw-g; }
 
 .btn-secondary-lg {
     -fx-background-color: -rw-g2;
@@ -253,7 +280,7 @@
     -fx-border-color: -rw-ln;
     -fx-border-radius: 7;
     -fx-text-fill: -rw-tx;
-    -fx-prompt-text-fill: -rw-tx3;
+    -fx-prompt-text-fill: -rw-tx3t;
     -fx-font-family: "Space Mono";
     -fx-font-size: 11px;
     -fx-highlight-fill: -rw-ck;
@@ -271,7 +298,7 @@
     -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.55), 28, 0.16, 0, 8);
 }
 .dialog-title { -fx-font-size: 17px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.dialog-sub   { -fx-font-size: 11px; -fx-text-fill: -rw-tx3; -fx-font-family: "Space Mono"; }
+.dialog-sub   { -fx-font-size: 11px; -fx-text-fill: -rw-tx3t; -fx-font-family: "Space Mono"; }
 
 .inset-row {
     -fx-background-color: -rw-g;
@@ -289,14 +316,15 @@
     -fx-text-fill: -rw-hud;
 }
 
+/* rest 5.2:1, hover 5.7:1. Hover brightens and flips to ink - the same move Checkpoint makes. */
 .btn-danger {
-    -fx-background-color: -rw-bad;
+    -fx-background-color: -rw-bad-fill;
     -fx-background-radius: 7;
     -fx-padding: 0 18 0 18;
     -fx-font-size: 13px;
-    -fx-text-fill: #FBEDEA;
+    -fx-text-fill: -rw-on-bad;
 }
-.btn-danger:hover { -fx-background-color: #C0453A; }
+.btn-danger:hover { -fx-background-color: -rw-bad; -fx-text-fill: -rw-goi; }
 
 .btn-ghost {
     -fx-background-color: transparent;
@@ -335,10 +363,10 @@
 .strip-verb  { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-go; }
 .strip-count { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx; }
 .strip-pct   { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-go; }
-.strip-took  { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
+.strip-took  { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx3t; }
 .meter-track { -fx-background-color: -rw-g3; -fx-background-radius: 3; }
 .meter-fill  { -fx-background-color: -rw-go; -fx-background-radius: 3 0 0 3; }
-.meter-fail  { -fx-background-color: #C0453A; -fx-background-radius: 0 3 3 0; }
+.meter-fail  { -fx-background-color: -rw-brick; -fx-background-radius: 0 3 3 0; }
 
 .hero-word { -fx-font-family: "Sora ExtraBold"; -fx-font-size: 44px; -fx-text-fill: -rw-tx; }
 .hero-name { -fx-font-family: "Sora ExtraBold"; -fx-font-size: 44px; -fx-text-fill: -rw-go; }
@@ -352,12 +380,12 @@
     -fx-border-radius: 7;
 }
 .step-row:launching {
-    -fx-border-color: #C2540F;
+    -fx-border-color: -rw-gop;
     -fx-effect: dropshadow(gaussian, -rw-go, 18, 0.0, 0, 0);
 }
 .step-row:failed { -fx-border-color: -rw-bad; }
 .step-label { -fx-font-family: "Space Mono"; -fx-font-size: 13px; -fx-text-fill: -rw-tx; }
-.step-cmd   { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
+.step-cmd   { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx3t; }
 .step-row:launching .step-cmd { -fx-text-fill: -rw-go; }
 .step-row:failed    .step-cmd { -fx-text-fill: -rw-bad; }
 
@@ -373,19 +401,33 @@
 
 /* 1l keeps every failure visible, on the danger wash, with a Retry */
 .fail-row {
-    -fx-background-color: #26120F;
+    -fx-background-color: -rw-bad-tint;
     -fx-background-radius: 7;
     -fx-border-color: -rw-bad;
     -fx-border-radius: 7;
 }
 .fail-why { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-bad; }
 
-.foot-note { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
+.foot-note { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx3t; }
 .countdown-track { -fx-background-color: -rw-g3; }
 .countdown-fill  { -fx-background-color: -rw-ck; }
 
+/* ── keyboard focus ─────────────────────────────────────────────────
+   Active (#A8986F) is the designated focus colour. :focus-visible, not :focused, so a
+   mouse click never paints the ring. A hard 3px dropshadow spread is the one ring that
+   works on every shape here (notched blocks included) without moving layout. */
+.button:focus-visible, .side-item:focus-visible, .resume:focus-visible, .checkpoint:focus-visible,
+.check-box:focus-visible, .text-field:focus-visible, .combo-box:focus-visible {
+    -fx-effect: dropshadow(gaussian, -rw-act, 3, 1.0, 0, 0);
+}
+.winctl:focus-visible {
+    -fx-background-color: -rw-act, -rw-g1;
+    -fx-background-insets: 0, 2;
+    -fx-background-radius: 6, 4;
+}
+
 /* clickable affordances */
 .resume, .checkpoint, .side-item, .winctl { -fx-cursor: hand; }
-.resume:hover { -fx-background-color: #FF8C42; }
-.checkpoint:hover { -fx-background-color: -rw-ck, #171C23; }
+.resume:hover { -fx-background-color: -rw-go2; }
+.checkpoint:hover { -fx-background-color: -rw-ck, -rw-ck-tint; }
 .side-item:hover { -fx-background-color: -rw-g3; }
