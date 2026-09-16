@@ -1,6 +1,6 @@
 package com.example.resumeone;
 
-import java.time.LocalDate;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Date;
@@ -15,7 +15,7 @@ import java.util.HashSet;
  * <pre>
  * {
  *   "projectName":   "ColdStart project",             //primary key
- *   "lastCheckpoint": "2026-09-09",                 // ISO date, shown as "3d" / "2w" in the UI
+ *   "lastCheckpoint": "2026-09-16T14:25:42Z",     // ISO instant (older files: a bare date), shown as "2h" / "3d"
  *   "active":        false,                         // unused; the active project is runtime state
  *   "folderPath":    "C:\...\ResumeOne",           // null when no folder was chosen
  *   "apps":          {"IDE": ["Code.exe"], "AI": ["claude.exe"], ...},   // category -> exe names
@@ -39,7 +39,7 @@ public class Project {
 
 public Project(String projectName,String folderPath, HashMap<String, HashSet<String>> apps,ArrayList<String> urls){
         active = false;
-        lastCheckpoint = LocalDate.now().toString();
+        lastCheckpoint = Instant.now().toString();
         this.projectName = projectName;
         this.folderPath = folderPath;
         this.apps = apps;

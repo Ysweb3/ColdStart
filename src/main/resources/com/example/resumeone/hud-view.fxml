@@ -28,9 +28,9 @@
       styleClass="shell" stylesheets="@hud.css" prefWidth="1000.0" prefHeight="640.0">
 
   <!-- ══ title bar ══════════════════════════════════════════════════ -->
-  <HBox fx:id="titleBar" styleClass="titlebar" alignment="CENTER_LEFT" spacing="10.0"
-        minHeight="38.0" prefHeight="38.0" maxHeight="38.0">
-    <padding><Insets left="12.0" right="8.0"/></padding>
+  <HBox fx:id="titleBar" styleClass="titlebar" alignment="CENTER_LEFT" spacing="8.0"
+        minHeight="40.0" prefHeight="40.0" maxHeight="40.0">
+    <padding><Insets left="16.0" right="8.0"/></padding>
 
     <Pane minWidth="15.0" prefWidth="15.0" maxWidth="15.0" minHeight="15.0" prefHeight="15.0" maxHeight="15.0">
       <Rectangle x="2.34" y="3.05" width="2.16" height="8.91" arcWidth="2.16" arcHeight="2.16" fill="#4B607F"/>
@@ -46,7 +46,7 @@
 
     <!-- 1e/1l: "RESUMING atlas-api" stands in for the port cluster during a run -->
     <HBox fx:id="titleState" alignment="CENTER_LEFT" spacing="8.0" visible="false" managed="false">
-      <HBox.margin><Insets right="14.0"/></HBox.margin>
+      <HBox.margin><Insets right="16.0"/></HBox.margin>
       <Region fx:id="titleStateDot" styleClass="dot-go" minWidth="7.0" prefWidth="7.0" maxWidth="7.0"
               minHeight="7.0" prefHeight="7.0" maxHeight="7.0"/>
       <Label fx:id="titleStateVerb" styleClass="title-verb" text="RESUMING"/>
@@ -54,122 +54,118 @@
     </HBox>
 
     <!-- live once a browser extension holds the socket -->
-    <HBox fx:id="statusBox" alignment="CENTER_LEFT" spacing="7.0">
-      <HBox.margin><Insets right="14.0"/></HBox.margin>
+    <HBox fx:id="statusBox" alignment="CENTER_LEFT" spacing="8.0">
+      <HBox.margin><Insets right="16.0"/></HBox.margin>
       <Region fx:id="statusDot" styleClass="dot-idle" minWidth="9.0" prefWidth="9.0" maxWidth="9.0"
               minHeight="9.0" prefHeight="9.0" maxHeight="9.0"/>
       <Label fx:id="statusLabel" styleClass="port" text=":8765"/>
     </HBox>
 
-    <!-- lucide settings, same native-24 + scale treatment as the trash -->
-    <StackPane fx:id="btnSettings" styleClass="winctl" pickOnBounds="true">
-      <SVGPath styleClass="winctl-glyph" scaleX="0.5833" scaleY="0.5833" content="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z M15 12 A3 3 0 1 1 9 12 A3 3 0 1 1 15 12"/>
-    </StackPane>
-
-    <!-- lucide trash-2, kept in its native 24x24 so it stays diffable against the
-         icon set; scale draws it at 14. Paint + hover live in hud.css. -->
-    <StackPane fx:id="btnDelete" styleClass="winctl" pickOnBounds="true">
-      <SVGPath styleClass="winctl-danger" scaleX="0.5833" scaleY="0.5833"
-               content="M10 11 V17 M14 11 V17 M19 6 V20 A2 2 0 0 1 17 22 H7 A2 2 0 0 1 5 20 V6 M3 6 H21 M8 6 V4 A2 2 0 0 1 10 2 H14 A2 2 0 0 1 16 4 V6"/>
-    </StackPane>
-
-    <!-- the three window buttons are one tight cluster, gap 2 -->
-    <HBox spacing="2.0" alignment="CENTER_LEFT">
+    <!-- the three window buttons are one tight cluster; the 32px boxes carry the gap -->
+    <HBox spacing="0.0" alignment="CENTER_LEFT">
       <StackPane fx:id="btnMin" styleClass="winctl" pickOnBounds="true">
-        <SVGPath content="M0 5 H10" stroke="#6F655C" strokeWidth="1.2"/>
+        <SVGPath styleClass="winctl-glyph,winctl-glyph-sm" content="M0 5 H10"/>
       </StackPane>
       <StackPane fx:id="btnMax" styleClass="winctl" pickOnBounds="true">
-        <SVGPath content="M0.6 0.6 H9.4 V9.4 H0.6 Z" fill="TRANSPARENT" stroke="#6F655C" strokeWidth="1.2"/>
+        <SVGPath styleClass="winctl-glyph,winctl-glyph-sm" content="M0.6 0.6 H9.4 V9.4 H0.6 Z"/>
       </StackPane>
       <StackPane fx:id="btnClose" styleClass="winctl" pickOnBounds="true">
-        <SVGPath content="M0 0 L10 10 M10 0 L0 10" stroke="#6F655C" strokeWidth="1.2" strokeLineCap="ROUND"/>
+        <SVGPath styleClass="winctl-glyph,winctl-glyph-sm" content="M0 0 L10 10 M10 0 L0 10"/>
       </StackPane>
     </HBox>
   </HBox>
 
   <HBox VBox.vgrow="ALWAYS">
 
-    <!-- ══ sidebar ══════════════════════════════════════════════════ -->
-    <VBox styleClass="sidebar" minWidth="212.0" prefWidth="212.0" maxWidth="212.0">
+    <!-- ══ rail (artboards 1e/1h/1i/1l): numbered projects, +, gear ═════ -->
+    <VBox styleClass="rail" alignment="TOP_CENTER" spacing="8.0" minWidth="48.0" prefWidth="48.0" maxWidth="48.0">
+      <padding><Insets top="16.0" bottom="16.0"/></padding>
 
-      <HBox alignment="BOTTOM_LEFT" spacing="8.0">
-        <padding><Insets top="14.0" right="12.0" bottom="8.0" left="12.0"/></padding>
-        <Label styleClass="rail-label" text="PROJECTS"/>
-        <Region HBox.hgrow="ALWAYS"/>
-        <Label fx:id="projectCount" styleClass="rail-count" text="00"/>
-      </HBox>
+      <!-- one 28x28 numbered button per project, built by createProjectUI(); name on hover -->
+      <VBox fx:id="projectList" alignment="TOP_CENTER" spacing="8.0"/>
 
-      <VBox fx:id="projectList" spacing="2.0" VBox.vgrow="ALWAYS">
-        <padding><Insets left="8.0" right="8.0"/></padding>
-      </VBox>
+      <StackPane fx:id="btnNewProjectRail" styleClass="rail-btn" pickOnBounds="true">
+        <SVGPath styleClass="winctl-glyph" scaleX="0.5833" scaleY="0.5833" content="M12 5 V19 M5 12 H19"/>
+      </StackPane>
 
-      <VBox styleClass="sidebar-foot">
-        <padding><Insets top="10.0" right="12.0" bottom="12.0" left="12.0"/></padding>
-        <Button fx:id="btnNewProject" onAction="#onNewProjectClick" styleClass="btn-secondary"
-                text="+   New project" maxWidth="Infinity" prefHeight="34.0" minHeight="34.0"/>
-      </VBox>
+      <!-- the dotted spine from the artboards -->
+      <Region styleClass="rail-spine" minWidth="1.0" prefWidth="1.0" maxWidth="1.0" VBox.vgrow="ALWAYS"/>
+
+      <StackPane fx:id="btnSettings" styleClass="rail-btn" pickOnBounds="true">
+        <SVGPath styleClass="winctl-glyph" scaleX="0.5833" scaleY="0.5833" content="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z M15 12 A3 3 0 1 1 9 12 A3 3 0 1 1 15 12"/>
+      </StackPane>
     </VBox>
 
     <StackPane HBox.hgrow="ALWAYS">
 
       <!-- ══ 1b · a project is selected ═════════════════════════════ -->
       <VBox fx:id="detailPane" spacing="16.0">
-        <padding><Insets top="20.0" right="22.0" bottom="20.0" left="22.0"/></padding>
+        <padding><Insets top="24.0" right="24.0" bottom="24.0" left="24.0"/></padding>
 
-        <VBox spacing="5.0">
-          <Label fx:id="projectNameLabel" styleClass="project-name" text="—"/>
-          <Label fx:id="projectPathLabel" styleClass="project-path" text=""/>
-        </VBox>
+        <HBox alignment="TOP_LEFT" spacing="16.0">
+          <VBox spacing="8.0" HBox.hgrow="ALWAYS">
+            <Label fx:id="projectNameLabel" styleClass="project-name" text="—"/>
+            <Label fx:id="projectPathLabel" styleClass="project-path" text=""/>
+          </VBox>
+          <!-- delete is per project, so it lives on the project, not in the window chrome -->
+          <StackPane fx:id="btnDelete" styleClass="winctl" pickOnBounds="true">
+            <HBox.margin><Insets top="8.0"/></HBox.margin>
+            <SVGPath styleClass="winctl-danger" scaleX="0.5833" scaleY="0.5833" content="M10 11 V17 M14 11 V17 M19 6 V20 A2 2 0 0 1 17 22 H7 A2 2 0 0 1 5 20 V6 M3 6 H21 M8 6 V4 A2 2 0 0 1 10 2 H14 A2 2 0 0 1 16 4 V6"/>
+          </StackPane>
+        </HBox>
 
         <!-- the two verbs: orange is only ever RESUME, slate only ever CHECKPOINT -->
-        <HBox spacing="12.0" minHeight="104.0" prefHeight="104.0" maxHeight="104.0">
+        <HBox spacing="16.0" minHeight="104.0" prefHeight="104.0" maxHeight="104.0">
 
           <HBox fx:id="btnResume" styleClass="resume" alignment="CENTER_LEFT" spacing="16.0"
-                minWidth="380.0" prefWidth="450.0" HBox.hgrow="ALWAYS">
-            <padding><Insets left="22.0" right="22.0"/></padding>
+                minWidth="384.0" prefWidth="448.0" HBox.hgrow="ALWAYS">
+            <padding><Insets left="24.0" right="24.0"/></padding>
             <SVGPath content="M6 4 L25 15 L6 26 Z" fill="#1A0C03" stroke="#1A0C03" strokeWidth="3.0" strokeLineJoin="ROUND"/>
-            <VBox spacing="7.0" alignment="CENTER_LEFT">
+            <VBox spacing="8.0" alignment="CENTER_LEFT">
               <Label styleClass="resume-word" text="RESUME"/>
               <Label fx:id="resumeSpec" styleClass="resume-spec" text=""/>
             </VBox>
           </HBox>
 
-          <HBox fx:id="btnCheckpoint" styleClass="checkpoint" alignment="CENTER_LEFT" spacing="14.0"
-                minWidth="281.0" prefWidth="281.0" maxWidth="281.0">
-            <padding><Insets left="20.0" right="20.0"/></padding>
+          <HBox fx:id="btnCheckpoint" styleClass="checkpoint" alignment="CENTER_LEFT" spacing="16.0"
+                minWidth="280.0" prefWidth="280.0" maxWidth="280.0">
+            <padding><Insets left="24.0" right="24.0"/></padding>
             <SVGPath content="M4 2 H16 V21 L10 16 L4 21 Z M19 4 V10 M16 7 H22"
                      fill="TRANSPARENT" stroke="#E8D8C9" strokeWidth="1.8"
                      strokeLineCap="ROUND" strokeLineJoin="ROUND"/>
-            <VBox spacing="6.0" alignment="CENTER_LEFT">
+            <VBox spacing="8.0" alignment="CENTER_LEFT">
               <Label styleClass="checkpoint-word" text="Checkpoint"/>
               <Label fx:id="checkpointSub" styleClass="checkpoint-sub" text=""/>
             </VBox>
           </HBox>
         </HBox>
 
+        <!-- fills the column, as 1b draws it; a taller window means more tabs shown -->
         <VBox styleClass="card" VBox.vgrow="ALWAYS">
 
-          <HBox styleClass="card-head" alignment="CENTER_LEFT" spacing="10.0">
-            <padding><Insets top="13.0" right="16.0" bottom="13.0" left="16.0"/></padding>
+          <HBox styleClass="card-head" alignment="CENTER_LEFT" spacing="8.0">
+            <padding><Insets top="16.0" right="16.0" bottom="16.0" left="16.0"/></padding>
             <Label styleClass="card-title" text="WHAT GETS SAVED"/>
             <Region HBox.hgrow="ALWAYS"/>
+            <!-- motion-checkpoint: the bar drops in beside the note once per save -->
+            <Region fx:id="saveBar" styleClass="save-bar" minWidth="5.0" prefWidth="5.0" maxWidth="5.0"
+                    minHeight="16.0" prefHeight="16.0" maxHeight="16.0" visible="false" managed="false"/>
             <Label fx:id="capturedNote" styleClass="card-note" text=""/>
           </HBox>
 
           <HBox VBox.vgrow="ALWAYS">
-            <VBox fx:id="categoryRows" HBox.hgrow="ALWAYS" spacing="11.0">
-              <padding><Insets top="14.0" right="16.0" bottom="14.0" left="16.0"/></padding>
+            <VBox fx:id="categoryRows" HBox.hgrow="ALWAYS" spacing="8.0">
+              <padding><Insets top="16.0" right="16.0" bottom="16.0" left="16.0"/></padding>
             </VBox>
 
             <VBox styleClass="tabs-col" spacing="8.0" minWidth="288.0" prefWidth="288.0" maxWidth="288.0">
-              <padding><Insets top="14.0" right="16.0" bottom="14.0" left="16.0"/></padding>
+              <padding><Insets top="16.0" right="16.0" bottom="16.0" left="16.0"/></padding>
               <HBox alignment="BOTTOM_LEFT" spacing="8.0">
                 <Label styleClass="rail-label" text="TABS"/>
                 <Region HBox.hgrow="ALWAYS"/>
                 <Label fx:id="tabsCount" styleClass="rail-count" text="0"/>
               </HBox>
               <VBox fx:id="tabsList" spacing="8.0" VBox.vgrow="ALWAYS"/>
-              <Label styleClass="cat-foot" text="one window per browser"/>
             </VBox>
           </HBox>
         </VBox>
@@ -181,12 +177,10 @@
       <VBox fx:id="emptyPane" alignment="CENTER" spacing="8.0" visible="false" managed="false">
         <padding><Insets left="40.0" right="40.0"/></padding>
 
-        <Label styleClass="card-title" text="PROJECTS · 0"/>
-
         <SVGPath content="M8 3 H28 V33 L18 25 L8 33 Z M33 7 V17 M28 12 H38"
                  fill="TRANSPARENT" stroke="#3A4C66" strokeWidth="2.0"
                  strokeLineCap="ROUND" strokeLineJoin="ROUND">
-          <VBox.margin><Insets top="18.0"/></VBox.margin>
+          <VBox.margin><Insets top="16.0"/></VBox.margin>
         </SVGPath>
         <Label styleClass="empty-title" text="Nothing to resume yet">
           <VBox.margin><Insets top="8.0"/></VBox.margin>
@@ -194,15 +188,14 @@
         <Label styleClass="empty-body" maxWidth="460.0" wrapText="true" textAlignment="CENTER"
                text="Create a project, point it at a folder, and hit Checkpoint when you stop for the day."/>
 
-        <HBox alignment="CENTER" spacing="10.0">
-          <VBox.margin><Insets top="18.0"/></VBox.margin>
+        <HBox alignment="CENTER" spacing="8.0">
+          <VBox.margin><Insets top="16.0"/></VBox.margin>
           <Button fx:id="btnNewProjectEmpty" onAction="#onNewProjectClick" styleClass="btn-checkpoint"
-                  text="+   New project" prefHeight="42.0" minHeight="42.0"/>
-          <Label styleClass="btn-secondary-lg" text="Install the extension" prefHeight="42.0" minHeight="42.0"/>
+                  text="+   New project" prefHeight="40.0" minHeight="40.0"/>
         </HBox>
 
-        <Label styleClass="cat-foot" text="the extension connects on :8765 and records open tabs">
-          <VBox.margin><Insets top="6.0"/></VBox.margin>
+        <Label styleClass="cat-foot" text="install the browser extension to record tabs · it connects on :8765">
+          <VBox.margin><Insets top="8.0"/></VBox.margin>
         </Label>
       </VBox>
 
@@ -210,107 +203,48 @@
       <ScrollPane fx:id="settingsPane" styleClass="settings-scroll" fitToWidth="true" hbarPolicy="NEVER"
                   visible="false" managed="false">
         <VBox spacing="0.0" maxWidth="720.0">
-          <padding><Insets top="24.0" right="28.0" bottom="40.0" left="28.0"/></padding>
+          <padding><Insets top="24.0" right="32.0" bottom="40.0" left="32.0"/></padding>
 
-          <HBox alignment="CENTER_LEFT" spacing="12.0">
+          <HBox alignment="CENTER_LEFT" spacing="16.0">
             <Label styleClass="settings-h1" text="Settings"/>
             <Region HBox.hgrow="ALWAYS"/>
-            <Button fx:id="btnSettingsBack" styleClass="btn-secondary-lg" text="Done"
-                    prefHeight="34.0" minHeight="34.0"/>
+            <Button fx:id="btnSettingsBack" styleClass="btn-ghost" text="Done"
+                    prefHeight="32.0" minHeight="32.0"/>
           </HBox>
 
-          <VBox styleClass="settings-section" spacing="12.0">
-            <VBox.margin><Insets top="22.0"/></VBox.margin>
-            <padding><Insets bottom="20.0"/></padding>
+          <!-- 1h: five switches. None is wired yet, and the screen says so rather than
+               pretending; they are disabled until something reads them. -->
+          <VBox spacing="16.0">
+            <VBox.margin><Insets top="24.0"/></VBox.margin>
             <Label styleClass="rail-label" text="CAPTURE"/>
-            <CheckBox selected="true" text="Capture browser tabs"/>
-            <CheckBox selected="true" text="Capture music and media apps"/>
-            <CheckBox text="Skip apps that are already running on resume"/>
-            <VBox spacing="6.0">
-              <Label styleClass="cat-foot" text="Fallback browser for unidentified tabs"/>
-              <ComboBox promptText="System default" prefWidth="260.0">
-                <items>
-                  <FXCollections fx:factory="observableArrayList">
-                    <String fx:value="System default"/>
-                    <String fx:value="Chrome"/>
-                    <String fx:value="Edge"/>
-                    <String fx:value="Brave"/>
-                  </FXCollections>
-                </items>
-              </ComboBox>
-            </VBox>
+            <CheckBox selected="true" disable="true" text="Capture browser tabs"/>
+            <CheckBox selected="true" disable="true" text="Capture music and media apps"/>
+          </VBox>
+          <VBox spacing="16.0">
+            <VBox.margin><Insets top="24.0"/></VBox.margin>
+            <Label styleClass="rail-label" text="RESUME"/>
+            <CheckBox selected="true" disable="true" text="Reopen browser tabs, one window per browser"/>
+            <CheckBox selected="true" disable="true" text="Continue the Claude session with --continue"/>
+            <CheckBox selected="true" disable="true" text="Skip apps that are already running"/>
+            <Label styleClass="cat-foot" text="these switches are not wired yet · every one behaves as shown"/>
           </VBox>
 
-          <VBox styleClass="settings-section" spacing="10.0">
-            <VBox.margin><Insets top="20.0"/></VBox.margin>
-            <padding><Insets bottom="20.0"/></padding>
-            <Label styleClass="rail-label" text="BROWSER EXTENSION"/>
-            <HBox styleClass="card" alignment="CENTER_LEFT" spacing="14.0">
-              <padding><Insets top="12.0" right="16.0" bottom="12.0" left="16.0"/></padding>
-              <VBox spacing="5.0" HBox.hgrow="ALWAYS">
-                <HBox alignment="CENTER_LEFT" spacing="9.0">
-                  <Region styleClass="dot-live" minWidth="7.0" prefWidth="7.0" maxWidth="7.0"
-                          minHeight="7.0" prefHeight="7.0" maxHeight="7.0"/>
-                  <Label styleClass="checkpoint-sub" text="Brave"/>
-                </HBox>
-                <Label styleClass="cat-foot" text="ws://localhost:8765/ws?browser=brave"/>
-              </VBox>
-              <Label styleClass="btn-secondary-lg" text="Disconnect" prefHeight="30.0" minHeight="30.0"/>
-            </HBox>
-            <HBox styleClass="card" alignment="CENTER_LEFT" spacing="14.0">
-              <padding><Insets top="12.0" right="16.0" bottom="12.0" left="16.0"/></padding>
-              <VBox spacing="5.0" HBox.hgrow="ALWAYS">
-                <HBox alignment="CENTER_LEFT" spacing="9.0">
-                  <Region styleClass="dot-idle" minWidth="7.0" prefWidth="7.0" maxWidth="7.0"
-                          minHeight="7.0" prefHeight="7.0" maxHeight="7.0"/>
-                  <Label styleClass="cat-more" text="Chrome"/>
-                </HBox>
-                <Label styleClass="cat-foot" text="not connected"/>
-              </VBox>
-              <Label styleClass="btn-secondary-lg" text="Install" prefHeight="30.0" minHeight="30.0"/>
-            </HBox>
+          <!-- 1h: three folded lines, read-only, filled from real state by showSettings() -->
+          <VBox fx:id="settingsRows" spacing="8.0">
+            <VBox.margin><Insets top="24.0"/></VBox.margin>
           </VBox>
 
-          <VBox styleClass="settings-section" spacing="10.0">
-            <VBox.margin><Insets top="20.0"/></VBox.margin>
-            <padding><Insets bottom="20.0"/></padding>
-            <Label styleClass="rail-label" text="LOCAL SERVER"/>
-            <HBox spacing="12.0">
-              <VBox spacing="6.0" minWidth="120.0" prefWidth="120.0" maxWidth="120.0">
-                <Label styleClass="cat-foot" text="Port"/>
-                <TextField text="8765"/>
-              </VBox>
-              <VBox spacing="6.0" HBox.hgrow="ALWAYS">
-                <Label styleClass="cat-foot" text="Checkpoint store"/>
-                <TextField text="\%APPDATA%\ResumeWork\projects.json"/>
-              </VBox>
-            </HBox>
-            <Label styleClass="cat-foot" wrapText="true"
-                   text="every project in one file &#183; one writer &#183; rewritten whole on each save"/>
-          </VBox>
-
-          <VBox spacing="10.0">
-            <VBox.margin><Insets top="20.0"/></VBox.margin>
-            <Label styleClass="rail-label" text="IGNORED PROCESSES"/>
-            <FlowPane hgap="7.0" vgap="7.0">
-              <HBox styleClass="chip" alignment="CENTER_LEFT"><padding><Insets top="4.0" right="8.0" bottom="4.0" left="8.0"/></padding><Label text="applicationframehost.exe"/></HBox>
-              <HBox styleClass="chip" alignment="CENTER_LEFT"><padding><Insets top="4.0" right="8.0" bottom="4.0" left="8.0"/></padding><Label text="textinputhost.exe"/></HBox>
-              <HBox styleClass="chip" alignment="CENTER_LEFT"><padding><Insets top="4.0" right="8.0" bottom="4.0" left="8.0"/></padding><Label text="systemsettings.exe"/></HBox>
-              <HBox styleClass="chip" alignment="CENTER_LEFT"><padding><Insets top="4.0" right="8.0" bottom="4.0" left="8.0"/></padding><Label text="shellexperiencehost.exe"/></HBox>
-              <HBox styleClass="chip" alignment="CENTER_LEFT"><padding><Insets top="4.0" right="8.0" bottom="4.0" left="8.0"/></padding><Label text="searchhost.exe"/></HBox>
-              <HBox styleClass="chip" alignment="CENTER_LEFT"><padding><Insets top="4.0" right="8.0" bottom="4.0" left="8.0"/></padding><Label text="lockapp.exe"/></HBox>
-            </FlowPane>
-            <Label styleClass="cat-foot" wrapText="true"
-                   text="Shell surfaces that own a window but are never a tool you opened."/>
-          </VBox>
+          <Label fx:id="settingsFoot" styleClass="cat-foot" text="windows only · nothing syncs">
+            <VBox.margin><Insets top="32.0"/></VBox.margin>
+          </Label>
         </VBox>
       </ScrollPane>
 
       <!-- ══ 1e · resume in progress. Rows are built by renderResuming(). ══ -->
       <VBox fx:id="resumingPane" visible="false" managed="false">
-        <HBox styleClass="strip" alignment="CENTER_LEFT" spacing="14.0"
-              minHeight="44.0" prefHeight="44.0" maxHeight="44.0">
-          <padding><Insets left="22.0" right="22.0"/></padding>
+        <HBox styleClass="strip" alignment="CENTER_LEFT" spacing="16.0"
+              minHeight="48.0" prefHeight="48.0" maxHeight="48.0">
+          <padding><Insets left="24.0" right="24.0"/></padding>
           <Label styleClass="strip-verb" text="LAUNCHING"/>
           <Label fx:id="resumingCount" styleClass="strip-count" text="0 / ?"/>
           <HBox fx:id="resumingMeter" styleClass="meter-track" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS"
@@ -320,28 +254,28 @@
           </HBox>
           <Label fx:id="resumingPct" styleClass="strip-pct" text="0%"/>
         </HBox>
-        <VBox spacing="20.0" VBox.vgrow="ALWAYS">
-          <padding><Insets top="22.0" right="28.0" bottom="20.0" left="28.0"/></padding>
+        <VBox spacing="24.0" VBox.vgrow="ALWAYS">
+          <padding><Insets top="24.0" right="32.0" bottom="24.0" left="32.0"/></padding>
           <VBox spacing="0.0">
             <Label styleClass="hero-word" text="RESUMING"/>
             <Label fx:id="resumingName" styleClass="hero-name" text=""/>
           </VBox>
           <VBox fx:id="resumingRows" spacing="8.0" maxWidth="720.0"/>
           <Region VBox.vgrow="ALWAYS"/>
-          <HBox alignment="CENTER_LEFT" spacing="12.0">
+          <HBox alignment="CENTER_LEFT" spacing="16.0">
             <Label fx:id="resumingSkipped" styleClass="foot-note" text=""/>
             <Region HBox.hgrow="ALWAYS"/>
             <Button fx:id="btnResumeStop" styleClass="btn-ghost" text="Stop" graphicTextGap="8.0"
-                    prefHeight="34.0" minHeight="34.0"/>
+                    prefHeight="32.0" minHeight="32.0"/>
           </HBox>
         </VBox>
       </VBox>
 
       <!-- ══ 1l · resume done. Auto-returns to the project in 3s. ═════════ -->
       <VBox fx:id="restoredPane" visible="false" managed="false">
-        <HBox styleClass="strip" alignment="CENTER_LEFT" spacing="14.0"
-              minHeight="44.0" prefHeight="44.0" maxHeight="44.0">
-          <padding><Insets left="22.0" right="22.0"/></padding>
+        <HBox styleClass="strip" alignment="CENTER_LEFT" spacing="16.0"
+              minHeight="48.0" prefHeight="48.0" maxHeight="48.0">
+          <padding><Insets left="24.0" right="24.0"/></padding>
           <Label styleClass="strip-verb" text="RESTORED"/>
           <Label fx:id="restoredCount" styleClass="strip-count" text="0 / 0"/>
           <HBox fx:id="restoredMeter" styleClass="meter-track" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS"
@@ -353,8 +287,8 @@
           </HBox>
           <Label fx:id="restoredTook" styleClass="strip-took" text=""/>
         </HBox>
-        <VBox spacing="20.0" VBox.vgrow="ALWAYS">
-          <padding><Insets top="22.0" right="28.0" bottom="20.0" left="28.0"/></padding>
+        <VBox spacing="24.0" VBox.vgrow="ALWAYS">
+          <padding><Insets top="24.0" right="32.0" bottom="24.0" left="32.0"/></padding>
           <VBox spacing="0.0">
             <Label styleClass="hero-word" text="ENVIRONMENT"/>
             <Label styleClass="hero-name" text="RESTORED"/>
@@ -367,102 +301,83 @@
             <Region fx:id="countdownFill" styleClass="countdown-fill" maxWidth="-Infinity"
                     minHeight="3.0" prefHeight="3.0" maxHeight="3.0"/>
           </HBox>
-          <HBox alignment="CENTER_LEFT" spacing="10.0" maxWidth="720.0">
+          <HBox alignment="CENTER_LEFT" spacing="8.0" maxWidth="720.0">
             <Label fx:id="restoredNote" styleClass="foot-note" text=""/>
             <Region HBox.hgrow="ALWAYS"/>
             <Button fx:id="btnStayHere" styleClass="btn-ghost" text="Stay here"
-                    prefHeight="34.0" minHeight="34.0"/>
+                    prefHeight="32.0" minHeight="32.0"/>
             <Button fx:id="btnOpenProject" styleClass="btn-checkpoint" text="Open project" graphicTextGap="8.0"
-                    prefHeight="34.0" minHeight="34.0"/>
+                    prefHeight="32.0" minHeight="32.0"/>
           </HBox>
         </VBox>
       </VBox>
 
-      <!-- Scrims: these two sit ON TOP of whichever base view is showing, so they
-           must stay last in the StackPane. Per motion-checkpoint, saving is the
-           one confirmation in the system. -->
-      <VBox fx:id="savingPane" styleClass="scrim" alignment="CENTER" visible="false" managed="false">
-        <VBox styleClass="dialog" alignment="CENTER" spacing="12.0"
-              maxWidth="380.0" maxHeight="232.0">
-          <padding><Insets top="26.0" right="26.0" bottom="20.0" left="26.0"/></padding>
-          <Region styleClass="save-bar" minWidth="7.0" prefWidth="7.0" maxWidth="7.0"
-                  minHeight="40.0" prefHeight="40.0" maxHeight="40.0"/>
-          <Label styleClass="dialog-title" text="Checkpoint saved">
-            <VBox.margin><Insets top="4.0"/></VBox.margin>
-          </Label>
-          <Label fx:id="savingSpec" styleClass="save-stamp" text="0 APPS &#183; 0 TABS"/>
-          <Label fx:id="savingNote" styleClass="cat-foot" text="" visible="false" managed="false"/>
-          <Label styleClass="cat-foot" text="written to %APPDATA%\ResumeWork\projects.json"/>
-          <Button fx:id="btnSavingDone" styleClass="btn-checkpoint" text="Done"
-                  prefHeight="34.0" minHeight="34.0">
-            <VBox.margin><Insets top="6.0"/></VBox.margin>
-          </Button>
-        </VBox>
-      </VBox>
-
+      <!-- Scrims sit ON TOP of whichever base view is showing, so they stay last in the
+           StackPane. Per motion-checkpoint the checkpoint confirmation is not one of them:
+           it is the save-bar dropping into the card head. -->
       <!-- DeleteDialog from the design kit's Dialogs.jsx -->
       <VBox fx:id="deletePane" styleClass="scrim" alignment="CENTER" visible="false" managed="false">
-        <VBox styleClass="dialog" spacing="10.0" maxWidth="440.0" maxHeight="256.0">
-          <padding><Insets top="20.0" right="22.0" bottom="18.0" left="22.0"/></padding>
+        <VBox styleClass="dialog" spacing="8.0" maxWidth="440.0" maxHeight="256.0">
+          <padding><Insets top="24.0" right="24.0" bottom="16.0" left="24.0"/></padding>
           <Label styleClass="dialog-title" text="Delete project?"/>
           <Label styleClass="dialog-sub" text="removes the checkpoint, not the folder"/>
           <Label fx:id="deleteBody" styleClass="empty-body" wrapText="true" maxWidth="400.0">
-            <VBox.margin><Insets top="4.0"/></VBox.margin>
+            <VBox.margin><Insets top="8.0"/></VBox.margin>
           </Label>
           <HBox styleClass="inset-row" alignment="CENTER_LEFT" spacing="8.0">
-            <padding><Insets top="9.0" right="11.0" bottom="9.0" left="11.0"/></padding>
+            <padding><Insets top="8.0" right="8.0" bottom="8.0" left="8.0"/></padding>
             <SVGPath content="M1 3 L6 3 L7.5 4.8 L14 4.8 L14 12.5 L1 12.5 Z" fill="#6F655C"/>
             <Label fx:id="deletePath" styleClass="project-path" text=""/>
           </HBox>
-          <HBox alignment="CENTER_RIGHT" spacing="10.0">
-            <VBox.margin><Insets top="6.0"/></VBox.margin>
+          <HBox alignment="CENTER_RIGHT" spacing="8.0">
+            <VBox.margin><Insets top="8.0"/></VBox.margin>
             <Button fx:id="btnDeleteCancel" styleClass="btn-ghost" text="Cancel"
-                    prefHeight="34.0" minHeight="34.0"/>
-            <Button styleClass="btn-danger" text="Delete" prefHeight="34.0" minHeight="34.0"/>
+                    prefHeight="32.0" minHeight="32.0"/>
+            <Button fx:id="btnDeleteOk" styleClass="btn-danger" text="Delete" prefHeight="32.0" minHeight="32.0"/>
           </HBox>
         </VBox>
       </VBox>
 
       <!-- NewProjectDialog from the design kit's Dialogs.jsx -->
       <VBox fx:id="newProjectPane" styleClass="scrim" alignment="CENTER" visible="false" managed="false">
-        <VBox styleClass="dialog" spacing="15.0" maxWidth="480.0" maxHeight="400.0">
-          <padding><Insets top="20.0" right="22.0" bottom="18.0" left="22.0"/></padding>
+        <VBox styleClass="dialog" spacing="16.0" maxWidth="480.0" maxHeight="400.0">
+          <padding><Insets top="24.0" right="24.0" bottom="16.0" left="24.0"/></padding>
 
-          <VBox spacing="4.0">
+          <VBox spacing="8.0">
             <Label styleClass="dialog-title" text="New project"/>
             <Label styleClass="dialog-sub" text="captures the apps and tabs open right now"/>
           </VBox>
 
-          <VBox spacing="6.0">
+          <VBox spacing="8.0">
             <Label styleClass="cat-foot" text="Project name"/>
             <TextField fx:id="npName" styleClass="input-name" promptText="ledger-api"/>
             <Label styleClass="cat-foot" text="shown in the sidebar &#8212; used as the key in projects.json"/>
           </VBox>
 
-          <VBox spacing="6.0">
+          <VBox spacing="8.0">
             <Label styleClass="cat-foot" text="Project folder"/>
             <HBox styleClass="inset-row" alignment="CENTER_LEFT" spacing="8.0">
-              <padding><Insets top="6.0" right="6.0" bottom="6.0" left="11.0"/></padding>
+              <padding><Insets top="8.0" right="8.0" bottom="8.0" left="8.0"/></padding>
               <SVGPath content="M1 3 L6 3 L7.5 4.8 L14 4.8 L14 12.5 L1 12.5 Z" fill="#6F655C"/>
               <Label fx:id="npFolder" styleClass="project-path" text="no folder chosen"
                      maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
               <Button fx:id="btnNpBrowse" styleClass="btn-ghost" text="Browse"
-                      prefHeight="28.0" minHeight="28.0"/>
+                      prefHeight="32.0" minHeight="32.0"/>
             </HBox>
           </VBox>
 
-          <VBox styleClass="divider-top" spacing="4.0">
-            <padding><Insets top="14.0"/></padding>
+          <VBox styleClass="divider-top" spacing="8.0">
+            <padding><Insets top="16.0"/></padding>
             <CheckBox fx:id="npCapture" selected="true" text="Checkpoint immediately"/>
             <Label styleClass="cat-foot" wrapText="true" maxWidth="420.0"
                    text="records every window with a visible title, plus tabs from connected browsers"/>
           </VBox>
 
-          <HBox alignment="CENTER_RIGHT" spacing="10.0">
+          <HBox alignment="CENTER_RIGHT" spacing="8.0">
             <Button fx:id="btnNpCancel" styleClass="btn-ghost" text="Cancel"
-                    prefHeight="34.0" minHeight="34.0"/>
+                    prefHeight="32.0" minHeight="32.0"/>
             <Button fx:id="btnNpCreate" styleClass="btn-checkpoint" text="Create + checkpoint"
-                    graphicTextGap="8.0" prefHeight="34.0" minHeight="34.0">
+                    graphicTextGap="8.0" prefHeight="32.0" minHeight="32.0">
               <graphic>
                 <SVGPath styleClass="btn-glyph" scaleX="0.5833" scaleY="0.5833" content="M19 21 L12 17 L5 21 V5 A2 2 0 0 1 7 3 H14 A2 2 0 0 1 16 5 V11 M16 9 H22 M19 6 V12"/>
               </graphic>
@@ -473,19 +388,19 @@
 
       <!-- Generic confirm. Copy and the verb button come from confirm() in the controller. -->
       <VBox fx:id="confirmPane" styleClass="scrim" alignment="CENTER" visible="false" managed="false">
-        <VBox styleClass="dialog" spacing="10.0" maxWidth="440.0" maxHeight="230.0">
-          <padding><Insets top="20.0" right="22.0" bottom="18.0" left="22.0"/></padding>
+        <VBox styleClass="dialog" spacing="8.0" maxWidth="440.0" maxHeight="230.0">
+          <padding><Insets top="24.0" right="24.0" bottom="16.0" left="24.0"/></padding>
           <Label fx:id="confirmTitle" styleClass="dialog-title" text=""/>
           <Label fx:id="confirmSub" styleClass="dialog-sub" text=""/>
           <Label fx:id="confirmBody" styleClass="empty-body" wrapText="true" maxWidth="400.0">
-            <VBox.margin><Insets top="4.0"/></VBox.margin>
+            <VBox.margin><Insets top="8.0"/></VBox.margin>
           </Label>
-          <HBox alignment="CENTER_RIGHT" spacing="10.0">
-            <VBox.margin><Insets top="6.0"/></VBox.margin>
+          <HBox alignment="CENTER_RIGHT" spacing="8.0">
+            <VBox.margin><Insets top="8.0"/></VBox.margin>
             <Button fx:id="btnConfirmCancel" styleClass="btn-ghost" text="Cancel"
-                    prefHeight="34.0" minHeight="34.0"/>
+                    prefHeight="32.0" minHeight="32.0"/>
             <Button fx:id="btnConfirmOk" styleClass="btn-checkpoint" text=""
-                    prefHeight="34.0" minHeight="34.0"/>
+                    prefHeight="32.0" minHeight="32.0"/>
           </HBox>
         </VBox>
       </VBox>

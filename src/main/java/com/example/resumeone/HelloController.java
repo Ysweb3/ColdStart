@@ -54,8 +54,9 @@ import java.net.URISyntaxException;
 import java.util.*;
 import java.util.List; // explicit: java.awt.* also exports List
 import java.util.concurrent.ConcurrentHashMap;
+import java.time.Instant;
 import java.time.LocalDate;
-import java.time.temporal.ChronoUnit;
+import java.time.ZoneId;
 
 
 /**
@@ -79,8 +80,6 @@ import java.time.temporal.ChronoUnit;
  * Windows-only: cmd.exe, powershell.exe, reg.exe and %APPDATA% are all assumed.
  */
 public class HelloController {
-    @FXML
-    public Button btnNewProject;
 
     // one extension per browser, each with its own socket: a single field meant the second
     // browser to connect silently replaced the first, and only it ever got the capture push
@@ -92,8 +91,9 @@ public class HelloController {
     // ── HUD v2 (hud-view.fxml). All null when the old hello-view.fxml is loaded,
     //    so every use is guarded by isHud().
     @FXML public VBox detailPane, emptyPane, categoryRows, tabsList;
-    @FXML public VBox savingPane, deletePane, newProjectPane, confirmPane;
-    @FXML public Label savingNote, confirmTitle, confirmSub, confirmBody;
+    @FXML public VBox deletePane, newProjectPane, confirmPane;
+    @FXML public Label confirmTitle, confirmSub, confirmBody;
+    @FXML public Region saveBar;
     @FXML public Button btnConfirmCancel, btnConfirmOk;
     // 1e / 1l (resume in progress, resume done) - see the resume section below
     @FXML public VBox resumingPane, restoredPane, resumingRows, restoredRows;
@@ -117,14 +117,16 @@ public class HelloController {
     @FXML public CheckBox npCapture;
     @FXML public Button btnNpBrowse, btnNpCancel, btnNpCreate;
     @FXML public ScrollPane settingsPane;
-    @FXML public StackPane btnSettings;
-    @FXML public Label savingSpec, deleteBody, deletePath;
-    @FXML public Button btnSavingDone, btnDeleteCancel, btnSettingsBack;
+    @FXML public StackPane btnSettings, btnNewProjectRail;   // the rail's + ; hello-view keeps its own Button
+    @FXML public VBox settingsRows;
+    @FXML public Label settingsFoot;
+    @FXML public Label deleteBody, deletePath;
+    @FXML public Button btnDeleteOk, btnDeleteCancel, btnSettingsBack;
     @FXML public HBox btnResume, btnCheckpoint, statusBox;
     @FXML public StackPane btnDelete;
     @FXML public Region statusDot;
     @FXML public Label projectNameLabel, projectPathLabel, resumeSpec, checkpointSub,
-            capturedNote, projectCount, tabsCount, statusLabel;
+            capturedNote, tabsCount, statusLabel;
 
     /** Hover-only: names the browsers on the socket, so the dot itself stays uncluttered. */
     // built in initialize(), not here: a Tooltip needs the JavaFX toolkit, which the unit tests
@@ -132,7 +134,7 @@ public class HelloController {
     private Tooltip statusTip;
 
     /** Sidebar row per project name, so deleteProject() can be handed the row to remove. */
-    private final Map<String, HBox> rowsByProject = new LinkedHashMap<>();
+    private final Map<String, StackPane> rowsByProject = new LinkedHashMap<>();
 
     /** Folder picked in the legacy dialog; the HUD dialog reads npFolder instead. */
     public String projectFolder;
@@ -159,17 +161,18 @@ public class HelloController {
         if (!isHud()) return;
         clickable(btnResume, this::onResume);
         clickable(btnCheckpoint, this::onCheckpoint);
-        // The delete confirmation is a view now, not an Alert. Its Delete button is
-        // deliberately inert - onDeleteActive() below still holds the working delete and
-        // one setOnAction re-arms it.
         clickable(btnDelete, this::showDeleteView);
-        clickable(btnSettings, () -> showBase(settingsPane));
+        clickable(btnSettings, this::showSettings);
+        clickable(btnNewProjectRail, this::onNewProjectClick);
+        Tooltip.install(btnNewProjectRail, tip("New project"));
+        tabsList.setMinHeight(0);   // never let the tab count push the card taller than the window
+        tabsList.heightProperty().addListener((o, was, now) -> fitTabs());
         // the scene arrives after initialize(); accelerators and Escape hang off it once
         detailPane.sceneProperty().addListener((o, was, scene) -> {
             if (scene != null && was == null) installKeys(scene);
         });
-        btnSavingDone.setOnAction(e -> backToProjects());
         btnDeleteCancel.setOnAction(e -> backToProjects());
+        btnDeleteOk.setOnAction(e -> deleteActive());
         btnSettingsBack.setOnAction(e -> backToProjects());
         btnNpCancel.setOnAction(e -> backToProjects());
         btnConfirmCancel.setOnAction(e -> showOverlay(null));
@@ -268,6 +271,7 @@ public class HelloController {
         if (name.isEmpty()) return;
         String folder = NO_FOLDER.equals(npFolder.getText()) ? null : npFolder.getText();
         Project projectObj = new Project(name, folder, new HashMap<>(), new ArrayList<>());
+        if (!npCapture.isSelected()) projectObj.lastCheckpoint = null;   // "no checkpoint yet" is true
         // createProjectUI -> selectProject -> showBase() clears the overlay for us
         createProjectUI(projectObj, true);
         if (npCapture.isSelected()) {
@@ -336,29 +340,18 @@ public class HelloController {
             projects.add(projectObj);
         }
 
-        HBox row = new HBox(12);
-        row.getStyleClass().add("side-item");
-        row.setAlignment(Pos.CENTER_LEFT);
-        row.setMinHeight(34);
-        row.setPrefHeight(34);
-        row.setPadding(new Insets(0, 10, 0, 10));
-
-        SVGPath folder = new SVGPath();
-        folder.setContent("M1 3 L6 3 L7.5 4.8 L14 4.8 L14 12.5 L1 12.5 Z");
-        folder.setFill(Color.web("#A99B8D"));
-
-        Label name = new Label(projectObj.projectName);
-        name.setMaxWidth(Double.MAX_VALUE);
-        HBox.setHgrow(name, Priority.ALWAYS);
-
-        Label age = new Label(ago(projectObj.lastCheckpoint));
-        age.getStyleClass().add("side-count");
-
-        row.getChildren().addAll(folder, name, age);
+        // a numbered 28x28 rail button; the name and age ride on its tooltip
+        StackPane row = new StackPane(new Label("00"));
+        row.getStyleClass().add("rail-btn");
+        row.setPickOnBounds(true);
+        Tooltip t = tip("");
+        Tooltip.install(row, t);
+        row.getProperties().put("tip", t);
         clickable(row, () -> selectProject(projectObj));
 
         rowsByProject.put(projectObj.projectName, row);
         projectList.getChildren().add(row);
+        railTip(row, projectObj);
 
         if (isHud()) {
             refreshCount();
@@ -371,7 +364,7 @@ public class HelloController {
     // == HUD rendering =====================================================
     //   The centre of the window is a StackPane with two layers:
     //     base views  (detailPane | emptyPane | settingsPane) - exactly one visible
-    //     overlays    (savingPane | deletePane | newProjectPane) - at most one, drawn on top
+    //     overlays    (confirmPane | deletePane | newProjectPane) - at most one, drawn on top
     //   Nothing is created or destroyed; panes are toggled with visible+managed.
 
     // == keyboard ============================================================
@@ -379,13 +372,14 @@ public class HelloController {
     //   Space all land on the same action, and the node is in the Tab order. Focus is shown
     //   only when it came from the keyboard (:focus-visible), the way the web does it.
 
-    private static void clickable(Node node, Runnable action) {
+    private void clickable(Node node, Runnable action) {
         node.setFocusTraversable(true);
         node.setOnMouseClicked(e -> {
             node.requestFocus();
             action.run();
         });
         node.setOnKeyPressed(e -> {
+            if (overlayOpen()) return;
             if (e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.SPACE) {
                 action.run();
                 e.consume();
@@ -418,8 +412,21 @@ public class HelloController {
     }
 
     private boolean overlayOpen() {
-        return confirmPane.isVisible() || newProjectPane.isVisible()
-                || deletePane.isVisible() || savingPane.isVisible();
+        return confirmPane.isVisible() || newProjectPane.isVisible() || deletePane.isVisible();
+    }
+
+    /** 1h: the switches are static; the three lines below them are real. */
+    private void showSettings() {
+        List<String> browsers = wsSessions.stream().map(HelloController::wsBrowser).distinct().sorted().toList();
+        long kb = Math.max(1, projectsFile().length() / 1024);
+        settingsRows.getChildren().setAll(
+                foldRow(ICON_GLOBE, "Browser extensions",
+                        browsers.isEmpty() ? "none connected" : String.join(" \u00b7 ", browsers) + " connected"),
+                foldRow(ICON_APP_WINDOW, "Ignored processes", String.valueOf(IGNORED_WINDOWS.size())),
+                foldRow(ICON_TERMINAL, "Storage", projects.size() + (projects.size() == 1 ? " project" : " projects")
+                        + " \u00b7 " + kb + " KB \u00b7 " + projectsFile().getPath()));
+        showBase(settingsPane);
+        btnSettings.getStyleClass().add("rail-active");
     }
 
     /** detailPane / emptyPane / settingsPane are the base views: exactly one shows. */
@@ -430,6 +437,7 @@ public class HelloController {
         }
         showOverlay(null);
         if (target != resumingPane && target != restoredPane) titleState(null, null, false);
+        if (target != settingsPane) btnSettings.getStyleClass().remove("rail-active");
     }
 
     /** "RESUMING atlas-api" in the title bar; null verb puts the port cluster back. */
@@ -447,12 +455,15 @@ public class HelloController {
         }
     }
 
-    /** savingPane / deletePane / newProjectPane are scrims stacked over whichever base is showing. */
+    /** confirmPane / deletePane / newProjectPane are scrims stacked over whichever base is showing.
+        Focus follows the scrim onto its safe button, so Enter cannot re-fire whatever opened it. */
     private void showOverlay(Node target) {
-        for (Node pane : List.of(savingPane, deletePane, newProjectPane, confirmPane)) {
+        for (Node pane : List.of(deletePane, newProjectPane, confirmPane)) {
             pane.setVisible(pane == target);
             pane.setManaged(pane == target);
         }
+        if (target == deletePane) btnDeleteCancel.requestFocus();
+        else if (target == confirmPane) btnConfirmCancel.requestFocus();
     }
 
     private void backToProjects() {
@@ -465,23 +476,36 @@ public class HelloController {
 
     private void showDeleteView() {
         if (activeProject == null) return;
+        deleteBody.setText(activeProject.projectName + " and its saved environment are dropped "
+                + "from projects.json. Your files stay exactly where they are.");
         deletePath.setText(activeProject.folderPath == null ? "no folder" : activeProject.folderPath);
         showOverlay(deletePane);
     }
 
+    /** Numbers the rail 01, 02, 03 ... in list order; deletion shifts the numbers down. */
     private void refreshCount() {
-        projectCount.setText(String.format("%02d", projects.size()));
+        int n = 0;
+        for (Node b : projectList.getChildren()) {
+            ((Label) ((StackPane) b).getChildren().get(0)).setText(String.format("%02d", ++n));
+        }
+    }
+
+    private void railTip(StackPane row, Project projectObj) {
+        String age = ago(projectObj.lastCheckpoint);
+        Tooltip t = (Tooltip) row.getProperties().get("tip");
+        t.setText(projectObj.projectName + " \u00b7 " + ("never".equals(age) ? "no checkpoint yet" : "checkpoint " + when(age)));
     }
 
     /** Highlights the sidebar row, makes it the active project and draws its card. */
     private void selectProject(Project projectObj) {
         activeProject = projectObj;
         rowsByProject.forEach((n, r) -> {
-            r.getStyleClass().remove("side-item-active");
+            r.getStyleClass().remove("rail-active");
             if (n.equals(projectObj.projectName)) {
-                r.getStyleClass().add("side-item-active");
+                r.getStyleClass().add("rail-active");
             }
         });
+        btnSettings.getStyleClass().remove("rail-active");
         showEmpty(false);
         renderDetail(projectObj);
     }
@@ -498,14 +522,12 @@ public class HelloController {
         int tabs = countTabs(projectObj);
 
         resumeSpec.setText(apps + " APPS \u00b7 " + tabs + " TABS \u00b7 "
-                + (projectObj.folderPath == null ? 0 : 1) + " FOLDER");
+                + (projectObj.folderPath == null ? "NO FOLDER" : "1 FOLDER"));
+        btnResume.setDisable(apps == 0 && tabs == 0);
         String age = ago(projectObj.lastCheckpoint);
         checkpointSub.setText("never".equals(age) ? "no checkpoint yet" : "overwrite \u00b7 " + when(age));
-        capturedNote.setText("never".equals(age) ? "" : "captured " + when(age));
+        capturedNote.setText("");   // the age is on the Checkpoint block; the note's moment is the saved stamp
         tabsCount.setText(String.valueOf(tabs));
-        // tabs land after the capture push returns, so the saving stamp is refreshed here
-        // rather than read once at checkpoint time
-        savingSpec.setText(apps + " APPS \u00b7 " + tabs + " TABS");
 
         renderCategories(projectObj);
         renderTabs(projectObj);
@@ -525,7 +547,7 @@ public class HelloController {
             HashSet<String> bucket = projectObj.apps.get(category);
             if (bucket == null || bucket.isEmpty()) continue;
 
-            HBox labelBox = new HBox(6);
+            HBox labelBox = new HBox(8);
             labelBox.setAlignment(Pos.CENTER_LEFT);
             labelBox.setMinWidth(96);
             labelBox.setPrefWidth(96);
@@ -533,13 +555,13 @@ public class HelloController {
             labelBox.getChildren().addAll(categoryIcon(category),
                     styled(new Label(categoryLabel(category)), "cat-label"));
 
-            HBox chips = new HBox(5);
+            HBox chips = new HBox(8);
             chips.setAlignment(Pos.CENTER_LEFT);
             for (String app : new TreeSet<>(bucket)) {
                 chips.getChildren().add(chip(app));
             }
 
-            HBox row = new HBox(10);
+            HBox row = new HBox(8);
             row.setAlignment(Pos.CENTER_LEFT);
             row.getChildren().addAll(labelBox, chips);
 
@@ -576,10 +598,11 @@ public class HelloController {
         return null;
     }
 
-    private static final int TABS_SHOWN = 3;
+    /** Every header and tab row, in order; fitTabs() decides how many the column shows. */
+    private final List<Node> tabRows = new ArrayList<>();
 
     private void renderTabs(Project projectObj) {
-        tabsList.getChildren().clear();
+        tabRows.clear();
         projectObj.urlsByBrowser.forEach((browser, urls) -> {
             HBox head = new HBox(8);
             head.setAlignment(Pos.CENTER_LEFT);
@@ -588,33 +611,82 @@ public class HelloController {
             dot.setMinSize(5, 5);
             dot.setPrefSize(5, 5);
             dot.setMaxSize(5, 5);
-            head.getChildren().addAll(dot, styled(new Label(browser), "browser-name"),
-                    styled(new Label(String.valueOf(urls.size())), "side-count"));
-            tabsList.getChildren().add(head);
+            Label name = styled(new Label(browserLabel(browser)), "browser-name");
+            Tooltip.install(name, tip("one window per browser on resume"));
+            head.getChildren().addAll(dot, name, styled(new Label(String.valueOf(urls.size())), "side-count"));
+            tabRows.add(head);
 
-            urls.stream().limit(TABS_SHOWN).forEach(url -> {
-                Label item = styled(new Label(tidy(url)), "tab-title");
+            for (String url : urls) {
+                // the site is what you scan by; the whole url is one hover away
+                Label item = styled(new Label(site(url)), "tab-title");
                 item.setMaxWidth(256);
                 item.setTextOverrun(OverrunStyle.ELLIPSIS);
-                tabsList.getChildren().add(item);
-            });
-            if (urls.size() > TABS_SHOWN) {
-                tabsList.getChildren().add(styled(
-                        new Label((urls.size() - TABS_SHOWN) + " more"), "cat-more"));
+                item.getProperties().put("tab", Boolean.TRUE);
+                Tooltip.install(item, tip(url));
+                tabRows.add(item);
             }
         });
+        fitTabs();
     }
 
-    private static String tidy(String url) {
-        return url.replaceFirst("^https?://", "");
+    /** Shows as many rows as the column has room for; whatever is left folds into one
+        "+N more" line, and only then. Re-run from the column's height listener on resize. */
+    private boolean fitting;
+
+    private void fitTabs() {
+        if (fitting) return;
+        fitting = true;
+        try {
+            tabsList.getChildren().setAll(tabRows);
+            double avail = tabsList.getHeight();
+            if (avail <= 0) return;                     // not laid out yet; the listener returns here
+            double gap = tabsList.getSpacing();
+            double moreLine = 17 + gap;                 // room kept for the "+N more" row
+            double used = 0;
+            int shown = 0;
+            for (int i = 0; i < tabRows.size(); i++) {
+                double h = tabRows.get(i).prefHeight(-1);
+                if (h <= 0) h = 17;
+                boolean last = i == tabRows.size() - 1;
+                double need = used + (shown > 0 ? gap : 0) + h + (last ? 0 : moreLine);
+                if (need > avail) break;
+                used += (shown > 0 ? gap : 0) + h;
+                shown++;
+            }
+            if (shown == tabRows.size()) return;
+            long hidden = tabRows.subList(shown, tabRows.size()).stream()
+                    .filter(n -> n.getProperties().containsKey("tab")).count();
+            List<Node> visible = new ArrayList<>(tabRows.subList(0, shown));
+            visible.add(styled(new Label("+" + hidden + " more"), "cat-more"));
+            tabsList.getChildren().setAll(visible);
+        } finally {
+            fitting = false;
+        }
+    }
+
+    /** "brave" -> "Brave": extension brands arrive in whatever case the browser reports. */
+    static String browserLabel(String browser) {
+        return browser.isEmpty() ? browser : Character.toUpperCase(browser.charAt(0)) + browser.substring(1);
+    }
+
+    /** A page someone might want back. chrome://newtab and friends are the browser's own. */
+    static boolean isPageUrl(String url) {
+        return url != null && !url.matches("(?i)^(chrome|edge|brave|opera|about|chrome-extension|devtools|view-source):.*");
+    }
+
+    /** "github.com" from "https://www.github.com/atlas-api/pull/42". */
+    static String site(String url) {
+        String s = url.replaceFirst("^[a-zA-Z][a-zA-Z0-9+.-]*://", "").replaceFirst("^www\\.", "");
+        int cut = s.indexOf('/');
+        return cut < 0 ? s : s.substring(0, cut);
     }
 
     private static HBox chip(String app) {
         HBox chip = new HBox();
         chip.getStyleClass().add("chip");
         chip.setAlignment(Pos.CENTER_LEFT);
-        chip.setMinHeight(26);
-        chip.setPrefHeight(26);
+        chip.setMinHeight(24);
+        chip.setPrefHeight(24);
         chip.setPadding(new Insets(0, 8, 0, 8));
         chip.getChildren().add(new Label(app));
         return chip;
@@ -642,29 +714,45 @@ public class HelloController {
         return t;
     }
 
-    /** "today" or "3d ago": ago() as a phrase, for the copy that follows a verb. */
+    /** "just now" or "3d ago": ago() as a phrase, for the copy that follows a verb. */
     static String when(String age) {
-        return "today".equals(age) ? "today" : age + " ago";
+        return "just now".equals(age) || "never".equals(age) ? age : age + " ago";
     }
 
-    /** "today", "3d", "2w", "5mo" - the sidebar and the checkpoint block both read this. */
-    static String ago(String isoDate) {
-        if (isoDate == null || isoDate.isBlank()) return "never";
+    /** How long since an ISO timestamp; older files hold a bare date, read as that day's start. */
+    static java.time.Duration since(String iso) {
+        if (iso == null || iso.isBlank()) return null;
         try {
-            long days = ChronoUnit.DAYS.between(LocalDate.parse(isoDate), LocalDate.now());
-            if (days <= 0) return "today";
-            if (days < 7) return days + "d";
-            if (days < 30) return (days / 7) + "w";
-            return (days / 30) + "mo";
-        } catch (RuntimeException e) {
-            return isoDate;
+            return java.time.Duration.between(Instant.parse(iso), Instant.now());
+        } catch (RuntimeException notAnInstant) {
+            try {
+                Instant day = LocalDate.parse(iso).atStartOfDay(ZoneId.systemDefault()).toInstant();
+                return java.time.Duration.between(day, Instant.now());
+            } catch (RuntimeException e) {
+                return null;
+            }
         }
+    }
+
+    /** "just now", "4m", "2h", "3d", "2w", "5mo" - the sidebar and the checkpoint block both read this. */
+    static String ago(String iso) {
+        java.time.Duration d = since(iso);
+        if (d == null) return iso == null || iso.isBlank() ? "never" : iso;
+        long m = Math.max(0, d.toMinutes());
+        if (m < 1) return "just now";
+        if (m < 60) return m + "m";
+        long h = m / 60;
+        if (h < 24) return h + "h";
+        long days = h / 24;
+        if (days < 7) return days + "d";
+        if (days < 30) return (days / 7) + "w";
+        return (days / 30) + "mo";
     }
 
     // == HUD actions =======================================================
     //   Resume     -> onResume     -> resumeProject
     //   Checkpoint -> onCheckpoint -> re-capture apps, ask extensions for tabs, save
-    //   Trash      -> showDeleteView (confirm scrim); onDeleteActive holds the actual delete
+    //   Trash      -> showDeleteView (confirm scrim) -> deleteActive
 
     // == resume: 1e in progress -> 1l done ==================================
     //   onResume runs planResume() on a worker thread, one LaunchStep per LAUNCH_GAP_MS. Every
@@ -676,7 +764,7 @@ public class HelloController {
     static final long LAUNCH_GAP_MS = 750;
 
     private void onResume() {
-        if (activeProject == null || resuming) return;
+        if (activeProject == null || resuming || btnResume.isDisabled()) return;
         resuming = true;
         stopRequested = false;
         ResumeRun r = new ResumeRun(activeProject);
@@ -728,12 +816,21 @@ public class HelloController {
         new Timeline(new KeyFrame(Duration.millis(220), new KeyValue(resumingFrac, frac, EASE_OUT))).play();
 
         resumingRows.getChildren().clear();
+        // done steps fold into one line so the list is bounded: launched, the one launching,
+        // any failures, queued, log - and Stop stays on screen however many apps there are
+        List<String> done = new ArrayList<>();
         List<String> queued = new ArrayList<>();
         for (LaunchStep step : r.plan.steps()) {
-            if (step.state == LaunchStep.State.QUEUED) {
-                queued.add(step.label);
-            } else {
-                resumingRows.getChildren().add(stepRow(step));
+            if (step.state == LaunchStep.State.DONE) done.add(step.label);
+        }
+        if (!done.isEmpty()) {
+            resumingRows.getChildren().add(foldRow(ICON_CHECK, done.size() + " launched", names(done)));
+        }
+        for (LaunchStep step : r.plan.steps()) {
+            switch (step.state) {
+                case QUEUED -> queued.add(step.label);
+                case DONE -> { }
+                default -> resumingRows.getChildren().add(stepRow(step));
             }
         }
         if (!queued.isEmpty()) {
@@ -839,15 +936,14 @@ public class HelloController {
         Label t = styled(new Label(title), "fold-title");
         t.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(t, Priority.ALWAYS);
-        row.getChildren().addAll(icon(ICON_CHEVRON, 13, HUD), icon(iconPath, 14, TX3), t,
-                styled(new Label(meta), "fold-meta"));
+        row.getChildren().addAll(icon(iconPath, 14, TX3), t, styled(new Label(meta), "fold-meta"));
         return row;
     }
 
     private HBox failRow(ResumeRun r, LaunchStep step) {
         HBox row = rowShell("fail-row");
-        row.setMinHeight(54);
-        row.setPrefHeight(54);
+        row.setMinHeight(56);
+        row.setPrefHeight(56);
         Label why = styled(new Label("failed to launch"), "fail-why");
         why.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(why, Priority.ALWAYS);
@@ -860,12 +956,12 @@ public class HelloController {
     }
 
     private static HBox rowShell(String styleClass) {
-        HBox row = new HBox(10);
+        HBox row = new HBox(8);
         row.getStyleClass().add(styleClass);
         row.setAlignment(Pos.CENTER_LEFT);
-        row.setMinHeight(46);
-        row.setPrefHeight(46);
-        row.setPadding(new Insets(0, 16, 0, 12));
+        row.setMinHeight(48);
+        row.setPrefHeight(48);
+        row.setPadding(new Insets(0, 16, 0, 16));
         return row;
     }
 
@@ -927,32 +1023,33 @@ public class HelloController {
         // replaced; today's, or an empty one, just overwrites.
         String age = ago(projectObj.lastCheckpoint);
         int apps = countApps(projectObj), tabs = countTabs(projectObj);
-        boolean worthAsking = !"today".equals(age) && !"never".equals(age) && (apps > 0 || tabs > 0);
+        java.time.Duration d = since(projectObj.lastCheckpoint);
+        boolean worthAsking = d != null && d.toHours() >= 24 && (apps > 0 || tabs > 0);
         if (!worthAsking) {
             writeCheckpoint(projectObj);
             return;
         }
         confirm("Checkpoint again?",
                 "checkpoint " + when(age) + " \u00b7 " + apps + " apps \u00b7 " + tabs + " tabs",
-                "What is open right now replaces the checkpoint from " + age
-                        + " ago. Tabs from browsers that are not connected are kept.",
+                "What is open right now replaces the checkpoint from " + when(age)
+                        + ". Tabs from browsers that are not connected are kept.",
                 "Overwrite", () -> writeCheckpoint(projectObj));
     }
 
     private void writeCheckpoint(Project projectObj) {
-        // Only a browser holding the socket can answer the capture push, so only its bucket is
-        // dropped for re-posting. Anything else keeps its saved tabs: a wiped bucket nobody
-        // could refill is data loss, a stale one from a closed browser is merely stale.
+        // No bucket is ever dropped here: a browser that answers the capture push overwrites its
+        // own bucket in POST /tabs, and one that does not answer (asleep worker, dead socket,
+        // closed) keeps what it had. Stale beats gone. The note names the ones that kept.
         Set<String> connected = new HashSet<>();
         for (WsContext session : wsSessions) {
             String b = wsBrowser(session);
             connected.add("unknown browser".equals(b) ? DEFAULT_BROWSER : b);
         }
-        List<String> kept = keepUnconnectedTabs(projectObj.urlsByBrowser, connected);
+        List<String> kept = unconnectedWithTabs(projectObj.urlsByBrowser, connected);
         wsSessions.forEach(session -> session.send("capture"));
         try {
             projectObj.apps = segregateApps(captureRunningApps());
-            projectObj.lastCheckpoint = LocalDate.now().toString();
+            projectObj.lastCheckpoint = Instant.now().toString();
             saveProject(projectObj);
         } catch (IOException ex) {
             // the card must not claim "saved" over a write that did not happen
@@ -961,27 +1058,45 @@ public class HelloController {
                     "Retry", () -> writeCheckpoint(projectObj));
             return;
         }
-        HBox row = rowsByProject.get(projectObj.projectName);
-        if (row != null) ((Label) row.getChildren().get(2)).setText(ago(projectObj.lastCheckpoint));
+        StackPane row = rowsByProject.get(projectObj.projectName);
+        if (row != null) railTip(row, projectObj);
 
         String note = kept.isEmpty() ? ""
-                : connected.isEmpty() ? "tabs kept from last checkpoint \u00b7 no extension connected"
-                : "tabs kept for " + String.join(" \u00b7 ", kept) + " \u00b7 not connected";
-        savingNote.setText(note);
-        savingNote.setVisible(!note.isEmpty());
-        savingNote.setManaged(!note.isEmpty());
-        showOverlay(savingPane);
+                : connected.isEmpty() ? " \u00b7 tabs kept \u00b7 no extension connected"
+                : " \u00b7 tabs kept for " + String.join(" \u00b7 ", kept);
         renderDetail(projectObj);
+        stampSaved(countApps(projectObj) + " apps \u00b7 " + countTabs(projectObj) + " tabs" + note);
     }
 
-    /** Drops the buckets a connected browser is about to re-post; returns the browsers whose
-        saved tabs were kept because nobody on the socket could refill them. */
-    static List<String> keepUnconnectedTabs(Map<String, ArrayList<String>> urlsByBrowser, Set<String> connected) {
+    /** motion-checkpoint: the bar drops into the card head, the note goes slate for a beat,
+        then both settle. Fires once per save; never on hover, never on load. */
+    private void stampSaved(String stamp) {
+        capturedNote.setText("checkpoint saved \u00b7 " + stamp);
+        capturedNote.getStyleClass().setAll("card-note-saved");
+        saveBar.setVisible(true);
+        saveBar.setManaged(true);
+        saveBar.setTranslateY(-18);
+        // a small overshoot, like a bookmark seating - the one snap in the system
+        new Timeline(
+                new KeyFrame(Duration.millis(300), new KeyValue(saveBar.translateYProperty(), 2, EASE_OUT)),
+                new KeyFrame(Duration.millis(400), new KeyValue(saveBar.translateYProperty(), 0))).play();
+        PauseTransition hold = new PauseTransition(Duration.millis(2800));
+        hold.setOnFinished(e -> {
+            saveBar.setVisible(false);
+            saveBar.setManaged(false);
+            capturedNote.getStyleClass().setAll("card-note");
+            if (activeProject != null) renderDetail(activeProject);
+        });
+        hold.play();
+    }
+
+    /** The browsers whose saved tabs will survive this checkpoint untouched, because nobody on
+        the socket is about to re-post them. Read-only: nothing is dropped. */
+    static List<String> unconnectedWithTabs(Map<String, ArrayList<String>> urlsByBrowser, Set<String> connected) {
         List<String> kept = new ArrayList<>();
         urlsByBrowser.forEach((browser, urls) -> {
             if (!connected.contains(browser) && !urls.isEmpty()) kept.add(browser);
         });
-        urlsByBrowser.keySet().removeIf(connected::contains);
         return kept;
     }
 
@@ -998,19 +1113,15 @@ public class HelloController {
         showOverlay(confirmPane);
     }
 
-    private void onDeleteActive() {
+    private void deleteActive() {
         if (activeProject == null) return;
         Project projectObj = activeProject;
-        Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                "Delete " + projectObj.projectName + "? The folder and its files are not touched.",
-                ButtonType.CANCEL, ButtonType.OK);
-        confirm.setHeaderText(null);
-        if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) return;
-
         try {
             deleteProject(projectObj, rowsByProject.remove(projectObj.projectName));
         } catch (IOException ex) {
-            throw new RuntimeException(ex);
+            confirm("Project not deleted", projectsFile().getPath(),
+                    "Nothing changed on disk. " + ex.getMessage(), "Retry", this::deleteActive);
+            return;
         }
         refreshCount();
         if (projects.isEmpty()) {
@@ -1121,7 +1232,7 @@ public class HelloController {
             Map.entry("Communication", List.of("discord.exe", "slack.exe", "teams.exe", "ms-teams.exe",
                     "Zoom.exe", "Telegram.exe", "WhatsApp.exe", "Signal.exe", "Skype.exe", "Element.exe")),
             Map.entry("Notes", List.of("notion.exe", "obsidian.exe", "onenote.exe", "Logseq.exe",
-                    "Typora.exe", "Joplin.exe", "anytype.exe")),
+                    "Typora.exe", "Joplin.exe", "anytype.exe", "notepad.exe")),
             Map.entry("Music", List.of("spotify.exe", "amazonmusic.exe", "AppleMusic.exe", "Tidal.exe",
                     "MusicBee.exe", "foobar2000.exe", "vlc.exe"))
     );
@@ -1186,7 +1297,7 @@ public class HelloController {
                 StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     }
 
-    public void deleteProject(Project projectObj, HBox projectRow) throws IOException {
+    public void deleteProject(Project projectObj, Node projectRow) throws IOException {
         removeByName(projects, projectObj.projectName);
 
         ArrayList<Project> onDisk = getProjectsJson();
@@ -1269,6 +1380,8 @@ public class HelloController {
         if (projectObj.urlsByBrowser.isEmpty() && projectObj.urls != null && !projectObj.urls.isEmpty()) {
             projectObj.urlsByBrowser.put(DEFAULT_BROWSER, new ArrayList<>(projectObj.urls));
         }
+        // files saved before the filter existed still hold chrome://newtab and the like
+        projectObj.urlsByBrowser.values().forEach(urls -> urls.removeIf(u -> !isPageUrl(u)));
     }
 
     // reg prints "    (Default)    REG_SZ    C:\Program Files\...\chrome.exe" - the path holds
@@ -1577,7 +1690,7 @@ public class HelloController {
                 // browser is absent when getBrowserFromBrands() recognises no brand
                 activeProject.urlsByBrowser.put(
                         browser != null ? browser.toString() : DEFAULT_BROWSER,
-                        new ArrayList<>(incoming));
+                        new ArrayList<>(incoming.stream().filter(HelloController::isPageUrl).toList()));
                 saveProject(activeProject);
                 // tabs arrive after the checkpoint button has already returned, so the
                 // card has to be redrawn off the javalin thread

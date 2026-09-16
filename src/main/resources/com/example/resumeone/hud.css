@@ -55,9 +55,9 @@
 }
 .wordmark      { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .wordmark-dot  { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-go; }
-/* 28x28 hit box per the design; the glyph inside is an SVGPath in the FXML */
-.winctl { -fx-min-width: 28; -fx-pref-width: 28; -fx-max-width: 28;
-          -fx-min-height: 28; -fx-pref-height: 28; -fx-max-height: 28; }
+/* 32x32 hit box on the 8 grid; the glyph inside is an SVGPath in the FXML */
+.winctl { -fx-min-width: 32; -fx-pref-width: 32; -fx-max-width: 32;
+          -fx-min-height: 32; -fx-pref-height: 32; -fx-max-height: 32; }
 
 /* Lucide stroke icon: 1.75 in the 24-unit box, so ~1.02 once scaled to 14. */
 .winctl-glyph, .winctl-danger {
@@ -67,7 +67,9 @@
     -fx-stroke-line-cap: round;
     -fx-stroke-line-join: round;
 }
+.winctl-glyph-sm { -fx-stroke-width: 1.2; }
 .winctl:hover .winctl-danger { -fx-stroke: -rw-bad; }
+.empty-glyph { -fx-fill: transparent; -fx-stroke: -rw-ck; -fx-stroke-width: 2; -fx-stroke-line-cap: round; -fx-stroke-line-join: round; }
 
 .dot-live {
     -fx-background-color: -rw-live;
@@ -84,38 +86,39 @@
     -fx-text-fill: -rw-tx;
     -fx-font-family: "Space Mono";
     -fx-font-size: 11px;
-    -fx-padding: 5 8 5 8;
+    -fx-padding: 4 8 4 8;   /* the one sub-8 padding: a transient overlay */
     -fx-effect: none;
 }
 
 /* the ":8765 · no extension" label turns into "connected · brave" while an extension holds the socket */
 .port-live { -fx-font-size: 11px; -fx-text-fill: -rw-live; -fx-font-family: "Space Mono"; -fx-font-weight: bold; }
 
-/* ── sidebar ───────────────────────────────────────────────────────── */
-.sidebar {
+/* ── rail ──────────────────────────────────────────────────────────── */
+.rail {
     -fx-background-color: -rw-g1;
     -fx-border-color: transparent -rw-ln transparent transparent;
     -fx-border-width: 0 1 0 0;
 }
-.rail-label { -fx-font-size: 10px; -fx-text-fill: -rw-hud; }
+.rail-label { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-hud; }
 .rail-count { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3t; }
-
-.side-item        { -fx-background-radius: 7; }
-.side-item .label  { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
-/* active row: bone bar painted under a 2px-left-inset panel */
-.side-item-active {
-    -fx-background-color: -rw-tx, -rw-g3;
-    -fx-background-insets: 0, 0 0 0 2;
-    -fx-background-radius: 7, 7;
+/* a 32x32 numbered button; the active project carries the orange ring from the artboards */
+.rail-btn {
+    -fx-min-width: 32; -fx-pref-width: 32; -fx-max-width: 32;
+    -fx-min-height: 32; -fx-pref-height: 32; -fx-max-height: 32;
+    -fx-background-color: -rw-ln, -rw-g1;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 6, 5;
+    -fx-cursor: hand;
 }
-.side-item-active .label { -fx-text-fill: -rw-tx; }
-.side-item .side-count { -fx-font-size: 11px; -fx-text-fill: -rw-tx3t; }
-.side-count           { -fx-font-size: 11px; -fx-text-fill: -rw-tx3t; }
+.rail-btn .label { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-tx2; }
+.rail-btn:hover { -fx-background-color: -rw-ln2, -rw-g2; }
+.rail-btn:hover .label { -fx-text-fill: -rw-tx; }
+.rail-active { -fx-background-color: -rw-go, -rw-g1; }
+.rail-active .label { -fx-text-fill: -rw-tx; }
+.rail-active .winctl-glyph { -fx-stroke: -rw-tx; }
+.rail-spine { -fx-border-color: transparent transparent transparent -rw-ln; -fx-border-width: 0 0 0 1; -fx-border-style: dotted; }
+.rail-btn:focus-visible { -fx-background-color: -rw-act, -rw-g1; }
 
-.sidebar-foot {
-    -fx-border-color: -rw-ln transparent transparent transparent;
-    -fx-border-width: 1 0 0 0;
-}
 .btn-secondary {
     -fx-background-color: -rw-g2;
     -fx-background-radius: 7;
@@ -204,7 +207,7 @@
 .btn-checkpoint {
     -fx-background-color: -rw-ck;
     -fx-background-radius: 7;
-    -fx-padding: 0 18 0 18;
+    -fx-padding: 0 16 0 16;
     -fx-font-size: 13px;
     -fx-text-fill: -rw-tx;
 }
@@ -215,7 +218,7 @@
     -fx-background-radius: 7;
     -fx-border-color: -rw-ln;
     -fx-border-radius: 7;
-    -fx-padding: 0 18 0 18;
+    -fx-padding: 0 16 0 16;
     -fx-font-size: 13px;
     -fx-text-fill: -rw-tx2;
 }
@@ -307,20 +310,15 @@
     -fx-border-radius: 7;
 }
 
-/* the checkpoint bar from motion-checkpoint, held at its resting state */
-.save-bar   { -fx-background-color: -rw-hud; -fx-background-radius: 3.5; }
-.save-stamp {
-    -fx-font-family: "Space Mono";
-    -fx-font-size: 11px;
-    -fx-font-weight: bold;
-    -fx-text-fill: -rw-hud;
-}
+/* the checkpoint bar from motion-checkpoint; the note beside it turns slate for one beat */
+.save-bar   { -fx-background-color: -rw-hud; -fx-background-radius: 2.5; }
+.card-note-saved { -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-hud; }
 
 /* rest 5.2:1, hover 5.7:1. Hover brightens and flips to ink - the same move Checkpoint makes. */
 .btn-danger {
     -fx-background-color: -rw-bad-fill;
     -fx-background-radius: 7;
-    -fx-padding: 0 18 0 18;
+    -fx-padding: 0 16 0 16;
     -fx-font-size: 13px;
     -fx-text-fill: -rw-on-bad;
 }
@@ -329,7 +327,7 @@
 .btn-ghost {
     -fx-background-color: transparent;
     -fx-background-radius: 7;
-    -fx-padding: 0 14 0 14;
+    -fx-padding: 0 16 0 16;
     -fx-font-size: 13px;
     -fx-text-fill: -rw-tx2;
 }
@@ -416,7 +414,7 @@
    Active (#A8986F) is the designated focus colour. :focus-visible, not :focused, so a
    mouse click never paints the ring. A hard 3px dropshadow spread is the one ring that
    works on every shape here (notched blocks included) without moving layout. */
-.button:focus-visible, .side-item:focus-visible, .resume:focus-visible, .checkpoint:focus-visible,
+.button:focus-visible, .resume:focus-visible, .checkpoint:focus-visible,
 .check-box:focus-visible, .text-field:focus-visible, .combo-box:focus-visible {
     -fx-effect: dropshadow(gaussian, -rw-act, 3, 1.0, 0, 0);
 }
@@ -427,7 +425,9 @@
 }
 
 /* clickable affordances */
-.resume, .checkpoint, .side-item, .winctl { -fx-cursor: hand; }
+.resume, .checkpoint, .winctl { -fx-cursor: hand; }
 .resume:hover { -fx-background-color: -rw-go2; }
+/* nothing to resume: orange is the verb, and there is no verb here */
+.resume:disabled { -fx-background-color: -rw-g3; -fx-opacity: 0.6; -fx-cursor: default; }
+.resume:disabled .resume-word, .resume:disabled .resume-spec { -fx-text-fill: -rw-tx3t; }
 .checkpoint:hover { -fx-background-color: -rw-ck, -rw-ck-tint; }
-.side-item:hover { -fx-background-color: -rw-g3; }
