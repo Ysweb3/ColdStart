@@ -375,6 +375,8 @@ public class HelloController {
     private void clickable(Node node, Runnable action) {
         node.setFocusTraversable(true);
         node.setOnMouseClicked(e -> {
+            // primary only: a right click on Checkpoint opens its menu, it must not also save
+            if (e.getButton() != MouseButton.PRIMARY) return;
             node.requestFocus();
             action.run();
         });
