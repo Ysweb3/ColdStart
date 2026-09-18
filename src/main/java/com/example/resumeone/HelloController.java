@@ -1326,7 +1326,9 @@ public class HelloController {
     }
     // == Resume ============================================================
     //   resumeProject(): 1. capture what is running now (so we don't open it twice)
-    //                    2. open each browser with its saved urls as arguments
+    //                    2. open each browser with its saved urls as arguments - unless its
+    //                       extension is connected, then push {"open":[urls]} over the socket
+    //                       and let it open only the tabs that are not already there
     //                    3. `start` every other captured app, with special cases for
     //                       claude (project folder, --continue), VS Code (project folder), wt
 
@@ -1350,6 +1352,33 @@ public class HelloController {
                 ".claude/projects/" + claudeSessionSlug(folderPath));
         String[] transcripts = dir.list((d, name) -> name.endsWith(".jsonl"));
         return transcripts != null && transcripts.length > 0;
+    }
+
+    // every running claude writes ~/.claude/sessions/<pid>.json with its cwd. a second
+    // `claude --continue` in the same folder just prints "already running in the background"
+    // and exits 1, so a live one for this folder means: leave it alone.
+    boolean claudeRunningIn(String folderPath) {
+        return claudeRunningIn(folderPath, new File(System.getProperty("user.home"), ".claude/sessions"));
+    }
+
+    boolean claudeRunningIn(String folderPath, File sessionsDir) {
+        File[] files = sessionsDir.listFiles((d, name) -> name.endsWith(".json"));
+        if (files == null) return false;
+        for (File f : files) {
+            try (Reader r = new FileReader(f)) {
+                Map<String, Object> session = gson.fromJson(r, Map.class);
+                Object cwd = session.get("cwd");
+                Object pid = session.get("pid");
+                // the file outlives a crash, so the pid has to be checked too
+                if (cwd != null && pid != null && folderPath.equalsIgnoreCase(cwd.toString())
+                        && ProcessHandle.of(((Number) pid).longValue()).map(ProcessHandle::isAlive).orElse(false)) {
+                    return true;
+                }
+            } catch (IOException | RuntimeException ex) {
+                // a half-written or odd file is not a reason to skip the launch
+            }
+        }
+        return false;
     }
 
     // the extension puts its brand in the socket url, so the browser is known at connect time
@@ -1553,6 +1582,14 @@ public class HelloController {
             if (exePath != null) {
                 handledBrowsers.add(new File(exePath).getName().toLowerCase());
             }
+            // check for open urls and skip them
+            WsContext live = wsSessions.stream()
+                    .filter(s -> wsBrowser(s).equalsIgnoreCase(browser)).findFirst().orElse(null);
+            if (live != null) {
+                steps.add(new LaunchStep(browser, urls.size() + " urls · via extension, open tabs skipped",
+                        true, () -> live.send(gson.toJson(Map.of("open", urls)))));
+                continue;
+            }
             String command = urls.size() + " urls · " + (exePath == null ? "default browser" : "one window");
             steps.add(new LaunchStep(browser, command, true, () -> {
                 if (exePath == null) {
@@ -1589,6 +1626,11 @@ public class HelloController {
 
                 if (appName.equalsIgnoreCase("claude")) {
                     if (folder == null) continue;     // a session is per folder; nowhere to open it
+                    if (claudeRunningIn(folder)) {
+                        skipped.add(app);
+                        log.add("skipping claude: already running in " + folder);
+                        continue;
+                    }
                     List<String> cmd = claudeCommand(folder, hasClaudeSession(folder), claudeInTerminal);
                     // open claude CLI in project folder
                     steps.add(new LaunchStep(app, String.join(" ", cmd.subList(2, cmd.size())), false, () -> {

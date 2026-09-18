@@ -26,7 +26,7 @@ public class HelloApplication extends Application {
 
     @Override
     public void start(Stage stage) throws IOException {
-        loadFonts();
+        loadFonts();    
 
         // HUD v2 prototype. Swap back to "hello-view.fxml" (and 800x600) for the real app.
         FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("hud-view.fxml"));
