@@ -129,14 +129,25 @@
 
           <HBox fx:id="btnCheckpoint" styleClass="checkpoint" alignment="CENTER_LEFT" spacing="16.0"
                 minWidth="280.0" prefWidth="280.0" maxWidth="280.0">
-            <padding><Insets left="24.0" right="24.0"/></padding>
+            <!-- 1px top/right/bottom so the split segment sits inside the 1px -rw-ck border -->
+            <padding><Insets top="1.0" left="24.0" right="1.0" bottom="1.0"/></padding>
             <SVGPath content="M4 2 H16 V21 L10 16 L4 21 Z M19 4 V10 M16 7 H22"
                      fill="TRANSPARENT" stroke="#E8D8C9" strokeWidth="1.8"
                      strokeLineCap="ROUND" strokeLineJoin="ROUND"/>
-            <VBox spacing="8.0" alignment="CENTER_LEFT">
+            <VBox spacing="8.0" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS">
               <Label styleClass="checkpoint-word" text="Checkpoint"/>
               <Label fx:id="checkpointSub" styleClass="checkpoint-sub" text=""/>
             </VBox>
+            <!-- split button: the right fifth opens the other kinds of checkpoint (add what is
+                 missing: tabs / apps / both). Full height, its own notch, a 1px divider. The
+                 click is consumed so the button underneath does not overwrite. -->
+            <Region styleClass="ck-divider" minWidth="1.0" prefWidth="1.0" maxWidth="1.0"/>
+            <StackPane fx:id="btnCheckpointMenu" styleClass="ck-menu" pickOnBounds="true"
+                       minWidth="55.0" prefWidth="55.0" maxWidth="55.0">
+              <HBox.margin><Insets left="-16.0"/></HBox.margin>
+              <SVGPath styleClass="ck-glyph" content="M6 9 L12 15 L18 9" scaleX="0.8333" scaleY="0.8333"
+                       fill="TRANSPARENT" strokeWidth="1.8" strokeLineCap="ROUND" strokeLineJoin="ROUND"/>
+            </StackPane>
           </HBox>
         </HBox>
 
@@ -200,39 +211,53 @@
       </VBox>
 
       <!-- Base view: replaces the project detail rather than covering it. -->
-      <ScrollPane fx:id="settingsPane" styleClass="settings-scroll" fitToWidth="true" hbarPolicy="NEVER"
-                  visible="false" managed="false">
-        <VBox spacing="0.0" maxWidth="720.0">
+      <ScrollPane fx:id="settingsPane" styleClass="settings-scroll" fitToWidth="true" fitToHeight="true"
+                  hbarPolicy="NEVER" visible="false" managed="false">
+        <VBox spacing="0.0">
           <padding><Insets top="24.0" right="32.0" bottom="40.0" left="32.0"/></padding>
 
           <HBox alignment="CENTER_LEFT" spacing="16.0">
             <Label styleClass="settings-h1" text="Settings"/>
             <Region HBox.hgrow="ALWAYS"/>
-            <Button fx:id="btnSettingsBack" styleClass="btn-ghost" text="Done"
+            <Button fx:id="btnSettingsBack" styleClass="btn-ghost" text="Back"
                     prefHeight="32.0" minHeight="32.0"/>
           </HBox>
 
-          <!-- 1h: five switches. None is wired yet, and the screen says so rather than
-               pretending; they are disabled until something reads them. -->
-          <VBox spacing="16.0">
+          <!-- same topology as the project card: what the app does on the left, what the
+               system reports beside it. The behaviour rows are plain check + label, filled by
+               initialize(): a disabled checkbox read as "locked", and Modena faded it to 2:1.
+               The column grows so the divider runs the pane's height like the card's TABS column. -->
+          <HBox spacing="24.0" VBox.vgrow="ALWAYS">
             <VBox.margin><Insets top="24.0"/></VBox.margin>
-            <Label styleClass="rail-label" text="CAPTURE"/>
-            <CheckBox selected="true" disable="true" text="Capture browser tabs"/>
-            <CheckBox selected="true" disable="true" text="Capture music and media apps"/>
-          </VBox>
-          <VBox spacing="16.0">
-            <VBox.margin><Insets top="24.0"/></VBox.margin>
-            <Label styleClass="rail-label" text="RESUME"/>
-            <CheckBox selected="true" disable="true" text="Reopen browser tabs, one window per browser"/>
-            <CheckBox selected="true" disable="true" text="Continue the Claude session with --continue"/>
-            <CheckBox selected="true" disable="true" text="Skip apps that are already running"/>
-            <Label styleClass="cat-foot" text="these switches are not wired yet · every one behaves as shown"/>
-          </VBox>
 
-          <!-- 1h: three folded lines, read-only, filled from real state by showSettings() -->
-          <VBox fx:id="settingsRows" spacing="8.0">
-            <VBox.margin><Insets top="24.0"/></VBox.margin>
-          </VBox>
+            <VBox spacing="0.0">
+              <VBox spacing="12.0">
+                <Label styleClass="rail-label" text="WHAT IS CAPTURED">
+                  <VBox.margin><Insets bottom="4.0"/></VBox.margin>
+                </Label>
+                <VBox fx:id="captureRows" spacing="12.0"/>
+              </VBox>
+              <VBox spacing="12.0">
+                <VBox.margin><Insets top="24.0"/></VBox.margin>
+                <Label styleClass="rail-label" text="HOW IT RESUMES">
+                  <VBox.margin><Insets bottom="4.0"/></VBox.margin>
+                </Label>
+                <VBox fx:id="resumeRows" spacing="12.0"/>
+              </VBox>
+              <Label styleClass="cat-foot" text="fixed for now · nothing here is adjustable yet">
+                <VBox.margin><Insets top="24.0"/></VBox.margin>
+              </Label>
+            </VBox>
+
+            <!-- 1h: three stat rows from real state, re-rendered on socket events. Storage is the one that acts. -->
+            <VBox styleClass="tabs-col" spacing="8.0" minWidth="288.0" prefWidth="288.0" HBox.hgrow="ALWAYS">
+              <padding><Insets left="24.0"/></padding>
+              <Label styleClass="rail-label" text="STATUS">
+                <VBox.margin><Insets bottom="8.0"/></VBox.margin>
+              </Label>
+              <VBox fx:id="settingsRows" spacing="8.0"/>
+            </VBox>
+          </HBox>
 
           <Label fx:id="settingsFoot" styleClass="cat-foot" text="windows only · nothing syncs">
             <VBox.margin><Insets top="32.0"/></VBox.margin>

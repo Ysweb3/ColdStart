@@ -149,6 +149,31 @@
 }
 .checkpoint-word { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .checkpoint-sub  { -fx-font-size: 12px; -fx-text-fill: -rw-hud; }
+/* split segment: the checkpoint's right fifth. Same notch as the button (its last 14px are
+   the cut), so the hover fill never pokes outside the shape. The divider is a sibling Region
+   because a shaped region strokes its whole outline, not one side. */
+.ck-divider { -fx-background-color: -rw-ln; }
+.ck-menu {
+    -fx-cursor: hand;
+    -fx-background-color: transparent;
+    -fx-shape: "M0 0 L41 0 L55 14 L55 102 L0 102 Z";
+}
+.ck-menu:hover { -fx-background-color: -rw-g3; }
+.ck-glyph { -fx-stroke: -rw-tx2; }
+.ck-menu:hover .ck-glyph { -fx-stroke: -rw-tx; }
+.context-menu {
+    -fx-background-color: -rw-ln, -rw-g2;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 7, 6;
+    -fx-padding: 4;
+    -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.55), 16, 0.2, 0, 6);
+}
+.menu-item { -fx-padding: 6 12 6 12; -fx-background-radius: 5; }
+.menu-item .label { -fx-font-size: 13px; -fx-text-fill: -rw-tx; }
+.menu-item:focused, .menu-item:hover { -fx-background-color: -rw-g3; }
+.menu-item:focused .label, .menu-item:hover .label { -fx-text-fill: -rw-tx; }
+.menu-item:disabled .label { -fx-text-fill: -rw-tx3t; }
+.menu .arrow { -fx-background-color: -rw-tx2; }
 
 /* ── "what gets saved" card ────────────────────────────────────────── */
 .card {
@@ -262,10 +287,12 @@
 .settings-scroll > .viewport { -fx-background-color: -rw-g; -fx-background: -rw-g; }
 .settings-scroll { -fx-padding: 0; }
 .settings-h1 { -fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.settings-section {
-    -fx-border-color: transparent transparent -rw-ln transparent;
-    -fx-border-width: 0 0 1 0;
-}
+/* behaviour rows are check + label, no control: they state what the app does.
+   stat-link is the one status row that acts (opens the data folder). */
+.behaviour { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+.stat-link { -fx-cursor: hand; }
+.stat-link:hover { -fx-background-color: -rw-g2; -fx-border-color: -rw-ln2; }
+.stat-link:focus-visible { -fx-effect: dropshadow(gaussian, -rw-act, 3, 1.0, 0, 0); }
 
 .check-box { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
 .check-box .box {
