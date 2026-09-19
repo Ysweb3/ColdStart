@@ -201,11 +201,19 @@
     -fx-border-radius: 7;
 }
 .chip .label { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx; }
+/* hover-only remove on chips and tab rows: opacity, not managed, so nothing shifts */
+.rm { -fx-cursor: hand; -fx-opacity: 0;
+      -fx-min-width: 12; -fx-pref-width: 12; -fx-max-width: 12;
+      -fx-min-height: 16; -fx-pref-height: 16; -fx-max-height: 16; }
+.chip:hover .rm, .tab-row:hover .rm { -fx-opacity: 1; }
+.rm-glyph { -fx-stroke: -rw-tx3; }
+.rm:hover .rm-glyph { -fx-stroke: -rw-bad; }
 
 .tabs-col {
     -fx-border-color: transparent transparent transparent -rw-ln;
     -fx-border-width: 0 0 0 1;
 }
+.tabs-scroll, .tabs-scroll > .viewport { -fx-background-color: transparent; -fx-padding: 0; }
 .browser-name { -fx-font-size: 10.5px; -fx-font-weight: bold; -fx-text-fill: -rw-hud; }
 .tab-title    { -fx-font-size: 11px; -fx-text-fill: -rw-tx2; }
 

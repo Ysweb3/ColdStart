@@ -154,8 +154,11 @@
         <!-- fills the column, as 1b draws it; a taller window means more tabs shown -->
         <VBox styleClass="card" VBox.vgrow="ALWAYS">
 
-          <HBox styleClass="card-head" alignment="CENTER_LEFT" spacing="8.0">
-            <padding><Insets top="16.0" right="16.0" bottom="16.0" left="16.0"/></padding>
+          <!-- fixed height: the saved stamp (bold note + bar) must not nudge the column below,
+               or the tab fold recounts by a row for the length of the animation -->
+          <HBox styleClass="card-head" alignment="CENTER_LEFT" spacing="8.0"
+                minHeight="48.0" prefHeight="48.0" maxHeight="48.0">
+            <padding><Insets right="16.0" left="16.0"/></padding>
             <Label styleClass="card-title" text="WHAT GETS SAVED"/>
             <Region HBox.hgrow="ALWAYS"/>
             <!-- motion-checkpoint: the bar drops in beside the note once per save -->
@@ -169,14 +172,25 @@
               <padding><Insets top="16.0" right="16.0" bottom="16.0" left="16.0"/></padding>
             </VBox>
 
+            <!-- side padding lives inside the scroll viewport (on the list and the header),
+                 not on the column: the viewport clips, and the live dot's glow needs the room;
+                 it also keeps each row's x off the scrollbar -->
             <VBox styleClass="tabs-col" spacing="8.0" minWidth="288.0" prefWidth="288.0" maxWidth="288.0">
-              <padding><Insets top="16.0" right="16.0" bottom="16.0" left="16.0"/></padding>
+              <padding><Insets top="16.0" right="8.0" bottom="16.0" left="8.0"/></padding>
               <HBox alignment="BOTTOM_LEFT" spacing="8.0">
+                <padding><Insets right="18.0" left="8.0"/></padding>
                 <Label styleClass="rail-label" text="TABS"/>
                 <Region HBox.hgrow="ALWAYS"/>
                 <Label fx:id="tabsCount" styleClass="rail-count" text="0"/>
               </HBox>
-              <VBox fx:id="tabsList" spacing="8.0" VBox.vgrow="ALWAYS"/>
+              <!-- scrolls rather than folding: minHeight 0 so a long list never pushes the
+                   card taller than the window; the scrollbar is themed globally -->
+              <ScrollPane styleClass="tabs-scroll" fitToWidth="true" hbarPolicy="NEVER"
+                          minHeight="0.0" VBox.vgrow="ALWAYS">
+                <VBox fx:id="tabsList" spacing="8.0">
+                  <padding><Insets top="2.0" right="8.0" bottom="2.0" left="8.0"/></padding>
+                </VBox>
+              </ScrollPane>
             </VBox>
           </HBox>
         </VBox>

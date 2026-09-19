@@ -185,8 +185,6 @@ public class HelloController {
                 behaviourRow("coldstart stays on top while resuming"));
         clickable(btnNewProjectRail, this::onNewProjectClick);
         Tooltip.install(btnNewProjectRail, tip("New project"));
-        tabsList.setMinHeight(0);   // never let the tab count push the card taller than the window
-        tabsList.heightProperty().addListener((o, was, now) -> fitTabs());
         // the scene arrives after initialize(); accelerators and Escape hang off it once
         detailPane.sceneProperty().addListener((o, was, scene) -> {
             if (scene != null && was == null) installKeys(scene);
@@ -608,7 +606,7 @@ public class HelloController {
             HBox chips = new HBox(8);
             chips.setAlignment(Pos.CENTER_LEFT);
             for (String app : new TreeSet<>(bucket)) {
-                chips.getChildren().add(chip(app));
+                chips.getChildren().add(chip(projectObj, category, app));
             }
 
             HBox row = new HBox(8);
@@ -645,11 +643,9 @@ public class HelloController {
         return null;
     }
 
-    /** Every header and tab row, in order; fitTabs() decides how many the column shows. */
-    private final List<Node> tabRows = new ArrayList<>();
-
+    /** The column scrolls; every header and tab row is always in it. */
     private void renderTabs(Project projectObj) {
-        tabRows.clear();
+        List<Node> tabRows = new ArrayList<>();
         projectObj.urlsByBrowser.forEach((browser, urls) -> {
             HBox head = new HBox(8);
             head.setAlignment(Pos.CENTER_LEFT);
@@ -666,49 +662,18 @@ public class HelloController {
             for (String url : urls) {
                 // the site is what you scan by; the whole url is one hover away
                 Label item = styled(new Label(site(url)), "tab-title");
-                item.setMaxWidth(256);
+                item.setMaxWidth(Double.MAX_VALUE);
                 item.setTextOverrun(OverrunStyle.ELLIPSIS);
-                item.getProperties().put("tab", Boolean.TRUE);
+                HBox.setHgrow(item, Priority.ALWAYS);
                 Tooltip.install(item, tip(url));
-                tabRows.add(item);
+                HBox row = new HBox(2, item, remover(() -> removeUrl(projectObj, browser, url), projectObj));
+                row.getStyleClass().add("tab-row");
+                row.setAlignment(Pos.CENTER_LEFT);
+                row.setMaxWidth(256);
+                tabRows.add(row);
             }
         });
-        fitTabs();
-    }
-
-    /** Shows as many rows as the column has room for; whatever is left folds into one
-        "+N more" line, and only then. Re-run from the column's height listener on resize. */
-    private boolean fitting;
-
-    private void fitTabs() {
-        if (fitting) return;
-        fitting = true;
-        try {
-            tabsList.getChildren().setAll(tabRows);
-            double avail = tabsList.getHeight();
-            if (avail <= 0) return;                     // not laid out yet; the listener returns here
-            double gap = tabsList.getSpacing();
-            double moreLine = 17 + gap;                 // room kept for the "+N more" row
-            double used = 0;
-            int shown = 0;
-            for (int i = 0; i < tabRows.size(); i++) {
-                double h = tabRows.get(i).prefHeight(-1);
-                if (h <= 0) h = 17;
-                boolean last = i == tabRows.size() - 1;
-                double need = used + (shown > 0 ? gap : 0) + h + (last ? 0 : moreLine);
-                if (need > avail) break;
-                used += (shown > 0 ? gap : 0) + h;
-                shown++;
-            }
-            if (shown == tabRows.size()) return;
-            long hidden = tabRows.subList(shown, tabRows.size()).stream()
-                    .filter(n -> n.getProperties().containsKey("tab")).count();
-            List<Node> visible = new ArrayList<>(tabRows.subList(0, shown));
-            visible.add(styled(new Label("+" + hidden + " more"), "cat-more"));
-            tabsList.getChildren().setAll(visible);
-        } finally {
-            fitting = false;
-        }
+        tabsList.getChildren().setAll(tabRows);
     }
 
     /** "brave" -> "Brave": extension brands arrive in whatever case the browser reports. */
@@ -728,15 +693,54 @@ public class HelloController {
         return cut < 0 ? s : s.substring(0, cut);
     }
 
-    private static HBox chip(String app) {
-        HBox chip = new HBox();
+    private HBox chip(Project projectObj, String category, String app) {
+        HBox chip = new HBox(2);
         chip.getStyleClass().add("chip");
         chip.setAlignment(Pos.CENTER_LEFT);
         chip.setMinHeight(24);
         chip.setPrefHeight(24);
-        chip.setPadding(new Insets(0, 8, 0, 8));
-        chip.getChildren().add(new Label(app));
+        chip.setPadding(new Insets(0, 3, 0, 8));   // the x's own box is the right edge
+        chip.getChildren().addAll(new Label(app), remover(() -> removeApp(projectObj, category, app), projectObj));
         return chip;
+    }
+
+    /** The hover-only x on chips and tab rows. Opacity, not managed, so nothing shifts on hover.
+        No undo: the next checkpoint brings anything back. */
+    private StackPane remover(Runnable edit, Project projectObj) {
+        StackPane x = new StackPane();
+        x.getStyleClass().add("rm");
+        SVGPath glyph = icon(ICON_X, 9, TX3);
+        glyph.getStyleClass().add("rm-glyph");
+        x.getChildren().add(glyph);
+        x.setOnMouseClicked(e -> {
+            e.consume();
+            if (e.getButton() != MouseButton.PRIMARY) return;
+            edit.run();
+            renderDetail(projectObj);
+            try {
+                saveProject(projectObj);
+            } catch (IOException ex) {
+                // the card already shows the removal; say the disk does not
+                confirm("Change not written", projectsFile().getPath(),
+                        "Nothing changed on disk. " + ex.getMessage(),
+                        "Retry", () -> { try { saveProject(projectObj); } catch (IOException ignored) { } });
+            }
+        });
+        return x;
+    }
+
+    static void removeApp(Project projectObj, String category, String app) {
+        HashSet<String> bucket = projectObj.apps.get(category);
+        if (bucket == null) return;
+        bucket.remove(app);
+        if (bucket.isEmpty()) projectObj.apps.remove(category);   // no dead keys in the json
+    }
+
+    static void removeUrl(Project projectObj, String browser, String url) {
+        List<String> urls = projectObj.urlsByBrowser.get(browser);
+        if (urls == null) return;
+        urls.remove(url);
+        if (urls.isEmpty()) projectObj.urlsByBrowser.remove(browser);   // else a "Brave 0" header
     }
 
     // lucide-ish 12px glyphs; anything without its own mark gets a generic window
@@ -747,12 +751,7 @@ public class HelloController {
             "Browser", "M1 6 A5 5 0 1 0 11 6 A5 5 0 1 0 1 6 M1 6 H11 M6 1 A3.2 5 0 0 0 6 11 A3.2 5 0 0 0 6 1");
 
     private static SVGPath categoryIcon(String category) {
-        SVGPath icon = new SVGPath();
-        icon.setContent(CATEGORY_ICONS.getOrDefault(category, "M1 2 H11 V10 H1 Z M1 4.4 H11"));
-        icon.setFill(Color.TRANSPARENT);
-        icon.setStroke(Color.web("#7A94BC"));
-        icon.setStrokeWidth(1.3);
-        return icon;
+        return icon(CATEGORY_ICONS.getOrDefault(category, ICON_APP_WINDOW), 14, HUD);
     }
 
     private static Tooltip tip(String text) {
