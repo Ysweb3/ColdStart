@@ -194,19 +194,12 @@ public class HelloController {
         clickable(btnNewProjectRail, this::onNewProjectClick);
         Tooltip.install(btnNewProjectRail, tip("New project"));
         motionToggle.setSelected(!Motion.REDUCED);
-        motionToggle.selectedProperty().addListener((o, was, on) -> {
-            Motion.setEnabled(on);
-            // the one loop answers at once; everything else simply plays, or not, next time
-            Motion.pulse(statusDot, statusDot.getStyleClass().contains("dot-live"));
-        });
+        // everything simply plays, or not, next time
+        motionToggle.selectedProperty().addListener((o, was, on) -> Motion.setEnabled(on));
         installGlyphs();
         // the scene arrives after initialize(); accelerators and Escape hang off it once
         detailPane.sceneProperty().addListener((o, was, scene) -> {
             if (scene != null && was == null) installKeys(scene);
-            // the live pulse is the one loop; it stops where nobody can see it
-            if (scene != null) scene.windowProperty().addListener((o2, w0, w) -> {
-                if (w instanceof Stage st) st.iconifiedProperty().addListener((o3, a, hidden) -> Motion.pause(statusDot, hidden));
-            });
         });
         btnDeleteCancel.setOnAction(e -> backToProjects());
         btnDeleteOk.setOnAction(e -> deleteActive());
@@ -1310,9 +1303,7 @@ public class HelloController {
                 .map(HelloController::wsBrowser).distinct().sorted().toList();
         Platform.runLater(() -> {
             boolean live = !browsers.isEmpty();
-            boolean wasLive = statusDot.getStyleClass().contains("dot-live");
             statusDot.getStyleClass().setAll(live ? "dot-live" : "dot-idle");
-            if (live != wasLive) Motion.pulse(statusDot, live);
             statusLabel.setText(!live ? ":8765 \u00b7 no extension"
                     : browsers.size() == 1 ? "connected \u00b7 " + browsers.get(0)
                     : "connected \u00b7 " + browsers.size() + " browsers");

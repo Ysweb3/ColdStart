@@ -1,6 +1,5 @@
 package com.example.resumeone;
 
-import javafx.animation.Animation;
 import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
@@ -18,7 +17,7 @@ final class Motion {
     private Motion() {}
 
     static final Duration FAST = Duration.millis(140), BASE = Duration.millis(220),
-            SLOW = Duration.millis(400), CAPTURE = Duration.millis(700), BREATHE = Duration.millis(2400);
+            SLOW = Duration.millis(400), CAPTURE = Duration.millis(700);
 
     /** A whole view arriving (switching project, opening settings). BASE on STANDARD front-loads
         the travel into ~60ms and reads as a snap; this glides the full distance instead. */
@@ -31,7 +30,7 @@ final class Motion {
 
     /** Settings > How it moves, on by default and deliberately independent of Windows' own
         Animation effects switch. Off, nothing travels: arrivals keep a short fade, and icon
-        presses, the launch bloom and the live pulse stop. The checkpoint never moves. Stored with
+        presses and the launch bloom stop. The checkpoint never moves. Stored with
         java.util.prefs, so projects.json stays projects only. */
     private static final Preferences PREFS = Preferences.userNodeForPackage(Motion.class);
     static boolean REDUCED = !PREFS.getBoolean("motion", true);
@@ -63,26 +62,6 @@ final class Motion {
     /** Only what someone can see moves: nothing animates before the window is up. */
     static boolean showing(Node n) {
         return n.getScene() != null && n.getScene().getWindow() != null && n.getScene().getWindow().isShowing();
-    }
-
-    /** motion-status-pulse: the one loop allowed - 2.4s, opacity 1 -> .34, only while live.
-        Reduced motion leaves the dot still; its colour already says live. */
-    static void pulse(Node dot, boolean on) {
-        stop(dot);
-        dot.setOpacity(1);
-        if (!on || REDUCED) return;
-        Timeline t = new Timeline(new KeyFrame(BREATHE.divide(2),
-                new KeyValue(dot.opacityProperty(), .34, Interpolator.EASE_BOTH)));
-        t.setAutoReverse(true);
-        t.setCycleCount(Animation.INDEFINITE);
-        run(dot, t);
-    }
-
-    /** A loop has no business running where nobody can see it. */
-    static void pause(Node n, boolean hidden) {
-        if (n.getProperties().get(KEY) instanceof Timeline t && t.getCycleCount() == Animation.INDEFINITE) {
-            if (hidden) t.pause(); else t.play();
-        }
     }
 
     private static final String KEY = "motion";

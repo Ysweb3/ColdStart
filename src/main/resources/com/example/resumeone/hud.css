@@ -67,7 +67,6 @@
 .dot-live {
     -fx-background-color: -rw-live;
     -fx-background-radius: 999;
-    -fx-effect: dropshadow(gaussian, -rw-live, 10, 0.55, 0, 0);
 }
 
 /* tooltips are popups with their own scene; the selector still reaches them */
