@@ -71,19 +71,32 @@
 
   <HBox VBox.vgrow="ALWAYS">
 
-    <!-- ══ rail (artboards 1e/1h/1i/1l): numbered projects, +, gear ═════ -->
-    <VBox styleClass="rail" alignment="TOP_CENTER" spacing="8.0" minWidth="48.0" prefWidth="48.0" maxWidth="48.0">
+    <!-- ══ rail (artboards 1e/1h/1i/1l): numbered projects, +, gear ═════
+         .rail-wide (setRailWide, Ctrl+B) opens it to 200px: named rows and a New project
+         button. Widths live in hud.css so the class alone swaps them. -->
+    <VBox fx:id="rail" styleClass="rail" alignment="TOP_CENTER" spacing="8.0">
       <padding><Insets top="16.0" bottom="16.0"/></padding>
 
-      <!-- one 28x28 numbered button per project, built by createProjectUI(); name on hover -->
-      <VBox fx:id="projectList" alignment="TOP_CENTER" spacing="8.0"/>
+      <HBox styleClass="rail-head" spacing="8.0">
+        <Label fx:id="railTitle" styleClass="rail-label" text="PROJECTS"/>
+        <Region fx:id="railHeadGap" HBox.hgrow="ALWAYS"/>
+        <Label fx:id="railCount" styleClass="rail-count" text="00"/>
+        <StackPane fx:id="btnRailToggle" styleClass="rail-btn, rail-toggle" pickOnBounds="true"/>
+      </HBox>
+
+      <!-- one row per project, built by createProjectUI(): a 32x32 number, or folder + name when wide -->
+      <VBox fx:id="projectList" styleClass="project-list" alignment="TOP_CENTER" spacing="8.0"/>
 
       <StackPane fx:id="btnNewProjectRail" styleClass="rail-btn" pickOnBounds="true"></StackPane>
 
       <!-- the dotted spine from the artboards -->
       <Region styleClass="rail-spine" minWidth="1.0" prefWidth="1.0" maxWidth="1.0" VBox.vgrow="ALWAYS"/>
 
-      <StackPane fx:id="btnSettings" styleClass="rail-btn" pickOnBounds="true"></StackPane>
+      <HBox styleClass="rail-foot" alignment="CENTER" spacing="8.0">
+        <Button fx:id="btnNewProjectWide" styleClass="btn-secondary, side-new" text="New project"
+                maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+        <StackPane fx:id="btnSettings" styleClass="rail-btn" pickOnBounds="true"></StackPane>
+      </HBox>
     </VBox>
 
     <StackPane HBox.hgrow="ALWAYS">
