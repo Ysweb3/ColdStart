@@ -26,7 +26,10 @@ import javafx.scene.control.Menu;      // explicit: java.awt.* also exports Menu
 import javafx.scene.control.MenuItem;  // and MenuItem
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.effect.BlurType;
+import javafx.scene.effect.DropShadow;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.SVGPath;
 import javafx.stage.DirectoryChooser;
@@ -42,12 +45,9 @@ import javafx.css.PseudoClass;
 import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
-import javafx.animation.PauseTransition;
 import javafx.animation.Timeline;
 import javafx.beans.property.DoubleProperty;
 import javafx.beans.property.SimpleDoubleProperty;
-import javafx.scene.shape.StrokeLineCap;
-import javafx.scene.shape.StrokeLineJoin;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import java.net.URI;
@@ -99,7 +99,8 @@ public class HelloController {
     @FXML public VBox detailPane, emptyPane, categoryRows, tabsList;
     @FXML public VBox deletePane, newProjectPane, confirmPane;
     @FXML public Label confirmTitle, confirmSub, confirmBody;
-    @FXML public Region saveBar;
+    private final Region ckFlash = new Region();   // the block lighting up on save
+    private LaunchStep lastLaunching;   // the row whose beat already played
     @FXML public Button btnConfirmCancel, btnConfirmOk;
     // 1e / 1l (resume in progress, resume done) - see the resume section below
     @FXML public VBox resumingPane, restoredPane, resumingRows, restoredRows;
@@ -117,7 +118,6 @@ public class HelloController {
     private static final PseudoClass PC_LAUNCHING = PseudoClass.getPseudoClass("launching");
     private static final PseudoClass PC_FAILED    = PseudoClass.getPseudoClass("failed");
     /** the design's --ease-out */
-    private static final Interpolator EASE_OUT = Interpolator.SPLINE(0.16, 1, 0.3, 1);
     @FXML public TextField npName;
     @FXML public Label npFolder;
     @FXML public CheckBox npCapture;
@@ -126,14 +126,16 @@ public class HelloController {
     @FXML public StackPane btnSettings, btnNewProjectRail;   // the rail's + ; hello-view keeps its own Button
     @FXML public VBox settingsRows, captureRows, resumeRows;
     @FXML public Label settingsFoot;
+    @FXML public CheckBox motionToggle;
     @FXML public Label deleteBody, deletePath;
     @FXML public Button btnDeleteOk, btnDeleteCancel, btnSettingsBack;
     @FXML public HBox btnResume, btnCheckpoint, statusBox;
     @FXML public StackPane btnCheckpointMenu;
     @FXML public StackPane btnDelete;
+    @FXML public SVGPath resumeGlyph, checkpointGlyph;   // the 1b artwork; Resume nudges on press, the bookmark seats on save
     @FXML public Region statusDot;
     @FXML public Label projectNameLabel, projectPathLabel, resumeSpec, checkpointSub,
-            capturedNote, tabsCount, statusLabel;
+            tabsCount, statusLabel;
 
     /** Hover-only: names the browsers on the socket, so the dot itself stays uncluttered. */
     // built in initialize(), not here: a Tooltip needs the JavaFX toolkit, which the unit tests
@@ -169,6 +171,12 @@ public class HelloController {
         clickable(btnResume, this::onResume);
         clickable(btnCheckpoint, this::onCheckpoint);
         installCheckpointMenu();
+        ckFlash.getStyleClass().add("ck-flash");
+        ckFlash.setManaged(false);
+        ckFlash.setMouseTransparent(true);
+        ckFlash.setOpacity(0);
+        btnCheckpoint.getChildren().add(0, ckFlash);   // first child: under the word and the glyph
+        btnCheckpoint.layoutBoundsProperty().addListener((o, was, b) -> ckFlash.resize(b.getWidth(), b.getHeight()));
         clickable(btnDelete, this::showDeleteView);
         // the gear is a toggle: the lit gear is the natural "close" in a rail
         clickable(btnSettings, () -> { if (settingsPane.isVisible()) backToProjects(); else showSettings(); });
@@ -185,9 +193,20 @@ public class HelloController {
                 behaviourRow("coldstart stays on top while resuming"));
         clickable(btnNewProjectRail, this::onNewProjectClick);
         Tooltip.install(btnNewProjectRail, tip("New project"));
+        motionToggle.setSelected(!Motion.REDUCED);
+        motionToggle.selectedProperty().addListener((o, was, on) -> {
+            Motion.setEnabled(on);
+            // the one loop answers at once; everything else simply plays, or not, next time
+            Motion.pulse(statusDot, statusDot.getStyleClass().contains("dot-live"));
+        });
+        installGlyphs();
         // the scene arrives after initialize(); accelerators and Escape hang off it once
         detailPane.sceneProperty().addListener((o, was, scene) -> {
             if (scene != null && was == null) installKeys(scene);
+            // the live pulse is the one loop; it stops where nobody can see it
+            if (scene != null) scene.windowProperty().addListener((o2, w0, w) -> {
+                if (w instanceof Stage st) st.iconifiedProperty().addListener((o3, a, hidden) -> Motion.pause(statusDot, hidden));
+            });
         });
         btnDeleteCancel.setOnAction(e -> backToProjects());
         btnDeleteOk.setOnAction(e -> deleteActive());
@@ -201,10 +220,11 @@ public class HelloController {
         btnNpCreate.disableProperty().bind(Bindings.createBooleanBinding(
                 () -> npName.getText().trim().isEmpty(), npName.textProperty()));
         btnNpCreate.setOnAction(e -> createFromDialog());
-        btnResumeStop.setGraphic(icon(ICON_X, 13, TX2));
+        btnResumeStop.setGraphic(Icons.node(Icons.CLOSE, 16, TX2));
+        Icons.animate(btnResumeStop, btnResumeStop.getGraphic());
         btnResumeStop.setOnAction(e -> stopRequested = true);
         btnStayHere.setOnAction(e -> stopCountdown());
-        btnOpenProject.setGraphic(icon(ICON_CHEVRON, 13, TX));
+        btnOpenProject.setGraphic(Icons.node(Icons.CHEVRON, 16, TX));
         btnOpenProject.setOnAction(e -> { stopCountdown(); backToProjects(); });
         // meters are fractions bound to their track, so they are right before first layout
         resumingFill.prefWidthProperty().bind(resumingMeter.widthProperty().multiply(resumingFrac));
@@ -370,6 +390,9 @@ public class HelloController {
         rowsByProject.put(projectObj.projectName, row);
         projectList.getChildren().add(row);
         railTip(row, projectObj);
+        // motion-transitions, row insert - new projects only. A fade and 4px, not a height
+        // tween: animating height would push the rail's + down frame by frame.
+        if (isNew && Motion.showing(projectList)) Motion.enter(row, 0, -4, 1, Motion.BASE, Motion.STANDARD);
 
         if (isHud()) {
             refreshCount();
@@ -389,6 +412,21 @@ public class HelloController {
     //   Every HBox/StackPane that acts as a button goes through clickable(): mouse, Enter and
     //   Space all land on the same action, and the node is in the Tab order. Focus is shown
     //   only when it came from the keyboard (:focus-visible), the way the web does it.
+
+    /** The slide's action glyphs on the chrome that FXML only shapes; hover/press plays each one. */
+    private void installGlyphs() {
+        for (var e : Map.of(btnNewProjectRail, Icons.NEW, btnSettings, Icons.SETTINGS, btnDelete, Icons.DELETE).entrySet()) {
+            Pane g = Icons.node(e.getValue(), 16, TX3);
+            e.getKey().getChildren().add(g);
+            Icons.animate(e.getKey(), g);
+        }
+        btnDelete.getStyleClass().add("danger");
+        btnNpBrowse.setGraphic(Icons.node(Icons.BROWSE, 16, TX));
+        btnNpBrowse.setGraphicTextGap(8);
+        Icons.animate(btnNpBrowse, btnNpBrowse.getGraphic());
+        Icons.tag(resumeGlyph, "nudge");
+        Icons.animate(btnResume, resumeGlyph);
+    }
 
     private void clickable(Node node, Runnable action) {
         node.setFocusTraversable(true);
@@ -455,9 +493,9 @@ public class HelloController {
         String size = projectsFile().length() < 1024 ? "<1 KB" : kb + " KB";
         String storage = projects.size() + (projects.size() == 1 ? " project" : " projects") + " \u00b7 " + size + " \u00b7 ";
         List<String> ignored = IGNORED_WINDOWS.stream().sorted().toList();
-        HBox storageRow = statRow(ICON_TERMINAL, "Storage", storage + shown, storage + path);
+        HBox storageRow = statRow(Icons.TERMINAL, "Storage", storage + shown, storage + path);
         // the one row that acts: open the data folder. Chevron + hand say so; the other two stay flat.
-        storageRow.getChildren().add(icon(ICON_CHEVRON, 14, TX3));
+        storageRow.getChildren().add(Icons.node(Icons.CHEVRON, 14, TX3));
         storageRow.getStyleClass().add("stat-link");
         clickable(storageRow, () -> {
             try {
@@ -467,18 +505,25 @@ public class HelloController {
             }
         });
         settingsRows.getChildren().setAll(
-                statRow(ICON_GLOBE, "Browser extensions",
+                statRow(Icons.BROWSER, "Browser extensions",
                         browsers.isEmpty() ? "none connected \u00b7 install it, it connects on :8765"
                                            : String.join(" \u00b7 ", browsers) + " connected", null),
-                statRow(ICON_APP_WINDOW, "Ignored processes", names(ignored), String.join("\n", ignored)),
+                statRow(Icons.APP_WINDOW, "Ignored processes", names(ignored), String.join("\n", ignored)),
                 storageRow);
     }
 
     /** detailPane / emptyPane / settingsPane are the base views: exactly one shows. */
     private void showBase(Node target) {
+        boolean arriving = !target.isVisible();
         for (Node pane : List.of(detailPane, emptyPane, settingsPane, resumingPane, restoredPane)) {
             pane.setVisible(pane == target);
             pane.setManaged(pane == target);
+        }
+        if (arriving && Motion.showing(target)) panelIn(target);
+        // Pinned on top only while Resuming shows, so launched apps cannot bury progress and
+        // Stop. Derived here, from the view, so no path out of a resume can leave it pinned.
+        if (target.getScene() != null && target.getScene().getWindow() instanceof Stage st) {
+            st.setAlwaysOnTop(target == resumingPane);
         }
         showOverlay(null);
         if (target != resumingPane && target != restoredPane) titleState(null, null, false);
@@ -504,11 +549,22 @@ public class HelloController {
         Focus follows the scrim onto its safe button, so Enter cannot re-fire whatever opened it. */
     private void showOverlay(Node target) {
         for (Node pane : List.of(deletePane, newProjectPane, confirmPane)) {
+            boolean opening = pane == target && !pane.isVisible();
             pane.setVisible(pane == target);
             pane.setManaged(pane == target);
+            // motion-transitions: the scrim fades up, the dialog settles from .97; the exit is instant
+            if (opening && Motion.showing(pane)) {
+                Motion.enter(pane, 0, 0, 1, Motion.BASE, Motion.OUT);
+                Motion.enter(((Pane) pane).getChildren().get(0), 0, 0, .97, Motion.BASE, Motion.OUT);
+            }
         }
         if (target == deletePane) btnDeleteCancel.requestFocus();
         else if (target == confirmPane) btnConfirmCancel.requestFocus();
+    }
+
+    /** motion-transitions, detail panel: 10px in from the right with a fade; width never animates. */
+    private static void panelIn(Node pane) {
+        Motion.enter(pane, 10, 0, 1, Motion.SETTLE, Motion.GLIDE);
     }
 
     private void backToProjects() {
@@ -546,6 +602,8 @@ public class HelloController {
 
     /** Highlights the sidebar row, makes it the active project and draws its card. */
     private void selectProject(Project projectObj) {
+        // another project under an already-open card is a change of subject, so it arrives too
+        boolean switching = activeProject != projectObj && detailPane.isVisible();
         activeProject = projectObj;
         rowsByProject.forEach((n, r) -> {
             r.getStyleClass().remove("rail-active");
@@ -556,6 +614,7 @@ public class HelloController {
         btnSettings.getStyleClass().remove("rail-active");
         showEmpty(false);
         renderDetail(projectObj);
+        if (switching && Motion.showing(detailPane)) panelIn(detailPane);
     }
 
     /** Fills every label on the project card from the Project; safe to call repeatedly
@@ -573,8 +632,10 @@ public class HelloController {
                 + (projectObj.folderPath == null ? "NO FOLDER" : "1 FOLDER"));
         btnResume.setDisable(apps == 0 && tabs == 0);
         String age = ago(projectObj.lastCheckpoint);
-        checkpointSub.setText("never".equals(age) ? "no checkpoint yet" : "overwrite \u00b7 " + when(age));
-        capturedNote.setText("");   // the age is on the Checkpoint block; the note's moment is the saved stamp
+        // "now", not "just now": the block's text column holds ~18 mono characters and
+        // "overwrite · just now" is 20 - it truncated to "just..." right after every save
+        checkpointSub.setText("never".equals(age) ? "no checkpoint yet"
+                : "overwrite \u00b7 " + ("just now".equals(age) ? "now" : when(age)));
         tabsCount.setText(String.valueOf(tabs));
 
         renderCategories(projectObj);
@@ -709,9 +770,10 @@ public class HelloController {
     private StackPane remover(Runnable edit, Project projectObj) {
         StackPane x = new StackPane();
         x.getStyleClass().add("rm");
-        SVGPath glyph = icon(ICON_X, 9, TX3);
+        Pane glyph = Icons.node(Icons.CLOSE, 12, TX3);
         glyph.getStyleClass().add("rm-glyph");
         x.getChildren().add(glyph);
+        Icons.animate(x, glyph);
         x.setOnMouseClicked(e -> {
             e.consume();
             if (e.getButton() != MouseButton.PRIMARY) return;
@@ -743,15 +805,8 @@ public class HelloController {
         if (urls.isEmpty()) projectObj.urlsByBrowser.remove(browser);   // else a "Brave 0" header
     }
 
-    // lucide-ish 12px glyphs; anything without its own mark gets a generic window
-    private static final Map<String, String> CATEGORY_ICONS = Map.of(
-            "IDE", "M8 3 L11 6 L8 9 M4 3 L1 6 L4 9",
-            "AI", "M6 1.2 L7.1 4.7 L10.8 6 L7.1 7.3 L6 10.8 L4.9 7.3 L1.2 6 L4.9 4.7 Z",
-            "Terminal", "M2 3.2 L4.8 6 L2 8.8 M6.4 9 H10.2",
-            "Browser", "M1 6 A5 5 0 1 0 11 6 A5 5 0 1 0 1 6 M1 6 H11 M6 1 A3.2 5 0 0 0 6 11 A3.2 5 0 0 0 6 1");
-
-    private static SVGPath categoryIcon(String category) {
-        return icon(CATEGORY_ICONS.getOrDefault(category, ICON_APP_WINDOW), 14, HUD);
+    private static Pane categoryIcon(String category) {
+        return Icons.node(Icons.CATEGORY.getOrDefault(category, Icons.OTHER), 14, HUD);
     }
 
     private static Tooltip tip(String text) {
@@ -814,11 +869,10 @@ public class HelloController {
         resuming = true;
         stopRequested = false;
         ResumeRun r = new ResumeRun(activeProject);
+        lastLaunching = null;
         titleState("RESUMING", r.project.projectName, false);
         resumingName.setText(r.project.projectName);
         showBase(resumingPane);
-        // launched apps grab focus; stay visible so progress and Stop are reachable
-        ((Stage) resumingPane.getScene().getWindow()).setAlwaysOnTop(true);
         renderResuming(r);
 
         Thread worker = new Thread(() -> {
@@ -861,7 +915,7 @@ public class HelloController {
         resumingCount.setText(started + " / " + (total == 0 ? "?" : String.valueOf(total)));
         double frac = total == 0 ? 0 : (double) started / total;
         resumingPct.setText(Math.round(frac * 100) + "%");
-        new Timeline(new KeyFrame(Duration.millis(220), new KeyValue(resumingFrac, frac, EASE_OUT))).play();
+        new Timeline(new KeyFrame(Duration.millis(220), new KeyValue(resumingFrac, frac, Motion.OUT))).play();
 
         resumingRows.getChildren().clear();
         // done steps fold into one line so the list is bounded: launched, the one launching,
@@ -872,19 +926,27 @@ public class HelloController {
             if (step.state == LaunchStep.State.DONE) done.add(step.label);
         }
         if (!done.isEmpty()) {
-            resumingRows.getChildren().add(foldRow(ICON_CHECK, done.size() + " launched", names(done)));
+            resumingRows.getChildren().add(foldRow(Icons.CHECK, done.size() + " launched", names(done)));
         }
         for (LaunchStep step : r.plan.steps()) {
             switch (step.state) {
                 case QUEUED -> queued.add(step.label);
                 case DONE -> { }
-                default -> resumingRows.getChildren().add(stepRow(step));
+                default -> {
+                    HBox row = stepRow(step);
+                    resumingRows.getChildren().add(row);
+                    // rows are rebuilt on every change, so the beat plays only for a step new to launching
+                    if (step.state == LaunchStep.State.LAUNCHING && step != lastLaunching) {
+                        lastLaunching = step;
+                        launchBeat(row);
+                    }
+                }
             }
         }
         if (!queued.isEmpty()) {
-            resumingRows.getChildren().add(foldRow(ICON_CLOCK, queued.size() + " queued", names(queued)));
+            resumingRows.getChildren().add(foldRow(Icons.TIMESTAMP, queued.size() + " queued", names(queued)));
         }
-        resumingRows.getChildren().add(foldRow(ICON_TERMINAL, "Resume log", r.log.size() + " lines"));
+        resumingRows.getChildren().add(foldRow(Icons.TERMINAL, "Resume log", r.log.size() + " lines"));
 
         List<String> skipped = r.plan.skipped();
         resumingSkipped.setText(skipped.isEmpty() ? "" : "skipping " + skipped.size()
@@ -893,7 +955,6 @@ public class HelloController {
 
     /** 1l. Orange closes the verb; failures stay on screen; three seconds later, back to 1b. */
     private void showRestored(ResumeRun r) {
-        ((Stage) restoredPane.getScene().getWindow()).setAlwaysOnTop(false);
         titleState("RESUMED", r.project.projectName, true);
         showBase(restoredPane);
         renderRestored(r);
@@ -915,11 +976,11 @@ public class HelloController {
             if (step.state == LaunchStep.State.FAILED) restoredRows.getChildren().add(failRow(r, step));
             if (step.state == LaunchStep.State.DONE && step.browser) browsers.add(step.label);
         }
-        restoredRows.getChildren().add(foldRow(ICON_APP_WINDOW, r.appsDone() + " apps launched", "on the project card"));
-        restoredRows.getChildren().add(foldRow(ICON_GLOBE, countTabs(r.project) + " tabs handed back",
+        restoredRows.getChildren().add(foldRow(Icons.APP_WINDOW, r.appsDone() + " apps launched", "on the project card"));
+        restoredRows.getChildren().add(foldRow(Icons.BROWSER, countTabs(r.project) + " tabs handed back",
                 browsers.isEmpty() ? "no browser connected" : String.join(" · ", browsers)));
         long failed = r.failed();
-        restoredRows.getChildren().add(foldRow(ICON_TERMINAL, "Resume log", r.log.size() + " lines"
+        restoredRows.getChildren().add(foldRow(Icons.TERMINAL, "Resume log", r.log.size() + " lines"
                 + (failed == 0 ? "" : " · " + failed + (failed == 1 ? " failure" : " failures"))));
     }
 
@@ -963,10 +1024,10 @@ public class HelloController {
         HBox row = rowShell("step-row");
         row.pseudoClassStateChanged(PC_LAUNCHING, step.state == LaunchStep.State.LAUNCHING);
         row.pseudoClassStateChanged(PC_FAILED, step.state == LaunchStep.State.FAILED);
-        SVGPath mark = switch (step.state) {
-            case LAUNCHING -> icon(ICON_PLAY, 14, GO);
-            case FAILED -> icon(ICON_ALERT, 14, BAD);
-            default -> icon(ICON_CHECK, 14, TX3);
+        Pane mark = switch (step.state) {
+            case LAUNCHING -> Icons.node(Icons.RESUME, 14, GO);
+            case FAILED -> Icons.node(Icons.FAILED, 14, BAD);
+            default -> Icons.node(Icons.CHECK, 14, TX3);
         };
         String cmd = switch (step.state) {
             case LAUNCHING -> "launching · " + step.command;
@@ -980,19 +1041,31 @@ public class HelloController {
         return row;
     }
 
-    private HBox foldRow(String iconPath, String title, String meta) {
+    /** motion-resume: the row that starts launching arrives on --ease-out and its orange bloom
+        flashes for one beat, then settles to the ring alone - DESIGN.md's restraint for the bloom. */
+    private static void launchBeat(HBox row) {
+        Motion.enter(row, 0, 6, 1, Motion.BASE, Motion.OUT);
+        if (Motion.REDUCED) return;
+        DropShadow bloom = new DropShadow(BlurType.GAUSSIAN, Color.web(GO), 0, 0, 0, 0);
+        row.setEffect(bloom);
+        new Timeline(
+                new KeyFrame(Duration.millis(120), new KeyValue(bloom.radiusProperty(), 18, Motion.OUT)),
+                new KeyFrame(Motion.CAPTURE, new KeyValue(bloom.radiusProperty(), 0, Motion.STANDARD))).play();
+    }
+
+    private HBox foldRow(Icons.Glyph iconPath, String title, String meta) {
         HBox row = rowShell("fold-row");
         Label t = styled(new Label(title), "fold-title");
         t.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(t, Priority.ALWAYS);
-        row.getChildren().addAll(icon(iconPath, 14, TX3), t, styled(new Label(meta), "fold-meta"));
+        row.getChildren().addAll(Icons.node(iconPath, 14, TX3), t, styled(new Label(meta), "fold-meta"));
         return row;
     }
 
     /** A fold row for the 288px settings column: meta under the title instead of beside it,
         so a storage path ellipsises rather than pushing the title off the row. */
     /** tipText null = no tooltip: one that repeats the label trains people to stop hovering. */
-    private HBox statRow(String iconPath, String title, String meta, String tipText) {
+    private HBox statRow(Icons.Glyph iconPath, String title, String meta, String tipText) {
         HBox row = rowShell("fold-row");
         row.setMinHeight(56);
         row.setPrefHeight(56);
@@ -1002,13 +1075,13 @@ public class HelloController {
         VBox text = new VBox(2, styled(new Label(title), "fold-title"), m);
         text.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(text, Priority.ALWAYS);
-        row.getChildren().addAll(icon(iconPath, 14, TX3), text);
+        row.getChildren().addAll(Icons.node(iconPath, 14, TX3), text);
         return row;
     }
 
     /** Settings: one behaviour the app has, stated as a fact. Check glyph + label, no control. */
     private HBox behaviourRow(String text) {
-        HBox row = new HBox(12, icon(ICON_CHECK, 14, TX3), styled(new Label(text), "behaviour"));
+        HBox row = new HBox(12, Icons.node(Icons.CHECK, 14, TX3), styled(new Label(text), "behaviour"));
         row.setAlignment(Pos.CENTER_LEFT);
         return row;
     }
@@ -1021,10 +1094,11 @@ public class HelloController {
         why.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(why, Priority.ALWAYS);
         Button retry = styled(new Button("Retry"), "btn-ghost");
-        retry.setGraphic(icon(ICON_REFRESH, 13, TX));
+        retry.setGraphic(Icons.node(Icons.RECAPTURE, 16, TX));
+        Icons.animate(retry, retry.getGraphic());
         retry.setGraphicTextGap(8);
         retry.setOnAction(e -> retry(r, step));
-        row.getChildren().addAll(icon(ICON_ALERT, 14, BAD), styled(new Label(step.label), "step-label"), why, retry);
+        row.getChildren().addAll(Icons.node(Icons.FAILED, 14, BAD), styled(new Label(step.label), "step-label"), why, retry);
         return row;
     }
 
@@ -1051,33 +1125,8 @@ public class HelloController {
         return labels.size() > 3 ? out + " +" + (labels.size() - 3) : out;
     }
 
-    // lucide, native 24 box, scaled to size; stroke 1.75 per brand-iconography
-    private static final String
-            ICON_CHECK = "M20 6 L9 17 L4 12",
-            ICON_PLAY = "M6 3 L20 12 L6 21 Z",
-            ICON_ALERT = "M12 2 A10 10 0 1 0 12 22 A10 10 0 1 0 12 2 Z M12 8 V12 M12 16 V16.01",
-            ICON_CHEVRON = "M9 18 L15 12 L9 6",
-            ICON_CLOCK = "M12 2 A10 10 0 1 0 12 22 A10 10 0 1 0 12 2 Z M12 6 V12 L16 14",
-            ICON_TERMINAL = "M4 17 L10 11 L4 5 M12 19 H20",
-            ICON_APP_WINDOW = "M2 6 A2 2 0 0 1 4 4 H20 A2 2 0 0 1 22 6 V18 A2 2 0 0 1 20 20 H4 A2 2 0 0 1 2 18 Z M10 4 V8 M2 8 H22 M6 4 V8",
-            ICON_GLOBE = "M12 2 A10 10 0 1 0 12 22 A10 10 0 1 0 12 2 Z M2 12 H22 M12 2 A14.5 14.5 0 0 0 12 22 A14.5 14.5 0 0 0 12 2",
-            ICON_REFRESH = "M3 12 A9 9 0 0 1 12 3 A9.75 9.75 0 0 1 18.74 5.74 L21 8 M21 3 V8 H16 M21 12 A9 9 0 0 1 12 21 A9.75 9.75 0 0 1 5.26 18.26 L3 16 M8 16 H3 V21",
-            ICON_X = "M18 6 L6 18 M6 6 L18 18";
     private static final String TX = "#E8D8C9", TX2 = "#A99B8D", TX3 = "#6F655C",
             GO = "#F3701E", BAD = "#D96C5E", HUD = "#7A94BC";
-
-    private static SVGPath icon(String path, double size, String color) {
-        SVGPath p = new SVGPath();
-        p.setContent(path);
-        p.setFill(Color.TRANSPARENT);
-        p.setStroke(Color.web(color));
-        p.setStrokeWidth(1.75);
-        p.setStrokeLineCap(StrokeLineCap.ROUND);
-        p.setStrokeLineJoin(StrokeLineJoin.ROUND);
-        p.setScaleX(size / 24);
-        p.setScaleY(size / 24);
-        return p;
-    }
 
     static int countApps(Project projectObj) {
         if (projectObj == null || projectObj.apps == null) return 0;
@@ -1148,13 +1197,7 @@ public class HelloController {
     private void writeCheckpoint(Project projectObj, Checkpoint mode) {
         // No bucket is ever dropped here: a browser that answers the capture push overwrites its
         // own bucket in POST /tabs, and one that does not answer (asleep worker, dead socket,
-        // closed) keeps what it had. Stale beats gone. The note names the ones that kept.
-        Set<String> connected = new HashSet<>();
-        for (WsContext session : wsSessions) {
-            String b = wsBrowser(session);
-            connected.add("unknown browser".equals(b) ? DEFAULT_BROWSER : b);
-        }
-        List<String> kept = mode.tabs() ? unconnectedWithTabs(projectObj.urlsByBrowser, connected) : List.of();
+        // closed) keeps what it had. Stale beats gone.
         tabMode = mode;
         if (mode.tabs()) wsSessions.forEach(session -> session.send("capture"));
         try {
@@ -1175,17 +1218,8 @@ public class HelloController {
         StackPane row = rowsByProject.get(projectObj.projectName);
         if (row != null) railTip(row, projectObj);
 
-        String note = kept.isEmpty() ? ""
-                : connected.isEmpty() ? " \u00b7 tabs kept \u00b7 no extension connected"
-                : " \u00b7 tabs kept for " + String.join(" \u00b7 ", kept);
         renderDetail(projectObj);
-        String kind = switch (mode) {
-            case ADD_TABS -> "+tabs \u00b7 ";
-            case ADD_APPS -> "+apps \u00b7 ";
-            case ADD_BOTH -> "+tabs +apps \u00b7 ";
-            default -> "";
-        };
-        stampSaved(kind + countApps(projectObj) + " apps \u00b7 " + countTabs(projectObj) + " tabs" + note);
+        checkpointSaved();
     }
 
     /** Add mode: every exe open now joins its category; nothing saved is dropped. */
@@ -1200,30 +1234,34 @@ public class HelloController {
         return new ArrayList<>(out);
     }
 
-    /** motion-checkpoint: the bar drops into the card head, the note goes slate for a beat,
-        then both settle. Fires once per save; never on hover, never on load. */
-    private void stampSaved(String stamp) {
-        capturedNote.setText("checkpoint saved \u00b7 " + stamp);
-        capturedNote.getStyleClass().setAll("card-note-saved");
-        saveBar.setVisible(true);
-        saveBar.setManaged(true);
-        saveBar.setTranslateY(-18);
-        // a small overshoot, like a bookmark seating - the one snap in the system
-        new Timeline(
-                new KeyFrame(Duration.millis(300), new KeyValue(saveBar.translateYProperty(), 2, EASE_OUT)),
-                new KeyFrame(Duration.millis(400), new KeyValue(saveBar.translateYProperty(), 0))).play();
-        PauseTransition hold = new PauseTransition(Duration.millis(2800));
-        hold.setOnFinished(e -> {
-            saveBar.setVisible(false);
-            saveBar.setManaged(false);
-            capturedNote.getStyleClass().setAll("card-note");
-            if (activeProject != null) renderDetail(activeProject);
-        });
-        hold.play();
+    /** The save, on the Checkpoint block itself - no stamp, the block already says "now".
+        One slate breath: the block lights and slowly exhales, the bookmark settles in with a
+        soft overshoot, the sub-line's new age fades in. Fires once per written save; never on
+        the press, never on the menu. Motion off: light and fade only.
+        Slower than --dur-capture and on a soft-start curve on purpose: the user found the
+        --ease-out start a snap. No plateau anywhere; every segment eases into the next. */
+    private void checkpointSaved() {
+        if (!Motion.showing(btnCheckpoint)) return;
+        Motion.stop(ckFlash);
+        Motion.run(ckFlash, new Timeline(
+                new KeyFrame(Duration.ZERO, new KeyValue(ckFlash.opacityProperty(), 0)),
+                new KeyFrame(Duration.millis(800), new KeyValue(ckFlash.opacityProperty(), 1, SOFT)),
+                new KeyFrame(Duration.millis(2500), new KeyValue(ckFlash.opacityProperty(), 0, Interpolator.EASE_BOTH))));
+        Motion.enter(checkpointSub, 0, 3, 1, Duration.millis(650), SOFT);
+        if (Motion.REDUCED) return;
+        // --ease-snap overshoots, which Interpolator.SPLINE cannot: the overshoot is its own key
+        Motion.run(checkpointGlyph, new Timeline(
+                new KeyFrame(Duration.ZERO, new KeyValue(checkpointGlyph.translateYProperty(), -6)),
+                new KeyFrame(Duration.millis(800), new KeyValue(checkpointGlyph.translateYProperty(), .8, SOFT)),
+                new KeyFrame(Duration.millis(1200), new KeyValue(checkpointGlyph.translateYProperty(), 0, Interpolator.EASE_BOTH))));
     }
 
+    /** Starts gently and lands gently - the checkpoint's own curve, where --ease-out snapped. */
+    private static final Interpolator SOFT = Interpolator.SPLINE(.4, 0, .2, 1);
+
     /** The browsers whose saved tabs will survive this checkpoint untouched, because nobody on
-        the socket is about to re-post them. Read-only: nothing is dropped. */
+        the socket is about to re-post them. Read-only: nothing is dropped. Only
+        CheckpointKeepsTabsTest calls it since the saved stamp and its "tabs kept" note went. */
     static List<String> unconnectedWithTabs(Map<String, ArrayList<String>> urlsByBrowser, Set<String> connected) {
         List<String> kept = new ArrayList<>();
         urlsByBrowser.forEach((browser, urls) -> {
@@ -1272,7 +1310,9 @@ public class HelloController {
                 .map(HelloController::wsBrowser).distinct().sorted().toList();
         Platform.runLater(() -> {
             boolean live = !browsers.isEmpty();
+            boolean wasLive = statusDot.getStyleClass().contains("dot-live");
             statusDot.getStyleClass().setAll(live ? "dot-live" : "dot-idle");
+            if (live != wasLive) Motion.pulse(statusDot, live);
             statusLabel.setText(!live ? ":8765 \u00b7 no extension"
                     : browsers.size() == 1 ? "connected \u00b7 " + browsers.get(0)
                     : "connected \u00b7 " + browsers.size() + " browsers");

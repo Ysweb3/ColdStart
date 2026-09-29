@@ -55,20 +55,13 @@
 }
 .wordmark      { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .wordmark-dot  { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-go; }
-/* 32x32 hit box on the 8 grid; the glyph inside is an SVGPath in the FXML */
+/* 32x32 hit box on the 8 grid; the 16px glyph inside is drawn by Icons.node */
 .winctl { -fx-min-width: 32; -fx-pref-width: 32; -fx-max-width: 32;
           -fx-min-height: 32; -fx-pref-height: 32; -fx-max-height: 32; }
 
-/* Lucide stroke icon: 1.75 in the 24-unit box, so ~1.02 once scaled to 14. */
-.winctl-glyph, .winctl-danger {
-    -fx-fill: transparent;
-    -fx-stroke: -rw-tx3;
-    -fx-stroke-width: 1.75;
-    -fx-stroke-line-cap: round;
-    -fx-stroke-line-join: round;
-}
-.winctl-glyph-sm { -fx-stroke-width: 1.2; }
-.winctl:hover .winctl-danger { -fx-stroke: -rw-bad; }
+/* Lucide stroke icon: 1.75 in the 24-unit box, so ~1.17 once scaled to 16. Icons.node draws
+   and colours them; these rules only carry the states CSS owns. */
+.winctl.danger:hover .ico { -fx-stroke: -rw-bad; }
 .empty-glyph { -fx-fill: transparent; -fx-stroke: -rw-ck; -fx-stroke-width: 2; -fx-stroke-line-cap: round; -fx-stroke-line-join: round; }
 
 .dot-live {
@@ -115,7 +108,8 @@
 .rail-btn:hover .label { -fx-text-fill: -rw-tx; }
 .rail-active { -fx-background-color: -rw-go, -rw-g1; }
 .rail-active .label { -fx-text-fill: -rw-tx; }
-.rail-active .winctl-glyph { -fx-stroke: -rw-tx; }
+.rail-active .ico { -fx-stroke: -rw-tx; }
+.rail-btn:hover .ico { -fx-stroke: -rw-tx; }
 .rail-spine { -fx-border-color: transparent transparent transparent -rw-ln; -fx-border-width: 0 0 0 1; -fx-border-style: dotted; }
 .rail-btn:focus-visible { -fx-background-color: -rw-act, -rw-g1; }
 
@@ -206,8 +200,7 @@
       -fx-min-width: 12; -fx-pref-width: 12; -fx-max-width: 12;
       -fx-min-height: 16; -fx-pref-height: 16; -fx-max-height: 16; }
 .chip:hover .rm, .tab-row:hover .rm { -fx-opacity: 1; }
-.rm-glyph { -fx-stroke: -rw-tx3; }
-.rm:hover .rm-glyph { -fx-stroke: -rw-bad; }
+.rm:hover .rm-glyph .ico { -fx-stroke: -rw-bad; }
 
 .tabs-col {
     -fx-border-color: transparent transparent transparent -rw-ln;
@@ -346,8 +339,6 @@
 }
 
 /* the checkpoint bar from motion-checkpoint; the note beside it turns slate for one beat */
-.save-bar   { -fx-background-color: -rw-hud; -fx-background-radius: 2.5; }
-.card-note-saved { -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-hud; }
 
 /* rest 5.2:1, hover 5.7:1. Hover brightens and flips to ink - the same move Checkpoint makes. */
 .btn-danger {
@@ -412,10 +403,8 @@
     -fx-border-color: -rw-ln;
     -fx-border-radius: 7;
 }
-.step-row:launching {
-    -fx-border-color: -rw-gop;
-    -fx-effect: dropshadow(gaussian, -rw-go, 18, 0.0, 0, 0);
-}
+/* the ring alone at rest; the bloom is one beat, flashed from code when the launch starts */
+.step-row:launching { -fx-border-color: -rw-gop; }
 .step-row:failed { -fx-border-color: -rw-bad; }
 .step-label { -fx-font-family: "Space Mono"; -fx-font-size: 13px; -fx-text-fill: -rw-tx; }
 .step-cmd   { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx3t; }
@@ -466,3 +455,10 @@
 .resume:disabled { -fx-background-color: -rw-g3; -fx-opacity: 0.6; -fx-cursor: default; }
 .resume:disabled .resume-word, .resume:disabled .resume-spec { -fx-text-fill: -rw-tx3t; }
 .checkpoint:hover { -fx-background-color: -rw-ck, -rw-ck-tint; }
+/* the save lighting the block: its edge brightens over the slate tint, then exhales. The same
+   notch as the block, laid under its content; only its opacity ever moves. */
+.ck-flash {
+    -fx-background-color: -rw-hud, -rw-ck-tint;
+    -fx-background-insets: 0, 1;
+    -fx-shape: "M0 0 L267 0 L281 14 L281 104 L14 104 L0 90 Z";
+}

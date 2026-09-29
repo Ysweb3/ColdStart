@@ -63,15 +63,9 @@
 
     <!-- the three window buttons are one tight cluster; the 32px boxes carry the gap -->
     <HBox spacing="0.0" alignment="CENTER_LEFT">
-      <StackPane fx:id="btnMin" styleClass="winctl" pickOnBounds="true">
-        <SVGPath styleClass="winctl-glyph,winctl-glyph-sm" content="M0 5 H10"/>
-      </StackPane>
-      <StackPane fx:id="btnMax" styleClass="winctl" pickOnBounds="true">
-        <SVGPath styleClass="winctl-glyph,winctl-glyph-sm" content="M0.6 0.6 H9.4 V9.4 H0.6 Z"/>
-      </StackPane>
-      <StackPane fx:id="btnClose" styleClass="winctl" pickOnBounds="true">
-        <SVGPath styleClass="winctl-glyph,winctl-glyph-sm" content="M0 0 L10 10 M10 0 L0 10"/>
-      </StackPane>
+      <StackPane fx:id="btnMin" styleClass="winctl" pickOnBounds="true"></StackPane>
+      <StackPane fx:id="btnMax" styleClass="winctl" pickOnBounds="true"></StackPane>
+      <StackPane fx:id="btnClose" styleClass="winctl" pickOnBounds="true"></StackPane>
     </HBox>
   </HBox>
 
@@ -84,16 +78,12 @@
       <!-- one 28x28 numbered button per project, built by createProjectUI(); name on hover -->
       <VBox fx:id="projectList" alignment="TOP_CENTER" spacing="8.0"/>
 
-      <StackPane fx:id="btnNewProjectRail" styleClass="rail-btn" pickOnBounds="true">
-        <SVGPath styleClass="winctl-glyph" scaleX="0.5833" scaleY="0.5833" content="M12 5 V19 M5 12 H19"/>
-      </StackPane>
+      <StackPane fx:id="btnNewProjectRail" styleClass="rail-btn" pickOnBounds="true"></StackPane>
 
       <!-- the dotted spine from the artboards -->
       <Region styleClass="rail-spine" minWidth="1.0" prefWidth="1.0" maxWidth="1.0" VBox.vgrow="ALWAYS"/>
 
-      <StackPane fx:id="btnSettings" styleClass="rail-btn" pickOnBounds="true">
-        <SVGPath styleClass="winctl-glyph" scaleX="0.5833" scaleY="0.5833" content="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z M15 12 A3 3 0 1 1 9 12 A3 3 0 1 1 15 12"/>
-      </StackPane>
+      <StackPane fx:id="btnSettings" styleClass="rail-btn" pickOnBounds="true"></StackPane>
     </VBox>
 
     <StackPane HBox.hgrow="ALWAYS">
@@ -110,7 +100,6 @@
           <!-- delete is per project, so it lives on the project, not in the window chrome -->
           <StackPane fx:id="btnDelete" styleClass="winctl" pickOnBounds="true">
             <HBox.margin><Insets top="8.0"/></HBox.margin>
-            <SVGPath styleClass="winctl-danger" scaleX="0.5833" scaleY="0.5833" content="M10 11 V17 M14 11 V17 M19 6 V20 A2 2 0 0 1 17 22 H7 A2 2 0 0 1 5 20 V6 M3 6 H21 M8 6 V4 A2 2 0 0 1 10 2 H14 A2 2 0 0 1 16 4 V6"/>
           </StackPane>
         </HBox>
 
@@ -120,7 +109,7 @@
           <HBox fx:id="btnResume" styleClass="resume" alignment="CENTER_LEFT" spacing="16.0"
                 minWidth="384.0" prefWidth="448.0" HBox.hgrow="ALWAYS">
             <padding><Insets left="24.0" right="24.0"/></padding>
-            <SVGPath content="M6 4 L25 15 L6 26 Z" fill="#1A0C03" stroke="#1A0C03" strokeWidth="3.0" strokeLineJoin="ROUND"/>
+            <SVGPath fx:id="resumeGlyph" content="M6 4 L25 15 L6 26 Z" fill="#1A0C03" stroke="#1A0C03" strokeWidth="3.0" strokeLineJoin="ROUND"/>
             <VBox spacing="8.0" alignment="CENTER_LEFT">
               <Label styleClass="resume-word" text="RESUME"/>
               <Label fx:id="resumeSpec" styleClass="resume-spec" text=""/>
@@ -131,7 +120,7 @@
                 minWidth="280.0" prefWidth="280.0" maxWidth="280.0">
             <!-- 1px top/right/bottom so the split segment sits inside the 1px -rw-ck border -->
             <padding><Insets top="1.0" left="24.0" right="1.0" bottom="1.0"/></padding>
-            <SVGPath content="M4 2 H16 V21 L10 16 L4 21 Z M19 4 V10 M16 7 H22"
+            <SVGPath fx:id="checkpointGlyph" content="M4 2 H16 V21 L10 16 L4 21 Z M19 4 V10 M16 7 H22"
                      fill="TRANSPARENT" stroke="#E8D8C9" strokeWidth="1.8"
                      strokeLineCap="ROUND" strokeLineJoin="ROUND"/>
             <VBox spacing="8.0" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS">
@@ -161,10 +150,6 @@
             <padding><Insets right="16.0" left="16.0"/></padding>
             <Label styleClass="card-title" text="WHAT GETS SAVED"/>
             <Region HBox.hgrow="ALWAYS"/>
-            <!-- motion-checkpoint: the bar drops in beside the note once per save -->
-            <Region fx:id="saveBar" styleClass="save-bar" minWidth="5.0" prefWidth="5.0" maxWidth="5.0"
-                    minHeight="16.0" prefHeight="16.0" maxHeight="16.0" visible="false" managed="false"/>
-            <Label fx:id="capturedNote" styleClass="card-note" text=""/>
           </HBox>
 
           <HBox VBox.vgrow="ALWAYS">
@@ -258,7 +243,14 @@
                 </Label>
                 <VBox fx:id="resumeRows" spacing="12.0"/>
               </VBox>
-              <Label styleClass="cat-foot" text="fixed for now · nothing here is adjustable yet">
+              <VBox spacing="12.0">
+                <VBox.margin><Insets top="24.0"/></VBox.margin>
+                <Label styleClass="rail-label" text="HOW IT MOVES">
+                  <VBox.margin><Insets bottom="4.0"/></VBox.margin>
+                </Label>
+                <CheckBox fx:id="motionToggle" selected="true" text="Animate presses and panels"/>
+              </VBox>
+              <Label styleClass="cat-foot" text="capture and resume are fixed for now">
                 <VBox.margin><Insets top="24.0"/></VBox.margin>
               </Label>
             </VBox>

@@ -3,6 +3,7 @@ import javafx.application.Application;
 import javafx.scene.Cursor;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
+import javafx.scene.layout.StackPane;
 import javafx.scene.Parent;
 import javafx.scene.layout.Region;
 import javafx.scene.Scene;
@@ -50,9 +51,12 @@ public class HelloApplication extends Application {
             stage.setX(e.getScreenX() - grab[0]);
             stage.setY(e.getScreenY() - grab[1]);
         });
-        windowButton(root.lookup("#btnMin"), () -> stage.setIconified(true));
-        windowButton(root.lookup("#btnMax"), () -> stage.setMaximized(!stage.isMaximized()));
-        windowButton(root.lookup("#btnClose"), stage::close);
+        windowButton(root.lookup("#btnMin"), Icons.MINIMIZE, () -> stage.setIconified(true));
+        StackPane max = windowButton(root.lookup("#btnMax"), Icons.MAXIMIZE, () -> stage.setMaximized(!stage.isMaximized()));
+        windowButton(root.lookup("#btnClose"), Icons.CLOSE, stage::close);
+        // maximize shows restore while maximized, as the slide pairs them
+        stage.maximizedProperty().addListener((o, was, is) ->
+                max.getChildren().setAll(Icons.node(is ? Icons.RESTORE : Icons.MAXIMIZE, 16, "#6F655C")));
 
         // ponytail: right/bottom/corner only. Add the other five edges if anyone
         // actually misses them.
@@ -89,8 +93,12 @@ public class HelloApplication extends Application {
 
     }
 
-    /** The window buttons are StackPanes; this puts them in the Tab order and on Enter/Space. */
-    private static void windowButton(Node node, Runnable action) {
+    /** The window buttons are StackPanes; this draws their glyph and puts them in the Tab
+        order and on Enter/Space. */
+    private static StackPane windowButton(Node node, Icons.Glyph glyph, Runnable action) {
+        StackPane box = (StackPane) node;
+        box.getChildren().setAll(Icons.node(glyph, 16, "#6F655C"));
+        Icons.animate(box, box);   // the box, not the glyph: maximize swaps its child
         node.setFocusTraversable(true);
         node.setOnMouseClicked(e -> action.run());
         node.setOnKeyPressed(e -> {
@@ -99,6 +107,7 @@ public class HelloApplication extends Application {
                 e.consume();
             }
         });
+        return box;
     }
 
     /** JavaFX CSS silently ignores @font-face, so the bundled faces are registered here

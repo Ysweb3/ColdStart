@@ -5,6 +5,7 @@ module com.example.resumeone {
     requires java.xml.crypto;
     requires io.javalin;
     requires java.desktop;
+    requires java.prefs;
 
 
     opens com.example.resumeone to javafx.fxml;
