@@ -35,6 +35,7 @@
     -rw-bad-fill: #B03D33;   /* brick one rung deeper: #C0453A sits at 4.43:1 under On Danger, just short */
     -rw-bad-tint: #26120F;   /* the danger wash under a failed row */
     -rw-on-bad:   #FBEDEA;   /* ink on brick */
+    -rw-act-tint: #292823;   /* act at 16% over g1: the wide rail's active row and New project */
 
     -fx-background-color: -rw-g;
     -fx-font-family: "Sora";
@@ -111,6 +112,45 @@
 .rail-btn:hover .ico { -fx-stroke: -rw-tx; }
 .rail-spine { -fx-border-color: transparent transparent transparent -rw-ln; -fx-border-width: 0 0 0 1; -fx-border-style: dotted; }
 .rail-btn:focus-visible { -fx-background-color: -rw-act, -rw-g1; }
+
+/* widths here, not in FXML, so .rail-wide alone swaps them */
+.rail      { -fx-min-width: 48;  -fx-pref-width: 48;  -fx-max-width: 48; }
+.rail-wide { -fx-min-width: 200; -fx-pref-width: 200; -fx-max-width: 200; }
+.rail-head { -fx-alignment: center; }
+.rail-toggle { -fx-background-color: transparent; }
+.rail-toggle:hover { -fx-background-color: -rw-g2; }
+
+/* each row stacks two faces: the number (narrow) and folder + name (wide); one is hidden */
+.side-face { visibility: hidden; -fx-padding: 0 12 0 12; }
+.folder-open, .rail-active .folder-shut { visibility: hidden; }
+.rail-active .folder-open { visibility: visible; }
+.rail-btn .side-name { -fx-font-family: "Sora"; -fx-font-size: 14px; -fx-font-weight: normal; }
+
+.rail-wide .rail-head { -fx-alignment: center-left; -fx-padding: 0 8 0 16; }
+.rail-wide .project-list { -fx-spacing: 2; -fx-padding: 0 8 0 8; }
+.rail-wide .side-row {
+    -fx-min-width: 0; -fx-pref-width: 184; -fx-max-width: 10000;
+    -fx-min-height: 40; -fx-pref-height: 40; -fx-max-height: 40;
+    -fx-background-color: transparent;
+    -fx-background-radius: 7;
+}
+.rail-wide .side-row > .label { visibility: hidden; }
+.rail-wide .side-face { visibility: visible; }
+.rail-wide .side-row:hover { -fx-background-color: -rw-g2; }
+/* neutral active, not orange: a 2px act edge under the tint (the 1b sidebar) */
+.rail-wide .side-row.rail-active {
+    -fx-background-color: -rw-act, -rw-act-tint;
+    -fx-background-insets: 0, 0 0 0 2;
+    -fx-background-radius: 7, 6;
+}
+.rail-wide .rail-spine { -fx-border-color: transparent; }
+.rail-wide .rail-foot {
+    -fx-border-color: -rw-ln transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
+    -fx-padding: 16 8 0 8;
+}
+.side-new { -fx-pref-height: 40; -fx-font-weight: bold; -fx-background-color: -rw-act-tint; }
+.side-new:hover { -fx-background-color: -rw-g3; }
 
 .btn-secondary {
     -fx-background-color: -rw-g2;

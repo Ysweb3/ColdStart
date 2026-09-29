@@ -28,6 +28,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
+import java.util.prefs.Preferences;
 import javafx.scene.effect.BlurType;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.paint.Color;
@@ -124,6 +125,15 @@ public class HelloController {
     @FXML public Button btnNpBrowse, btnNpCancel, btnNpCreate;
     @FXML public ScrollPane settingsPane;
     @FXML public StackPane btnSettings, btnNewProjectRail;   // the rail's + ; hello-view keeps its own Button
+    // the rail opens to 200px (.rail-wide): a PROJECTS header, named rows, a New project button
+    @FXML public VBox rail;
+    @FXML public Label railTitle, railCount;
+    @FXML public Region railHeadGap;
+    @FXML public StackPane btnRailToggle;
+    @FXML public Button btnNewProjectWide;
+    private Tooltip railToggleTip;
+    /** Same node Motion keeps "motion" in; projects.json stays projects only. */
+    private static final Preferences PREFS = Preferences.userNodeForPackage(HelloController.class);
     @FXML public VBox settingsRows, captureRows, resumeRows;
     @FXML public Label settingsFoot;
     @FXML public CheckBox motionToggle;
@@ -193,6 +203,11 @@ public class HelloController {
                 behaviourRow("coldstart stays on top while resuming"));
         clickable(btnNewProjectRail, this::onNewProjectClick);
         Tooltip.install(btnNewProjectRail, tip("New project"));
+        btnNewProjectWide.setOnAction(e -> onNewProjectClick());
+        railToggleTip = tip("");
+        Tooltip.install(btnRailToggle, railToggleTip);
+        clickable(btnRailToggle, () -> setRailWide(!rail.getStyleClass().contains("rail-wide")));
+        setRailWide(PREFS.getBoolean("railWide", true));
         motionToggle.setSelected(!Motion.REDUCED);
         // everything simply plays, or not, next time
         motionToggle.selectedProperty().addListener((o, was, on) -> Motion.setEnabled(on));
@@ -371,9 +386,11 @@ public class HelloController {
             projects.add(projectObj);
         }
 
-        // a numbered 28x28 rail button; the name and age ride on its tooltip
+        // a numbered 32x32 rail button; the name and age ride on its tooltip. The wide rail
+        // shows the second face instead - hud.css picks one, both sit in the same StackPane.
         StackPane row = new StackPane(new Label("00"));
-        row.getStyleClass().add("rail-btn");
+        if (isHud()) row.getChildren().add(sideFace(projectObj.projectName));
+        row.getStyleClass().addAll("rail-btn", "side-row");
         row.setPickOnBounds(true);
         Tooltip t = tip("");
         Tooltip.install(row, t);
@@ -414,6 +431,10 @@ public class HelloController {
             Icons.animate(e.getKey(), g);
         }
         btnDelete.getStyleClass().add("danger");
+        btnRailToggle.getChildren().add(Icons.node(Icons.CHEVRON, 16, TX3));
+        btnNewProjectWide.setGraphic(Icons.node(Icons.NEW, 16, TX));
+        btnNewProjectWide.setGraphicTextGap(8);
+        Icons.animate(btnNewProjectWide, btnNewProjectWide.getGraphic());
         btnNpBrowse.setGraphic(Icons.node(Icons.BROWSE, 16, TX));
         btnNpBrowse.setGraphicTextGap(8);
         Icons.animate(btnNpBrowse, btnNpBrowse.getGraphic());
@@ -447,6 +468,8 @@ public class HelloController {
                 () -> { if (!overlayOpen()) onCheckpoint(); });
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.N, KeyCombination.SHORTCUT_DOWN),
                 () -> { if (!overlayOpen()) onNewProjectClick(); });
+        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.B, KeyCombination.SHORTCUT_DOWN),
+                () -> setRailWide(!rail.getStyleClass().contains("rail-wide")));
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() != KeyCode.ESCAPE) return;
             if (overlayOpen()) {
@@ -585,6 +608,36 @@ public class HelloController {
         for (Node b : projectList.getChildren()) {
             ((Label) ((StackPane) b).getChildren().get(0)).setText(String.format("%02d", ++n));
         }
+        if (railCount != null) railCount.setText(String.format("%02d", n));
+    }
+
+    /** 200px with names, or the 48px numbered rail. Instant: width never animates (it would
+        reflow the card every frame). Remembered across launches. */
+    private void setRailWide(boolean wide) {
+        rail.getStyleClass().remove("rail-wide");
+        if (wide) rail.getStyleClass().add("rail-wide");
+        for (Node n : List.of(railTitle, railHeadGap, railCount, btnNewProjectWide)) {
+            n.setVisible(wide);
+            n.setManaged(wide);
+        }
+        btnNewProjectRail.setVisible(!wide);
+        btnNewProjectRail.setManaged(!wide);
+        btnRailToggle.setRotate(wide ? 180 : 0);   // the chevron points where the rail will go
+        railToggleTip.setText((wide ? "Collapse" : "Expand") + " sidebar · Ctrl+B");
+        PREFS.putBoolean("railWide", wide);
+    }
+
+    /** The wide rail's face of a row: a folder (open on the active row, via hud.css) and the name. */
+    private static HBox sideFace(String name) {
+        Pane shut = Icons.node(Icons.OTHER, 16, TX3), open = Icons.node(Icons.BROWSE, 16, TX);
+        shut.getStyleClass().add("folder-shut");
+        open.getStyleClass().add("folder-open");
+        Label label = new Label(name);
+        label.getStyleClass().add("side-name");
+        HBox face = new HBox(12, new StackPane(shut, open), label);
+        face.getStyleClass().add("side-face");
+        face.setAlignment(Pos.CENTER_LEFT);
+        return face;
     }
 
     private void railTip(StackPane row, Project projectObj) {
