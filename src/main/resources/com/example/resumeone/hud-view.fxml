@@ -158,7 +158,7 @@
             </VBox>
 
             <!-- side padding lives inside the scroll viewport (on the list and the header),
-                 not on the column: the viewport clips, and the live dot's glow needs the room;
+                 not on the column: the viewport clips;
                  it also keeps each row's x off the scrollbar -->
             <VBox styleClass="tabs-col" spacing="8.0" minWidth="288.0" prefWidth="288.0" maxWidth="288.0">
               <padding><Insets top="16.0" right="8.0" bottom="16.0" left="8.0"/></padding>
