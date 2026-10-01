@@ -1201,18 +1201,23 @@ public class HelloController {
     private volatile Checkpoint tabMode = Checkpoint.OVERWRITE;
 
     private void installCheckpointMenu() {
-        // one level, add modes only: overwrite is the block itself, so it is not repeated here
+        // one level, add modes only: overwrite is the block itself, so it is not repeated here.
+        // The verb is said once, as a heading; the items name only what gets added.
         ContextMenu menu = new ContextMenu();
+        MenuItem heading = new MenuItem("ADD WHAT’S MISSING");
+        heading.getStyleClass().add("menu-head");
+        heading.setDisable(true);   // a label, not a choice: no hover, no click
+        menu.getItems().add(heading);
         for (Checkpoint mode : List.of(Checkpoint.ADD_TABS, Checkpoint.ADD_APPS, Checkpoint.ADD_BOTH)) {
             MenuItem item = new MenuItem(switch (mode) {
-                case ADD_TABS -> "Add missing tabs";
-                case ADD_APPS -> "Add missing apps";
-                default -> "Add missing tabs and apps";
+                case ADD_TABS -> "Tabs";
+                case ADD_APPS -> "Apps";
+                default -> "Both";
             });
             item.setOnAction(e -> { if (activeProject != null) writeCheckpoint(activeProject, mode); });
+            item.disableProperty().bind(btnCheckpoint.disabledProperty());
             menu.getItems().add(item);
         }
-        for (MenuItem item : menu.getItems()) item.disableProperty().bind(btnCheckpoint.disabledProperty());
         // consume, or the whole-button click handler fires an overwrite underneath the menu
         btnCheckpointMenu.setOnMouseClicked(e -> { e.consume(); menu.show(btnCheckpointMenu, Side.BOTTOM, 0, 4); });
         Tooltip.install(btnCheckpointMenu, tip("Add what is missing"));
