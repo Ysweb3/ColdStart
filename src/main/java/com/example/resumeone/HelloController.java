@@ -22,8 +22,7 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
 import javafx.scene.control.ContextMenu;
-import javafx.scene.control.Menu;      // explicit: java.awt.* also exports Menu
-import javafx.scene.control.MenuItem;  // and MenuItem
+import javafx.scene.control.MenuItem;  // explicit: java.awt.* also exports MenuItem
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.Pane;
@@ -125,13 +124,13 @@ public class HelloController {
     @FXML public Button btnNpBrowse, btnNpCancel, btnNpCreate;
     @FXML public ScrollPane settingsPane;
     @FXML public StackPane btnSettings, btnNewProjectRail;   // the rail's + ; hello-view keeps its own Button
-    // the rail opens to 200px (.rail-wide): a PROJECTS header, named rows, a New project button
+    // the rail opens to 200px (.rail-wide): a PROJECTS header, named rows, a New project button.
+    // Switched from Settings (sidebarToggle) or Ctrl+B.
     @FXML public VBox rail;
-    @FXML public Label railTitle, railCount;
-    @FXML public Region railHeadGap;
-    @FXML public StackPane btnRailToggle;
+    @FXML public HBox railHead;
+    @FXML public Label railCount;
     @FXML public Button btnNewProjectWide;
-    private Tooltip railToggleTip;
+    @FXML public CheckBox sidebarToggle;
     /** Same node Motion keeps "motion" in; projects.json stays projects only. */
     private static final Preferences PREFS = Preferences.userNodeForPackage(HelloController.class);
     @FXML public VBox settingsRows, captureRows, resumeRows;
@@ -204,10 +203,9 @@ public class HelloController {
         clickable(btnNewProjectRail, this::onNewProjectClick);
         Tooltip.install(btnNewProjectRail, tip("New project"));
         btnNewProjectWide.setOnAction(e -> onNewProjectClick());
-        railToggleTip = tip("");
-        Tooltip.install(btnRailToggle, railToggleTip);
-        clickable(btnRailToggle, () -> setRailWide(!rail.getStyleClass().contains("rail-wide")));
-        setRailWide(PREFS.getBoolean("railWide", true));
+        setRailWide(PREFS.getBoolean(SIDEBAR_WIDE, true));
+        Tooltip.install(sidebarToggle, tip("Ctrl+B"));
+        sidebarToggle.selectedProperty().addListener((o, was, on) -> setRailWide(on));
         motionToggle.setSelected(!Motion.REDUCED);
         // everything simply plays, or not, next time
         motionToggle.selectedProperty().addListener((o, was, on) -> Motion.setEnabled(on));
@@ -431,7 +429,6 @@ public class HelloController {
             Icons.animate(e.getKey(), g);
         }
         btnDelete.getStyleClass().add("danger");
-        btnRailToggle.getChildren().add(Icons.node(Icons.CHEVRON, 16, TX3));
         btnNewProjectWide.setGraphic(Icons.node(Icons.NEW, 16, TX));
         btnNewProjectWide.setGraphicTextGap(8);
         Icons.animate(btnNewProjectWide, btnNewProjectWide.getGraphic());
@@ -611,20 +608,24 @@ public class HelloController {
         if (railCount != null) railCount.setText(String.format("%02d", n));
     }
 
+    /** Wide is the default. A new key, not "railWide": that one still holds whatever the old
+        chevron last left, and everyone starts wide once the chevron is gone. */
+    private static final String SIDEBAR_WIDE = "sidebarWide";
+
     /** 200px with names, or the 48px numbered rail. Instant: width never animates (it would
         reflow the card every frame). Remembered across launches. */
     private void setRailWide(boolean wide) {
         rail.getStyleClass().remove("rail-wide");
         if (wide) rail.getStyleClass().add("rail-wide");
-        for (Node n : List.of(railTitle, railHeadGap, railCount, btnNewProjectWide)) {
+        // the narrow rail has no header at all, so its first number sits where PROJECTS would
+        for (Node n : List.of(railHead, btnNewProjectWide)) {
             n.setVisible(wide);
             n.setManaged(wide);
         }
         btnNewProjectRail.setVisible(!wide);
         btnNewProjectRail.setManaged(!wide);
-        btnRailToggle.setRotate(wide ? 180 : 0);   // the chevron points where the rail will go
-        railToggleTip.setText((wide ? "Collapse" : "Expand") + " sidebar · Ctrl+B");
-        PREFS.putBoolean("railWide", wide);
+        sidebarToggle.setSelected(wide);   // Ctrl+B keeps the Settings box honest; no-op from the box
+        PREFS.putBoolean(SIDEBAR_WIDE, wide);
     }
 
     /** The wide rail's face of a row: a folder (open on the active row, via hud.css) and the name. */
@@ -1200,23 +1201,26 @@ public class HelloController {
     private volatile Checkpoint tabMode = Checkpoint.OVERWRITE;
 
     private void installCheckpointMenu() {
+        // one level, add modes only: overwrite is the block itself, so it is not repeated here.
+        // The verb is said once, as a heading; the items name only what gets added.
         ContextMenu menu = new ContextMenu();
-        MenuItem overwrite = new MenuItem("Overwrite");
-        overwrite.setOnAction(e -> onCheckpoint());
-        Menu add = new Menu("Add what\u2019s missing");
+        MenuItem heading = new MenuItem("ADD WHAT’S MISSING");
+        heading.getStyleClass().add("menu-head");
+        heading.setDisable(true);   // a label, not a choice: no hover, no click
+        menu.getItems().add(heading);
         for (Checkpoint mode : List.of(Checkpoint.ADD_TABS, Checkpoint.ADD_APPS, Checkpoint.ADD_BOTH)) {
             MenuItem item = new MenuItem(switch (mode) {
                 case ADD_TABS -> "Tabs";
                 case ADD_APPS -> "Apps";
-                default -> "Tabs and apps";
+                default -> "Both";
             });
             item.setOnAction(e -> { if (activeProject != null) writeCheckpoint(activeProject, mode); });
-            add.getItems().add(item);
+            item.disableProperty().bind(btnCheckpoint.disabledProperty());
+            menu.getItems().add(item);
         }
-        menu.getItems().addAll(overwrite, add);
-        for (MenuItem item : menu.getItems()) item.disableProperty().bind(btnCheckpoint.disabledProperty());
         // consume, or the whole-button click handler fires an overwrite underneath the menu
         btnCheckpointMenu.setOnMouseClicked(e -> { e.consume(); menu.show(btnCheckpointMenu, Side.BOTTOM, 0, 4); });
+        Tooltip.install(btnCheckpointMenu, tip("Add what is missing"));
         btnCheckpoint.setOnContextMenuRequested(e -> { e.consume(); menu.show(btnCheckpoint, e.getScreenX(), e.getScreenY()); });
     }
 

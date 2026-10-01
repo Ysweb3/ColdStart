@@ -72,16 +72,16 @@
   <HBox VBox.vgrow="ALWAYS">
 
     <!-- ══ rail (artboards 1e/1h/1i/1l): numbered projects, +, gear ═════
-         .rail-wide (setRailWide, Ctrl+B) opens it to 200px: named rows and a New project
-         button. Widths live in hud.css so the class alone swaps them. -->
+         .rail-wide (setRailWide: the Settings checkbox or Ctrl+B) opens it to 200px: named rows
+         and a New project button. Widths live in hud.css so the class alone swaps them. -->
     <VBox fx:id="rail" styleClass="rail" alignment="TOP_CENTER" spacing="8.0">
       <padding><Insets top="16.0" bottom="16.0"/></padding>
 
-      <HBox styleClass="rail-head" spacing="8.0">
-        <Label fx:id="railTitle" styleClass="rail-label" text="PROJECTS"/>
-        <Region fx:id="railHeadGap" HBox.hgrow="ALWAYS"/>
+      <!-- wide only; minHeight keeps the rows where the 32px toggle used to hold them -->
+      <HBox fx:id="railHead" styleClass="rail-head" spacing="8.0" minHeight="32.0">
+        <Label styleClass="rail-label" text="PROJECTS"/>
+        <Region HBox.hgrow="ALWAYS"/>
         <Label fx:id="railCount" styleClass="rail-count" text="00"/>
-        <StackPane fx:id="btnRailToggle" styleClass="rail-btn, rail-toggle" pickOnBounds="true"/>
       </HBox>
 
       <!-- one row per project, built by createProjectUI(): a 32x32 number, or folder + name when wide -->
@@ -130,7 +130,7 @@
           </HBox>
 
           <HBox fx:id="btnCheckpoint" styleClass="checkpoint" alignment="CENTER_LEFT" spacing="16.0"
-                minWidth="280.0" prefWidth="280.0" maxWidth="280.0">
+                minWidth="296.0" prefWidth="296.0" maxWidth="296.0">
             <!-- 1px top/right/bottom so the split segment sits inside the 1px -rw-ck border -->
             <padding><Insets top="1.0" left="24.0" right="1.0" bottom="1.0"/></padding>
             <SVGPath fx:id="checkpointGlyph" content="M4 2 H16 V21 L10 16 L4 21 Z M19 4 V10 M16 7 H22"
@@ -140,15 +140,15 @@
               <Label styleClass="checkpoint-word" text="Checkpoint"/>
               <Label fx:id="checkpointSub" styleClass="checkpoint-sub" text=""/>
             </VBox>
-            <!-- split button: the right fifth opens the other kinds of checkpoint (add what is
-                 missing: tabs / apps / both). Full height, its own notch, a 1px divider. The
+            <!-- split button: the right segment opens the other kinds of checkpoint (add missing
+                 tabs / apps / both). Full height, 64px wide, its own notch, a 1px divider. The
                  click is consumed so the button underneath does not overwrite. -->
             <Region styleClass="ck-divider" minWidth="1.0" prefWidth="1.0" maxWidth="1.0"/>
             <StackPane fx:id="btnCheckpointMenu" styleClass="ck-menu" pickOnBounds="true"
-                       minWidth="55.0" prefWidth="55.0" maxWidth="55.0">
+                       minWidth="64.0" prefWidth="64.0" maxWidth="64.0">
               <HBox.margin><Insets left="-16.0"/></HBox.margin>
-              <SVGPath styleClass="ck-glyph" content="M6 9 L12 15 L18 9" scaleX="0.8333" scaleY="0.8333"
-                       fill="TRANSPARENT" strokeWidth="1.8" strokeLineCap="ROUND" strokeLineJoin="ROUND"/>
+              <SVGPath styleClass="ck-glyph" content="M6 9 L12 15 L18 9"
+                       fill="TRANSPARENT" strokeWidth="2.0" strokeLineCap="ROUND" strokeLineJoin="ROUND"/>
             </StackPane>
           </HBox>
         </HBox>
@@ -262,6 +262,13 @@
                   <VBox.margin><Insets bottom="4.0"/></VBox.margin>
                 </Label>
                 <CheckBox fx:id="motionToggle" selected="true" text="Animate presses and panels"/>
+              </VBox>
+              <VBox spacing="12.0">
+                <VBox.margin><Insets top="24.0"/></VBox.margin>
+                <Label styleClass="rail-label" text="HOW IT LOOKS">
+                  <VBox.margin><Insets bottom="4.0"/></VBox.margin>
+                </Label>
+                <CheckBox fx:id="sidebarToggle" selected="true" text="Show project names in the sidebar"/>
               </VBox>
               <Label styleClass="cat-foot" text="capture and resume are fixed for now">
                 <VBox.margin><Insets top="24.0"/></VBox.margin>
