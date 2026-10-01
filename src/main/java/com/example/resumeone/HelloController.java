@@ -22,13 +22,11 @@ import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
 import javafx.scene.control.ContextMenu;
-import javafx.scene.control.Menu;      // explicit: java.awt.* also exports Menu
-import javafx.scene.control.MenuItem;  // and MenuItem
+import javafx.scene.control.MenuItem;  // explicit: java.awt.* also exports MenuItem
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
-import java.util.prefs.Preferences;
 import javafx.scene.effect.BlurType;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.paint.Color;
@@ -124,16 +122,10 @@ public class HelloController {
     @FXML public CheckBox npCapture;
     @FXML public Button btnNpBrowse, btnNpCancel, btnNpCreate;
     @FXML public ScrollPane settingsPane;
-    @FXML public StackPane btnSettings, btnNewProjectRail;   // the rail's + ; hello-view keeps its own Button
-    // the rail opens to 200px (.rail-wide): a PROJECTS header, named rows, a New project button
-    @FXML public VBox rail;
-    @FXML public Label railTitle, railCount;
-    @FXML public Region railHeadGap;
-    @FXML public StackPane btnRailToggle;
-    @FXML public Button btnNewProjectWide;
-    private Tooltip railToggleTip;
-    /** Same node Motion keeps "motion" in; projects.json stays projects only. */
-    private static final Preferences PREFS = Preferences.userNodeForPackage(HelloController.class);
+    @FXML public StackPane btnSettings;
+    // the sidebar: a PROJECTS header, one named row per project, a New project button
+    @FXML public Label railCount;
+    @FXML public Button btnNewProjectRail;   // hello-view keeps its own Button
     @FXML public VBox settingsRows, captureRows, resumeRows;
     @FXML public Label settingsFoot;
     @FXML public CheckBox motionToggle;
@@ -145,7 +137,7 @@ public class HelloController {
     @FXML public SVGPath resumeGlyph, checkpointGlyph;   // the 1b artwork; Resume nudges on press, the bookmark seats on save
     @FXML public Region statusDot;
     @FXML public Label projectNameLabel, projectPathLabel, resumeSpec, checkpointSub,
-            tabsCount, statusLabel;
+            appsCount, tabsCount, statusLabel;
 
     /** Hover-only: names the browsers on the socket, so the dot itself stays uncluttered. */
     // built in initialize(), not here: a Tooltip needs the JavaFX toolkit, which the unit tests
@@ -201,13 +193,7 @@ public class HelloController {
                 behaviourRow("Claude continues its last session (--continue)"),
                 behaviourRow("Apps already running are left alone"),
                 behaviourRow("coldstart stays on top while resuming"));
-        clickable(btnNewProjectRail, this::onNewProjectClick);
-        Tooltip.install(btnNewProjectRail, tip("New project"));
-        btnNewProjectWide.setOnAction(e -> onNewProjectClick());
-        railToggleTip = tip("");
-        Tooltip.install(btnRailToggle, railToggleTip);
-        clickable(btnRailToggle, () -> setRailWide(!rail.getStyleClass().contains("rail-wide")));
-        setRailWide(PREFS.getBoolean("railWide", true));
+        btnNewProjectRail.setOnAction(e -> onNewProjectClick());
         motionToggle.setSelected(!Motion.REDUCED);
         // everything simply plays, or not, next time
         motionToggle.selectedProperty().addListener((o, was, on) -> Motion.setEnabled(on));
@@ -386,11 +372,9 @@ public class HelloController {
             projects.add(projectObj);
         }
 
-        // a numbered 32x32 rail button; the name and age ride on its tooltip. The wide rail
-        // shows the second face instead - hud.css picks one, both sit in the same StackPane.
-        StackPane row = new StackPane(new Label("00"));
-        if (isHud()) row.getChildren().add(sideFace(projectObj.projectName));
-        row.getStyleClass().addAll("rail-btn", "side-row");
+        // folder + name; the checkpoint age rides on the tooltip
+        StackPane row = new StackPane(isHud() ? sideFace(projectObj.projectName) : new Label(projectObj.projectName));
+        row.getStyleClass().add("side-row");
         row.setPickOnBounds(true);
         Tooltip t = tip("");
         Tooltip.install(row, t);
@@ -425,16 +409,15 @@ public class HelloController {
 
     /** The slide's action glyphs on the chrome that FXML only shapes; hover/press plays each one. */
     private void installGlyphs() {
-        for (var e : Map.of(btnNewProjectRail, Icons.NEW, btnSettings, Icons.SETTINGS, btnDelete, Icons.DELETE).entrySet()) {
+        for (var e : Map.of(btnSettings, Icons.SETTINGS, btnDelete, Icons.DELETE).entrySet()) {
             Pane g = Icons.node(e.getValue(), 16, TX3);
             e.getKey().getChildren().add(g);
             Icons.animate(e.getKey(), g);
         }
         btnDelete.getStyleClass().add("danger");
-        btnRailToggle.getChildren().add(Icons.node(Icons.CHEVRON, 16, TX3));
-        btnNewProjectWide.setGraphic(Icons.node(Icons.NEW, 16, TX));
-        btnNewProjectWide.setGraphicTextGap(8);
-        Icons.animate(btnNewProjectWide, btnNewProjectWide.getGraphic());
+        btnNewProjectRail.setGraphic(Icons.node(Icons.NEW, 16, TX));
+        btnNewProjectRail.setGraphicTextGap(8);
+        Icons.animate(btnNewProjectRail, btnNewProjectRail.getGraphic());
         btnNpBrowse.setGraphic(Icons.node(Icons.BROWSE, 16, TX));
         btnNpBrowse.setGraphicTextGap(8);
         Icons.animate(btnNpBrowse, btnNpBrowse.getGraphic());
@@ -468,8 +451,6 @@ public class HelloController {
                 () -> { if (!overlayOpen()) onCheckpoint(); });
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.N, KeyCombination.SHORTCUT_DOWN),
                 () -> { if (!overlayOpen()) onNewProjectClick(); });
-        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.B, KeyCombination.SHORTCUT_DOWN),
-                () -> setRailWide(!rail.getStyleClass().contains("rail-wide")));
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() != KeyCode.ESCAPE) return;
             if (overlayOpen()) {
@@ -493,7 +474,7 @@ public class HelloController {
     private void showSettings() {
         renderSettingsRows();
         showBase(settingsPane);
-        // one ring at a time: orange means "where you are", and right now that is the gear
+        // one active mark at a time: right now "where you are" is the gear
         rowsByProject.values().forEach(r -> r.getStyleClass().remove("rail-active"));
         btnSettings.getStyleClass().add("rail-active");
     }
@@ -602,32 +583,12 @@ public class HelloController {
         showOverlay(deletePane);
     }
 
-    /** Numbers the rail 01, 02, 03 ... in list order; deletion shifts the numbers down. */
+    /** The PROJECTS count in the sidebar header. */
     private void refreshCount() {
-        int n = 0;
-        for (Node b : projectList.getChildren()) {
-            ((Label) ((StackPane) b).getChildren().get(0)).setText(String.format("%02d", ++n));
-        }
-        if (railCount != null) railCount.setText(String.format("%02d", n));
+        if (railCount != null) railCount.setText(String.format("%02d", projectList.getChildren().size()));
     }
 
-    /** 200px with names, or the 48px numbered rail. Instant: width never animates (it would
-        reflow the card every frame). Remembered across launches. */
-    private void setRailWide(boolean wide) {
-        rail.getStyleClass().remove("rail-wide");
-        if (wide) rail.getStyleClass().add("rail-wide");
-        for (Node n : List.of(railTitle, railHeadGap, railCount, btnNewProjectWide)) {
-            n.setVisible(wide);
-            n.setManaged(wide);
-        }
-        btnNewProjectRail.setVisible(!wide);
-        btnNewProjectRail.setManaged(!wide);
-        btnRailToggle.setRotate(wide ? 180 : 0);   // the chevron points where the rail will go
-        railToggleTip.setText((wide ? "Collapse" : "Expand") + " sidebar · Ctrl+B");
-        PREFS.putBoolean("railWide", wide);
-    }
-
-    /** The wide rail's face of a row: a folder (open on the active row, via hud.css) and the name. */
+    /** A sidebar row's face: a folder (open on the active row, via hud.css) and the name. */
     private static HBox sideFace(String name) {
         Pane shut = Icons.node(Icons.OTHER, 16, TX3), open = Icons.node(Icons.BROWSE, 16, TX);
         shut.getStyleClass().add("folder-shut");
@@ -682,6 +643,7 @@ public class HelloController {
         // "overwrite · just now" is 20 - it truncated to "just..." right after every save
         checkpointSub.setText("never".equals(age) ? "no checkpoint yet"
                 : "overwrite \u00b7 " + ("just now".equals(age) ? "now" : when(age)));
+        appsCount.setText(String.valueOf(apps));
         tabsCount.setText(String.valueOf(tabs));
 
         renderCategories(projectObj);
@@ -729,7 +691,7 @@ public class HelloController {
         // "Other" is captured but never relaunched, which the design calls out by name
         HashSet<String> other = projectObj.apps.get(OTHER);
         if (other != null && !other.isEmpty()) {
-            String first = new TreeSet<>(other).first();
+            String first = appName(new TreeSet<>(other).first());
             String rest = other.size() > 1 ? " (+" + (other.size() - 1) + ")" : "";
             categoryRows.getChildren().add(styled(
                     new Label(first + rest + " under Other \u2014 captured, not relaunched"), "cat-foot"));
@@ -754,16 +716,12 @@ public class HelloController {
     private void renderTabs(Project projectObj) {
         List<Node> tabRows = new ArrayList<>();
         projectObj.urlsByBrowser.forEach((browser, urls) -> {
+            // no live dot: these are saved tabs, whether or not that browser is connected now
             HBox head = new HBox(8);
             head.setAlignment(Pos.CENTER_LEFT);
-            Region dot = new Region();
-            dot.getStyleClass().add("dot-live");
-            dot.setMinSize(5, 5);
-            dot.setPrefSize(5, 5);
-            dot.setMaxSize(5, 5);
             Label name = styled(new Label(browserLabel(browser)), "browser-name");
             Tooltip.install(name, tip("one window per browser on resume"));
-            head.getChildren().addAll(dot, name, styled(new Label(String.valueOf(urls.size())), "side-count"));
+            head.getChildren().addAll(name, styled(new Label(String.valueOf(urls.size())), "side-count"));
             tabRows.add(head);
 
             for (String url : urls) {
@@ -807,8 +765,15 @@ public class HelloController {
         chip.setMinHeight(24);
         chip.setPrefHeight(24);
         chip.setPadding(new Insets(0, 3, 0, 8));   // the x's own box is the right edge
-        chip.getChildren().addAll(new Label(app), remover(() -> removeApp(projectObj, category, app), projectObj));
+        Label name = new Label(appName(app));
+        Tooltip.install(name, tip(app));
+        chip.getChildren().addAll(name, remover(() -> removeApp(projectObj, category, app), projectObj));
         return chip;
+    }
+
+    /** "Code.exe" -> "Code": the suffix is on every captured app, so it says nothing. */
+    static String appName(String exe) {
+        return exe.replaceFirst("(?i)\\.exe$", "");
     }
 
     /** The hover-only x on chips and tab rows. Opacity, not managed, so nothing shifts on hover.
@@ -831,7 +796,7 @@ public class HelloController {
                 // the card already shows the removal; say the disk does not
                 confirm("Change not written", projectsFile().getPath(),
                         "Nothing changed on disk. " + ex.getMessage(),
-                        "Retry", () -> { try { saveProject(projectObj); } catch (IOException ignored) { } });
+                        "Retry", false, () -> { try { saveProject(projectObj); } catch (IOException ignored) { } });
             }
         });
         return x;
@@ -852,7 +817,7 @@ public class HelloController {
     }
 
     private static Pane categoryIcon(String category) {
-        return Icons.node(Icons.CATEGORY.getOrDefault(category, Icons.OTHER), 14, HUD);
+        return Icons.node(Icons.CATEGORY.getOrDefault(category, Icons.OTHER), 14, TX3);
     }
 
     private static Tooltip tip(String text) {
@@ -1172,7 +1137,7 @@ public class HelloController {
     }
 
     private static final String TX = "#E8D8C9", TX2 = "#A99B8D", TX3 = "#6F655C",
-            GO = "#F3701E", BAD = "#D96C5E", HUD = "#7A94BC";
+            GO = "#F3701E", BAD = "#D96C5E";
 
     static int countApps(Project projectObj) {
         if (projectObj == null || projectObj.apps == null) return 0;
@@ -1203,20 +1168,21 @@ public class HelloController {
         ContextMenu menu = new ContextMenu();
         MenuItem overwrite = new MenuItem("Overwrite");
         overwrite.setOnAction(e -> onCheckpoint());
-        Menu add = new Menu("Add what\u2019s missing");
+        menu.getItems().addAll(overwrite, new SeparatorMenuItem());
+        // one level: the add modes sit beside Overwrite, not in a submenu
         for (Checkpoint mode : List.of(Checkpoint.ADD_TABS, Checkpoint.ADD_APPS, Checkpoint.ADD_BOTH)) {
             MenuItem item = new MenuItem(switch (mode) {
-                case ADD_TABS -> "Tabs";
-                case ADD_APPS -> "Apps";
-                default -> "Tabs and apps";
+                case ADD_TABS -> "Add missing tabs";
+                case ADD_APPS -> "Add missing apps";
+                default -> "Add missing tabs and apps";
             });
             item.setOnAction(e -> { if (activeProject != null) writeCheckpoint(activeProject, mode); });
-            add.getItems().add(item);
+            menu.getItems().add(item);
         }
-        menu.getItems().addAll(overwrite, add);
         for (MenuItem item : menu.getItems()) item.disableProperty().bind(btnCheckpoint.disabledProperty());
         // consume, or the whole-button click handler fires an overwrite underneath the menu
         btnCheckpointMenu.setOnMouseClicked(e -> { e.consume(); menu.show(btnCheckpointMenu, Side.BOTTOM, 0, 4); });
+        Tooltip.install(btnCheckpointMenu, tip("Overwrite or add what is missing"));
         btnCheckpoint.setOnContextMenuRequested(e -> { e.consume(); menu.show(btnCheckpoint, e.getScreenX(), e.getScreenY()); });
     }
 
@@ -1237,7 +1203,7 @@ public class HelloController {
                 "checkpoint " + when(age) + " \u00b7 " + apps + " apps \u00b7 " + tabs + " tabs",
                 "What is open right now replaces the checkpoint from " + when(age)
                         + ". Tabs from browsers that are not connected are kept.",
-                "Overwrite", () -> writeCheckpoint(projectObj, Checkpoint.OVERWRITE));
+                "Overwrite", true, () -> writeCheckpoint(projectObj, Checkpoint.OVERWRITE));
     }
 
     private void writeCheckpoint(Project projectObj, Checkpoint mode) {
@@ -1258,7 +1224,7 @@ public class HelloController {
             // the card must not claim "saved" over a write that did not happen
             confirm("Checkpoint not written", projectsFile().getPath(),
                     "Nothing changed on disk. " + ex.getMessage(),
-                    "Retry", () -> writeCheckpoint(projectObj, mode));
+                    "Retry", true, () -> writeCheckpoint(projectObj, mode));
             return;
         }
         StackPane row = rowsByProject.get(projectObj.projectName);
@@ -1316,12 +1282,15 @@ public class HelloController {
         return kept;
     }
 
-    /** The generic confirm scrim. The verb button carries the caller's word and action. */
-    private void confirm(String title, String sub, String body, String verb, Runnable onOk) {
+    /** The generic confirm scrim. The verb button carries the caller's word and action; it is
+        slate only when that action is a checkpoint, since slate means nothing else. */
+    private void confirm(String title, String sub, String body, String verb, boolean checkpoint, Runnable onOk) {
         confirmTitle.setText(title);
         confirmSub.setText(sub);
         confirmBody.setText(body);
         btnConfirmOk.setText(verb);
+        btnConfirmOk.getStyleClass().removeAll("btn-checkpoint", "btn-secondary");
+        btnConfirmOk.getStyleClass().add(checkpoint ? "btn-checkpoint" : "btn-secondary");
         btnConfirmOk.setOnAction(e -> {
             showOverlay(null);
             onOk.run();
@@ -1336,7 +1305,7 @@ public class HelloController {
             deleteProject(projectObj, rowsByProject.remove(projectObj.projectName));
         } catch (IOException ex) {
             confirm("Project not deleted", projectsFile().getPath(),
-                    "Nothing changed on disk. " + ex.getMessage(), "Retry", this::deleteActive);
+                    "Nothing changed on disk. " + ex.getMessage(), "Retry", false, this::deleteActive);
             return;
         }
         refreshCount();

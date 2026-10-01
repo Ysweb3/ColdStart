@@ -43,7 +43,7 @@
 
 /* Space Mono is the machine face: paths, process names, counts, labels. */
 .mono, .rail-label, .rail-count, .side-count, .project-path, .resume-spec,
-.checkpoint-sub, .card-title, .card-note, .cat-label, .cat-arg, .cat-more,
+.checkpoint-sub, .cat-label, .cat-arg, .cat-more,
 .browser-name, .cat-foot, .chip .label {
     -fx-font-family: "Space Mono";
 }
@@ -63,7 +63,6 @@
 /* Lucide stroke icon: 1.75 in the 24-unit box, so ~1.17 once scaled to 16. Icons.node draws
    and colours them; these rules only carry the states CSS owns. */
 .winctl.danger:hover .ico { -fx-stroke: -rw-bad; }
-.empty-glyph { -fx-fill: transparent; -fx-stroke: -rw-ck; -fx-stroke-width: 2; -fx-stroke-line-cap: round; -fx-stroke-line-join: round; }
 
 .dot-live {
     -fx-background-color: -rw-live;
@@ -86,15 +85,20 @@
 /* the ":8765 · no extension" label turns into "connected · brave" while an extension holds the socket */
 .port-live { -fx-font-size: 11px; -fx-text-fill: -rw-live; -fx-font-family: "Space Mono"; -fx-font-weight: bold; }
 
-/* ── rail ──────────────────────────────────────────────────────────── */
+/* ── sidebar: one mode, named rows ─────────────────────────────────── */
 .rail {
+    -fx-min-width: 200; -fx-pref-width: 200; -fx-max-width: 200;
     -fx-background-color: -rw-g1;
     -fx-border-color: transparent -rw-ln transparent transparent;
     -fx-border-width: 0 1 0 0;
 }
-.rail-label { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-hud; }
-.rail-count { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3t; }
-/* a 32x32 numbered button; the active project carries the orange ring from the artboards */
+/* section labels are neutral: slate means Checkpoint and nothing else */
+.rail-label { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-tx2; }
+.rail-count, .side-count { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3t; }
+/* 20 = list padding 8 + row padding 12, so PROJECTS sits over the folder glyphs */
+.rail-head { -fx-alignment: center-left; -fx-padding: 0 20 0 20; }
+
+/* the 32x32 gear */
 .rail-btn {
     -fx-min-width: 32; -fx-pref-width: 32; -fx-max-width: 32;
     -fx-min-height: 32; -fx-pref-height: 32; -fx-max-height: 32;
@@ -103,48 +107,38 @@
     -fx-background-radius: 6, 5;
     -fx-cursor: hand;
 }
-.rail-btn .label { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-tx2; }
 .rail-btn:hover { -fx-background-color: -rw-ln2, -rw-g2; }
-.rail-btn:hover .label { -fx-text-fill: -rw-tx; }
-.rail-active { -fx-background-color: -rw-go, -rw-g1; }
-.rail-active .label { -fx-text-fill: -rw-tx; }
-.rail-active .ico { -fx-stroke: -rw-tx; }
-.rail-btn:hover .ico { -fx-stroke: -rw-tx; }
-.rail-spine { -fx-border-color: transparent transparent transparent -rw-ln; -fx-border-width: 0 0 0 1; -fx-border-style: dotted; }
+.rail-btn:hover .ico, .rail-active .ico { -fx-stroke: -rw-tx; }
+/* active is neutral, never orange: orange is only ever Resume */
+.rail-btn.rail-active { -fx-background-color: -rw-act, -rw-act-tint; }
 .rail-btn:focus-visible { -fx-background-color: -rw-act, -rw-g1; }
 
-/* widths here, not in FXML, so .rail-wide alone swaps them */
-.rail      { -fx-min-width: 48;  -fx-pref-width: 48;  -fx-max-width: 48; }
-.rail-wide { -fx-min-width: 200; -fx-pref-width: 200; -fx-max-width: 200; }
-.rail-head { -fx-alignment: center; }
-.rail-toggle { -fx-background-color: transparent; }
-.rail-toggle:hover { -fx-background-color: -rw-g2; }
-
-/* each row stacks two faces: the number (narrow) and folder + name (wide); one is hidden */
-.side-face { visibility: hidden; -fx-padding: 0 12 0 12; }
-.folder-open, .rail-active .folder-shut { visibility: hidden; }
-.rail-active .folder-open { visibility: visible; }
-.rail-btn .side-name { -fx-font-family: "Sora"; -fx-font-size: 14px; -fx-font-weight: normal; }
-
-.rail-wide .rail-head { -fx-alignment: center-left; -fx-padding: 0 8 0 16; }
-.rail-wide .project-list { -fx-spacing: 2; -fx-padding: 0 8 0 8; }
-.rail-wide .side-row {
+/* one row per project: folder + name; the active row's folder is open */
+.side-row {
     -fx-min-width: 0; -fx-pref-width: 184; -fx-max-width: 10000;
     -fx-min-height: 40; -fx-pref-height: 40; -fx-max-height: 40;
     -fx-background-color: transparent;
     -fx-background-radius: 7;
+    -fx-cursor: hand;
 }
-.rail-wide .side-row > .label { visibility: hidden; }
-.rail-wide .side-face { visibility: visible; }
-.rail-wide .side-row:hover { -fx-background-color: -rw-g2; }
-/* neutral active, not orange: a 2px act edge under the tint (the 1b sidebar) */
-.rail-wide .side-row.rail-active {
+.side-row:hover { -fx-background-color: -rw-g2; }
+/* a 2px act edge under the tint (the 1b sidebar) */
+.side-row.rail-active {
     -fx-background-color: -rw-act, -rw-act-tint;
     -fx-background-insets: 0, 0 0 0 2;
     -fx-background-radius: 7, 6;
 }
-.rail-wide .rail-spine { -fx-border-color: transparent; }
-.rail-wide .rail-foot {
+.side-row:focus-visible {
+    -fx-background-color: -rw-act, -rw-g2;
+    -fx-background-insets: 0, 2;
+    -fx-background-radius: 7, 5;
+}
+.side-face { -fx-padding: 0 12 0 12; }
+.folder-open, .rail-active .folder-shut { visibility: hidden; }
+.rail-active .folder-open { visibility: visible; }
+.side-name { -fx-font-size: 14px; -fx-text-fill: -rw-tx2; }
+.side-row:hover .side-name, .rail-active .side-name { -fx-text-fill: -rw-tx; }
+.rail-foot {
     -fx-border-color: -rw-ln transparent transparent transparent;
     -fx-border-width: 1 0 0 0;
     -fx-padding: 16 8 0 8;
@@ -157,6 +151,7 @@
     -fx-background-radius: 7;
     -fx-border-color: -rw-ln;
     -fx-border-radius: 7;
+    -fx-padding: 0 16 0 16;
     -fx-font-size: 13px;
     -fx-text-fill: -rw-tx;
 }
@@ -178,21 +173,22 @@
 .checkpoint {
     -fx-background-color: -rw-ck, -rw-g2;
     -fx-background-insets: 0, 1;
-    -fx-shape: "M0 0 L267 0 L281 14 L281 104 L14 104 L0 90 Z";
+    -fx-shape: "M0 0 L282 0 L296 14 L296 104 L14 104 L0 90 Z";
 }
 .checkpoint-word { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .checkpoint-sub  { -fx-font-size: 12px; -fx-text-fill: -rw-hud; }
-/* split segment: the checkpoint's right fifth. Same notch as the button (its last 14px are
-   the cut), so the hover fill never pokes outside the shape. The divider is a sibling Region
-   because a shaped region strokes its whole outline, not one side. */
+/* split segment: the checkpoint's right 64px, a full-height target. Same notch as the button
+   (its last 14px are the cut), so the hover fill never pokes outside the shape. The divider is
+   a sibling Region because a shaped region strokes its whole outline, not one side. The
+   chevron rests in bone at full 24px so it reads as a control, not a decoration. */
 .ck-divider { -fx-background-color: -rw-ln; }
 .ck-menu {
     -fx-cursor: hand;
     -fx-background-color: transparent;
-    -fx-shape: "M0 0 L41 0 L55 14 L55 102 L0 102 Z";
+    -fx-shape: "M0 0 L50 0 L64 14 L64 102 L0 102 Z";
 }
 .ck-menu:hover { -fx-background-color: -rw-g3; }
-.ck-glyph { -fx-stroke: -rw-tx2; }
+.ck-glyph { -fx-stroke: -rw-tx; }
 .ck-menu:hover .ck-glyph { -fx-stroke: -rw-tx; }
 .context-menu {
     -fx-background-color: -rw-ln, -rw-g2;
@@ -215,25 +211,15 @@
     -fx-border-color: -rw-ln;
     -fx-border-radius: 13;
 }
-.card-head {
-    -fx-border-color: transparent transparent -rw-ln transparent;
-    -fx-border-width: 0 0 1 0;
-}
-.card-title { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-hud; }
-.card-note  { -fx-font-size: 11px; -fx-text-fill: -rw-tx2; }
-
-.cat-label  { -fx-font-size: 10px; -fx-text-fill: -rw-hud; }
+.cat-label  { -fx-font-size: 10px; -fx-text-fill: -rw-tx3t; }
 .cat-arg    { -fx-font-size: 10.5px; -fx-text-fill: -rw-live; }
 .cat-more   { -fx-font-size: 10.5px; -fx-text-fill: -rw-tx2; }
 .cat-foot   { -fx-font-size: 11px;   -fx-text-fill: -rw-tx3t; }
 
-.chip {
-    -fx-background-color: -rw-g3;
-    -fx-background-radius: 7;
-    -fx-border-color: -rw-ln;
-    -fx-border-radius: 7;
-}
-.chip .label { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx; }
+/* an app is plain mono text; the ground only appears on hover, with the remove x */
+.chip { -fx-background-radius: 7; }
+.chip:hover { -fx-background-color: -rw-g2; }
+.chip .label { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx; }
 /* hover-only remove on chips and tab rows: opacity, not managed, so nothing shifts */
 .rm { -fx-cursor: hand; -fx-opacity: 0;
       -fx-min-width: 12; -fx-pref-width: 12; -fx-max-width: 12;
@@ -246,7 +232,7 @@
     -fx-border-width: 0 0 0 1;
 }
 .tabs-scroll, .tabs-scroll > .viewport { -fx-background-color: transparent; -fx-padding: 0; }
-.browser-name { -fx-font-size: 10.5px; -fx-font-weight: bold; -fx-text-fill: -rw-hud; }
+.browser-name { -fx-font-size: 10.5px; -fx-font-weight: bold; -fx-text-fill: -rw-tx2; }
 .tab-title    { -fx-font-size: 11px; -fx-text-fill: -rw-tx2; }
 
 /* the stage is undecorated, so the app draws its own outer edge */
@@ -277,16 +263,6 @@
     -fx-text-fill: -rw-tx;
 }
 .btn-checkpoint:hover { -fx-background-color: -rw-hud; -fx-text-fill: -rw-g; }
-
-.btn-secondary-lg {
-    -fx-background-color: -rw-g2;
-    -fx-background-radius: 7;
-    -fx-border-color: -rw-ln;
-    -fx-border-radius: 7;
-    -fx-padding: 0 16 0 16;
-    -fx-font-size: 13px;
-    -fx-text-fill: -rw-tx2;
-}
 
 .empty-title { -fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .empty-body  { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
@@ -499,5 +475,5 @@
 .ck-flash {
     -fx-background-color: -rw-hud, -rw-ck-tint;
     -fx-background-insets: 0, 1;
-    -fx-shape: "M0 0 L267 0 L281 14 L281 104 L14 104 L0 90 Z";
+    -fx-shape: "M0 0 L282 0 L296 14 L296 104 L14 104 L0 90 Z";
 }
