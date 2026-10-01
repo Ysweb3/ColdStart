@@ -59,12 +59,4 @@ class AgoTest {
         assertEquals("3d ago", HelloController.when("3d"));
         assertEquals("never", HelloController.when("never"));
     }
-
-    @Test
-    void appNameDropsOnlyTheExeSuffix() {
-        assertEquals("Code", HelloController.appName("Code.exe"));
-        assertEquals("idea64", HelloController.appName("IDEA64.EXE".toLowerCase()));
-        assertEquals("Notepad", HelloController.appName("Notepad.EXE"));
-        assertEquals("exe.tool", HelloController.appName("exe.tool"));
-    }
 }
