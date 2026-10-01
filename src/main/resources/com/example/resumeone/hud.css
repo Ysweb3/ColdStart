@@ -117,8 +117,6 @@
 .rail      { -fx-min-width: 48;  -fx-pref-width: 48;  -fx-max-width: 48; }
 .rail-wide { -fx-min-width: 200; -fx-pref-width: 200; -fx-max-width: 200; }
 .rail-head { -fx-alignment: center; }
-.rail-toggle { -fx-background-color: transparent; }
-.rail-toggle:hover { -fx-background-color: -rw-g2; }
 
 /* each row stacks two faces: the number (narrow) and folder + name (wide); one is hidden */
 .side-face { visibility: hidden; -fx-padding: 0 12 0 12; }
@@ -126,7 +124,8 @@
 .rail-active .folder-open { visibility: visible; }
 .rail-btn .side-name { -fx-font-family: "Sora"; -fx-font-size: 14px; -fx-font-weight: normal; }
 
-.rail-wide .rail-head { -fx-alignment: center-left; -fx-padding: 0 8 0 16; }
+/* right 20 = list padding 8 + row padding 12: the count lines up with the row content */
+.rail-wide .rail-head { -fx-alignment: center-left; -fx-padding: 0 20 0 16; }
 .rail-wide .project-list { -fx-spacing: 2; -fx-padding: 0 8 0 8; }
 .rail-wide .side-row {
     -fx-min-width: 0; -fx-pref-width: 184; -fx-max-width: 10000;
