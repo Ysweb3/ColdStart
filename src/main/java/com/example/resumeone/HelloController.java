@@ -525,13 +525,6 @@ public class HelloController {
                 () -> { if (!overlayOpen()) onNewProjectClick(); });
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.B, KeyCombination.SHORTCUT_DOWN),
                 () -> setRailWide(!rail.getStyleClass().contains("rail-wide")));
-        // the RESUME block's "ENTER" keycap. Only on the project view, and only when no control
-        // holds focus: a focused button, checkbox or field keeps Enter for itself. The clickable
-        // rows and blocks consume their own Enter before an accelerator ever sees it.
-        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.ENTER), () -> {
-            Node focus = scene.getFocusOwner();
-            if (!overlayOpen() && detailPane.isVisible() && !(focus instanceof Control)) onResume();
-        });
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() != KeyCode.ESCAPE) return;
             if (overlayOpen()) {

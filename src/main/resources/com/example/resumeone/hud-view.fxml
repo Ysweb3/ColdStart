@@ -119,10 +119,10 @@
               <Label fx:id="resumeSpec" styleClass="resume-spec" text="" minWidth="0.0"/>
             </VBox>
             <Region HBox.hgrow="ALWAYS" minWidth="0.0"/>
-            <!-- the shortcut, stated: Enter resumes from the project view -->
+            <!-- the shortcut, stated: Ctrl+R resumes (installKeys) -->
             <VBox spacing="6.0" alignment="CENTER_RIGHT" minWidth="-Infinity">
               <Label styleClass="resume-hint" text="ONE CLICK"/>
-              <Label styleClass="resume-key" text="ENTER"/>
+              <Label styleClass="resume-key" text="CTRL+R"/>
             </VBox>
           </HBox>
 
