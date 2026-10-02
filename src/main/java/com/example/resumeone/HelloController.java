@@ -467,7 +467,7 @@ public class HelloController {
     /** A CheckBox drawn as the slide's CHECKBOX glyph: the box always, the tick only while
         selected, drawn in (the slide's rw-draw) each time it is ticked. hud.css colours it. */
     private static void iconCheck(CheckBox cb) {
-        Pane glyph = Icons.node(Icons.CHECKBOX, 16, TX3);
+        Pane glyph = Icons.node(Icons.CHECKBOX, SETTING_GLYPH, TX3);
         Node tick = glyph.lookupAll(".ico").stream()
                 .filter(n -> "draw".equals(n.getProperties().get("anim"))).findFirst().orElseThrow();
         cb.setGraphic(glyph);
@@ -1224,13 +1224,17 @@ public class HelloController {
         VBox text = new VBox(2, styled(new Label(title), "fold-title"), m);
         text.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(text, Priority.ALWAYS);
-        row.getChildren().addAll(Icons.node(iconPath, 14, TX3), text);
+        row.getChildren().addAll(Icons.node(iconPath, 18, TX2), text);
         return row;
     }
 
-    /** Settings: one behaviour the app has, stated as a fact. Check glyph + label, no control. */
+    /** Settings glyphs are 20px: big enough to read the tick at a glance. */
+    private static final int SETTING_GLYPH = 20;
+
+    /** Settings: one behaviour the app has, stated as a fact. The same ticked checkbox glyph
+        the toggles use, so every setting reads alike - but no control, since it is fixed. */
     private HBox behaviourRow(String text) {
-        HBox row = new HBox(12, Icons.node(Icons.CHECK, 14, TX3), styled(new Label(text), "behaviour"));
+        HBox row = new HBox(10, Icons.node(Icons.CHECKBOX, SETTING_GLYPH, TX2), styled(new Label(text), "behaviour"));
         row.setAlignment(Pos.CENTER_LEFT);
         return row;
     }

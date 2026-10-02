@@ -55,7 +55,7 @@ public class HelloApplication extends Application {
         windowButton(root.lookup("#btnClose"), Icons.CLOSE, stage::close);
         // maximize shows restore while maximized, as the slide pairs them
         stage.maximizedProperty().addListener((o, was, is) ->
-                max.getChildren().setAll(Icons.node(is ? Icons.RESTORE : Icons.MAXIMIZE, 16, GLYPH)));
+                max.getChildren().setAll(Icons.node(is ? Icons.RESTORE : Icons.MAXIMIZE, 14, GLYPH)));
 
         // ponytail: right/bottom/corner only. Add the other five edges if anyone
         // actually misses them.
@@ -85,11 +85,11 @@ public class HelloApplication extends Application {
     /** IconButton ghost ink (--text-secondary); hud.css takes it to ink on hover, brick on close. */
     static final String GLYPH = "#A8A29E";
 
-    /** The window buttons are 32px StackPanes; this draws their 16px glyph and puts them in
-        the Tab order and on Enter/Space. */
+    /** The window buttons are 32px StackPanes (the bigger target) with the handoff's 14px glyph;
+        this draws it and puts them in the Tab order and on Enter/Space. */
     private static StackPane windowButton(Node node, Icons.Glyph glyph, Runnable action) {
         StackPane box = (StackPane) node;
-        box.getChildren().setAll(Icons.node(glyph, 16, GLYPH));
+        box.getChildren().setAll(Icons.node(glyph, 14, GLYPH));
         Icons.animate(box, box);   // the box, not the glyph: maximize swaps its child
         Motion.pressable(box);
         node.setFocusTraversable(true);
