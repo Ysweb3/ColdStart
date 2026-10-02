@@ -562,6 +562,13 @@ public class HelloController {
                 () -> { if (!overlayOpen()) onCheckpoint(); });
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.N, KeyCombination.SHORTCUT_DOWN),
                 () -> { if (!overlayOpen()) onNewProjectClick(); });
+        // Ctrl+1..9 selects the project the rail numbers 01..09, from any view
+        for (int i = 1; i <= 9; i++) {
+            int n = i;
+            Runnable jump = () -> { if (!overlayOpen() && !resuming) jumpTo(n); };
+            scene.getAccelerators().put(new KeyCodeCombination(KeyCode.valueOf("DIGIT" + i), KeyCombination.SHORTCUT_DOWN), jump);
+            scene.getAccelerators().put(new KeyCodeCombination(KeyCode.valueOf("NUMPAD" + i), KeyCombination.SHORTCUT_DOWN), jump);
+        }
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN),
                 () -> { if (!overlayOpen() && detailPane.isVisible()) undoCheckpoint(); });
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.B, KeyCombination.SHORTCUT_DOWN),
@@ -584,6 +591,13 @@ public class HelloController {
                 e.consume();
             }
         });
+    }
+
+    /** The n-th project in rail order (1-based), or nothing past the end. */
+    private void jumpTo(int n) {
+        if (n > projects.size()) return;
+        stopCountdown();   // from the resume-done screen, the jump wins over its timer
+        selectProject(projects.get(n - 1));
     }
 
     private boolean overlayOpen() {
@@ -747,6 +761,11 @@ public class HelloController {
             ((Label) ((StackPane) b).getChildren().get(0)).setText(String.format("%02d", ++n));
         }
         if (railCount != null) railCount.setText(String.format("%02d", n));
+        // rows and projects share one order; a delete renumbers both, and the Ctrl+n hints
+        for (Project p : projects) {
+            StackPane row = rowsByProject.get(p.projectName);
+            if (row != null) railTip(row, p);
+        }
     }
 
     /** Wide is the default. A new key, not "railWide": that one still holds whatever the old
@@ -792,7 +811,9 @@ public class HelloController {
     private void railTip(StackPane row, Project projectObj) {
         String age = ago(projectObj.lastCheckpoint);
         Tooltip t = (Tooltip) row.getProperties().get("tip");
-        t.setText(projectObj.projectName + " \u00b7 " + ("never".equals(age) ? "no checkpoint yet" : "checkpoint " + when(age)));
+        int n = projects.indexOf(projectObj) + 1;
+        t.setText(projectObj.projectName + " \u00b7 " + ("never".equals(age) ? "no checkpoint yet" : "checkpoint " + when(age))
+                + (n >= 1 && n <= 9 ? " \u00b7 Ctrl+" + n : ""));
         // the narrow rail shows only "01": the name is in the tooltip, which focus never opens
         row.setAccessibleText(t.getText());
         if (row.lookup(".side-count") instanceof Label count) {
@@ -1527,9 +1548,9 @@ public class HelloController {
     }
 
     private void onCheckpoint() {
-        // the confirmation cannot be re-triggered while it runs. No "are you sure" for an old
-        // checkpoint any more: whatever this replaces is one Ctrl+Z away (undoCheckpoint).
-        if (activeProject == null || System.nanoTime() < ckBusyUntil) return;
+        // No "are you sure" for an old checkpoint: whatever this replaces is one Ctrl+Z away
+        // (undoCheckpoint). A press while "Saved" is still showing is taken too, not dropped.
+        if (activeProject == null) return;
         writeCheckpoint(activeProject, Checkpoint.OVERWRITE);
     }
 
@@ -1620,7 +1641,9 @@ public class HelloController {
                     "Retry", () -> writeCheckpoint(projectObj, mode));
             return;
         }
-        undoByProject.put(projectObj.projectName, before);
+        if (replaceUndo(System.nanoTime(), ckBusyUntil, undoByProject.containsKey(projectObj.projectName))) {
+            undoByProject.put(projectObj.projectName, before);
+        }
         StackPane row = rowsByProject.get(projectObj.projectName);
         if (row != null) railTip(row, projectObj);
 
@@ -1642,8 +1665,15 @@ public class HelloController {
         return new ArrayList<>(out);
     }
 
-    /** The checkpoint confirmation won't re-trigger before this (System.nanoTime). */
+    /** "Saved" is on the block until this (System.nanoTime); a save inside it updates the
+        line instead of replaying the ring. */
     private long ckBusyUntil;
+
+    /** A save made while the last one's "Saved" is still up (a double click, a quick second
+        Ctrl+S) keeps the earlier undo, so Ctrl+Z still goes back to before both. */
+    static boolean replaceUndo(long now, long savedUntil, boolean hasUndo) {
+        return now >= savedUntil || !hasUndo;
+    }
 
     /** The handoff's checkpoint confirmation, on the button's four layers, once per written save:
           t=0     ring    rwCkRing  400ms standard  - 28px, 2px blue, scale .55 → 2.7, fading out
@@ -1653,9 +1683,13 @@ public class HelloController {
           t=2400  done    rwCkOut   200ms ease-in
                   bar     rwCkBarOut 260ms standard
                   idle    rwCkIn    260ms standard, after 140ms
-        Clicks are ignored until t=2860. Motion off: the words swap in place, no ring, no bar. */
+        A save before t=2860 only updates the line. Motion off: the words swap in place, no ring, no bar. */
     private void checkpointSaved(String doneLine) {
-        if (!Motion.showing(btnCheckpoint) || System.nanoTime() < ckBusyUntil) return;
+        if (!Motion.showing(btnCheckpoint)) return;
+        if (System.nanoTime() < ckBusyUntil) {
+            ckDoneSub.setText(doneLine);
+            return;
+        }
         ckBusyUntil = System.nanoTime() + 2_860_000_000L;
         ckDoneSub.setText(doneLine);
         Interpolator std = Motion.STANDARD, in = Motion.IN, snap = Motion.SNAP;

@@ -36,6 +36,15 @@ class DataSafetyTest {
     }
 
     @Test
+    void aQuickSecondSaveKeepsTheFirstOnesUndo() {
+        // "Saved" still up (now < savedUntil) and an undo exists: keep it, so Ctrl+Z reaches
+        // back past a double click
+        assertFalse(HelloController.replaceUndo(50, 100, true));
+        assertTrue(HelloController.replaceUndo(50, 100, false));
+        assertTrue(HelloController.replaceUndo(150, 100, true));
+    }
+
+    @Test
     void restorePutsBackAppsTabsAndTime() {
         HelloController c = new HelloController();
         Project p = project("atlas-api");
