@@ -17,12 +17,21 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class HandoffCopyTest {
 
     @Test
-    void checkpointSubLineReadsAsTheHandoffWordsIt() {
-        assertEquals("overwrite \u00b7 2h old",
+    void checkpointSubLineSaysWhenTheLastOneWasTaken() {
+        assertEquals("2h ago",
                 HelloController.checkpointLine(Instant.now().minusSeconds(2 * 3600 + 60).toString()));
-        // shortened: the 296px block's column truncates "overwrite \u00b7 just now"
-        assertEquals("overwrite \u00b7 now", HelloController.checkpointLine(Instant.now().toString()));
+        assertEquals("just now", HelloController.checkpointLine(Instant.now().toString()));
         assertEquals("no checkpoint yet", HelloController.checkpointLine(null));
+    }
+
+    @Test
+    void aFailedLaunchSaysWhyInTheSystemsWords() {
+        HelloController.LaunchStep step = new HelloController.LaunchStep("chrome.exe", "start chrome", false, () -> { });
+        assertEquals("failed to launch", HelloController.failure(step));
+        step.error = "Cannot run program \"C:\\x\\chrome.exe\": CreateProcess error=2, The system cannot find the file specified";
+        assertEquals("The system cannot find the file specified", HelloController.failure(step));
+        step.error = "access denied";
+        assertEquals("access denied", HelloController.failure(step));
     }
 
     @Test

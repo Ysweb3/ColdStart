@@ -215,7 +215,7 @@
                   text="New project" prefHeight="42.0" minHeight="42.0"/>
         </HBox>
 
-        <Label styleClass="cat-foot" text="install the browser extension to record tabs · it connects on :8765">
+        <Label styleClass="cat-foot" text="tabs come back through the coldstart browser extension">
           <VBox.margin><Insets top="8.0"/></VBox.margin>
         </Label>
       </VBox>
@@ -255,14 +255,14 @@
               </VBox>
               <VBox spacing="12.0">
                 <VBox.margin><Insets top="24.0"/></VBox.margin>
-                <Label styleClass="rail-label" text="HOW IT MOVES">
+                <Label styleClass="rail-label" text="MOTION">
                   <VBox.margin><Insets bottom="4.0"/></VBox.margin>
                 </Label>
                 <CheckBox fx:id="motionToggle" selected="true" text="Animate presses and panels"/>
               </VBox>
               <VBox spacing="12.0">
                 <VBox.margin><Insets top="24.0"/></VBox.margin>
-                <Label styleClass="rail-label" text="HOW IT LOOKS">
+                <Label styleClass="rail-label" text="SIDEBAR">
                   <VBox.margin><Insets bottom="4.0"/></VBox.margin>
                 </Label>
                 <CheckBox fx:id="sidebarToggle" selected="true" text="Show project names in the sidebar"/>
@@ -322,12 +322,12 @@
         </VBox>
       </VBox>
 
-      <!-- ══ resume done. Auto-returns to the project in 3s. ═════════ -->
+      <!-- ══ resume done. Auto-returns to the project in 3s unless something failed. ══ -->
       <VBox fx:id="restoredPane" visible="false" managed="false">
         <HBox styleClass="strip" alignment="CENTER_LEFT" spacing="16.0"
               minHeight="48.0" prefHeight="48.0" maxHeight="48.0">
           <padding><Insets left="22.0" right="22.0"/></padding>
-          <Label styleClass="strip-verb" text="RESTORED"/>
+          <Label styleClass="strip-verb" text="RESUMED"/>
           <Label fx:id="restoredCount" styleClass="strip-count" text="0 / 0"/>
           <HBox fx:id="restoredMeter" styleClass="meter-track" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS"
                 minHeight="6.0" prefHeight="6.0" maxHeight="6.0">
@@ -341,8 +341,8 @@
         <VBox spacing="24.0" VBox.vgrow="ALWAYS">
           <padding><Insets top="20.0" right="22.0" bottom="20.0" left="22.0"/></padding>
           <VBox spacing="0.0">
-            <Label styleClass="hero-word" text="ENVIRONMENT"/>
-            <Label styleClass="hero-name" text="RESTORED"/>
+            <Label styleClass="hero-word" text="RESUMED"/>
+            <Label fx:id="restoredName" styleClass="hero-name" text=""/>
           </VBox>
           <Label fx:id="restoredSpec" styleClass="hero-spec" text=""/>
           <VBox fx:id="restoredRows" spacing="8.0" maxWidth="720.0"/>
@@ -368,7 +368,7 @@
         <VBox styleClass="dialog" spacing="8.0" maxWidth="440.0" maxHeight="256.0">
           <padding><Insets top="24.0" right="24.0" bottom="16.0" left="24.0"/></padding>
           <Label styleClass="dialog-title" text="Delete project?"/>
-          <Label styleClass="dialog-sub" text="removes the checkpoint, not the folder"/>
+          <Label fx:id="deleteSub" styleClass="dialog-sub" text=""/>
           <Label fx:id="deleteBody" styleClass="empty-body" wrapText="true" maxWidth="400.0">
             <VBox.margin><Insets top="8.0"/></VBox.margin>
           </Label>
@@ -416,8 +416,7 @@
           <VBox styleClass="divider-top" spacing="8.0">
             <padding><Insets top="16.0"/></padding>
             <CheckBox fx:id="npCapture" selected="true" text="Checkpoint immediately"/>
-            <Label styleClass="cat-foot" wrapText="true" maxWidth="420.0"
-                   text="records every window with a visible title, plus tabs from connected browsers"/>
+            <Label fx:id="npCaptureHint" styleClass="cat-foot" wrapText="true" maxWidth="420.0" text=""/>
           </VBox>
 
           <HBox alignment="CENTER_RIGHT" spacing="8.0">

@@ -108,7 +108,7 @@ public class HelloController {
     @FXML public StackPane resumingMeter;
     @FXML public Region titleStateDot, resumingFill, resumingSheen, restoredFill, restoredFailFill, countdownFill;
     @FXML public Label titleStateVerb, titleStateName, resumingCount, resumingPct, resumingName,
-            resumingSkipped, restoredCount, restoredTook, restoredSpec, restoredNote;
+            resumingSkipped, restoredCount, restoredTook, restoredSpec, restoredNote, restoredName;
     @FXML public Button btnResumeStop, btnStayHere, btnOpenProject;
     private final DoubleProperty resumingFrac = new SimpleDoubleProperty();
     private final DoubleProperty restoredFrac = new SimpleDoubleProperty();
@@ -120,7 +120,7 @@ public class HelloController {
     private static final PseudoClass PC_FAILED    = PseudoClass.getPseudoClass("failed");
     /** the design's --ease-out */
     @FXML public TextField npName;
-    @FXML public Label npFolder, npHint;
+    @FXML public Label npFolder, npHint, npCaptureHint;
     @FXML public CheckBox npCapture;
     @FXML public Button btnNpBrowse, btnNpCancel, btnNpCreate;
     @FXML public ScrollPane settingsPane;
@@ -137,7 +137,7 @@ public class HelloController {
     @FXML public VBox settingsRows, captureRows, resumeRows;
     @FXML public Label settingsFoot;
     @FXML public CheckBox motionToggle;
-    @FXML public Label deleteBody, deletePath;
+    @FXML public Label deleteSub, deleteBody, deletePath;
     @FXML public Button btnDeleteOk, btnDeleteCancel, btnSettingsBack;
     @FXML public HBox btnResume, statusBox;
     // the split checkpoint button: ring, bar, idle content, done content, chevron segment
@@ -212,7 +212,7 @@ public class HelloController {
                 behaviourRow("Running apps, grouped by kind"));
         resumeRows.getChildren().setAll(
                 behaviourRow("Browser tabs reopen in one window per browser"),
-                behaviourRow("Claude opens its agent view for the project"),
+                behaviourRow("Claude reopens its conversations for the folder"),
                 behaviourRow("Apps already running are left alone"),
                 behaviourRow("coldstart stays on top while resuming"));
         clickable(btnNewProjectRail, this::onNewProjectClick);
@@ -247,6 +247,9 @@ public class HelloController {
             npHint.pseudoClassStateChanged(PC_FAILED, taken);
         });
         btnNpCreate.setOnAction(e -> createFromDialog());
+        npName.setOnAction(e -> { if (!btnNpCreate.isDisabled()) createFromDialog(); });   // Enter creates
+        btnNpCreate.textProperty().bind(Bindings.when(npCapture.selectedProperty())
+                .then("Create + checkpoint").otherwise("Create"));
         btnResumeStop.setGraphic(Icons.node(Icons.CLOSE, 16, TX2));
         Icons.animate(btnResumeStop, btnResumeStop.getGraphic());
         btnResumeStop.setOnAction(e -> stopRequested = true);
@@ -327,6 +330,12 @@ public class HelloController {
         npName.clear();
         npFolder.setText(NO_FOLDER);
         npCapture.setSelected(true);
+        // said before Create, not discovered afterwards as an empty TABS column
+        npCaptureHint.setText(wsSessions.isEmpty()
+                ? "records the apps open now · no browser extension is connected, so no tabs"
+                : "records the apps open now, plus tabs from " + wsSessions.stream()
+                        .map(s -> browserLabel(wsBrowser(s))).distinct().sorted()
+                        .collect(java.util.stream.Collectors.joining(" and ")));
         showOverlay(newProjectPane);
         npName.requestFocus();
     }
@@ -593,7 +602,7 @@ public class HelloController {
         });
         settingsRows.getChildren().setAll(
                 statRow(Icons.BROWSER, "Browser extensions",
-                        browsers.isEmpty() ? "none connected \u00b7 install it, it connects on :8765"
+                        browsers.isEmpty() ? "none connected \u00b7 install the coldstart extension"
                                            : String.join(" \u00b7 ", browsers) + " connected", null),
                 statRow(Icons.APP_WINDOW, "Ignored processes", names(ignored), String.join("\n", ignored)),
                 storageRow);
@@ -683,8 +692,11 @@ public class HelloController {
 
     private void showDeleteView() {
         if (activeProject == null) return;
-        deleteBody.setText(activeProject.projectName + " and its saved environment are dropped "
-                + "from projects.json. Your files stay exactly where they are.");
+        String age = ago(activeProject.lastCheckpoint);
+        deleteSub.setText(countApps(activeProject) + " apps \u00b7 " + countTabs(activeProject) + " tabs \u00b7 "
+                + ("never".equals(age) ? "no checkpoint yet" : "checkpoint " + when(age)));
+        deleteBody.setText("The checkpoint for " + activeProject.projectName
+                + " is deleted. Your files and folder stay where they are.");
         deletePath.setText(activeProject.folderPath == null ? "no folder" : activeProject.folderPath);
         showOverlay(deletePane);
     }
@@ -788,12 +800,12 @@ public class HelloController {
             "IDE", "AI", "Terminal", "Browser", "Database", "API", "Containers",
             "VersionControl", "Design", "Communication", "Notes", "Music");
 
-    /** "overwrite \u00b7 2h old" under Checkpoint; "now", not "just now", because the 296px block's
-        text column holds ~18 mono characters and "overwrite \u00b7 just now" is 20. */
+    /** "2h ago" under Checkpoint: when the last one was taken. It used to read "overwrite \u00b7
+        2h old", a warning on every press; a checkpoint is now one Ctrl+Z from undone. */
     static String checkpointLine(String lastCheckpoint) {
         String age = ago(lastCheckpoint);
         if ("never".equals(age)) return "no checkpoint yet";
-        return "overwrite \u00b7 " + ("just now".equals(age) ? "now" : age + " old");
+        return when(age);
     }
 
     private void renderCategories(Project projectObj) {
@@ -863,7 +875,7 @@ public class HelloController {
         agent view, VS Code opens the project folder ("…\atlas-api"). */
     static String trailingNote(String category, Project projectObj) {
         if ("AI".equals(category) && hasApp(projectObj, "claude.exe")) {
-            return "agents";
+            return "reopens chats";
         }
         if ("IDE".equals(category) && hasApp(projectObj, "Code.exe") && projectObj.folderPath != null) {
             return "…\\" + new File(projectObj.folderPath).getName();
@@ -1111,20 +1123,26 @@ public class HelloController {
         if (!queued.isEmpty()) {
             resumingRows.getChildren().add(foldRow(Icons.TIMESTAMP, queued.size() + " queued", names(queued)));
         }
-        resumingRows.getChildren().add(foldRow(Icons.TERMINAL, "Resume log", r.log.size() + " lines"));
 
         List<String> skipped = r.plan.skipped();
-        resumingSkipped.setText(skipped.isEmpty() ? "" : "skipping " + skipped.size()
-                + " already open · " + String.join(" · ", skipped));
+        resumingSkipped.setText(skipped.isEmpty() ? "" : skipped.size() + " already open, left alone · " + names(skipped));
     }
 
-    /** 1l. Orange closes the verb; failures stay on screen; three seconds later, back to 1b. */
+    /** 1l. Orange closes the verb. A clean run goes back to 1b in three seconds; a run with a
+        failure stays until it is retried or left, so the failure can be read. */
     private void showRestored(ResumeRun r) {
         titleState("RESUMED", r.project.projectName, true);
+        restoredName.setText(r.project.projectName);
+        logOpen = false;
         showBase(restoredPane);
         renderRestored(r);
-        startCountdown(r);
+        long failed = r.failed();
+        if (failed == 0) startCountdown(r);
+        else restoredNote.setText(failed + " failed · Retry it, or Esc to go back");
     }
+
+    /** The resume log under 1l, shown only when asked for. */
+    private boolean logOpen;
 
     private void renderRestored(ResumeRun r) {
         int total = r.total();
@@ -1132,21 +1150,43 @@ public class HelloController {
         restoredTook.setText(String.format("took %.1fs", r.tookMs / 1000.0));
         restoredFrac.set(total == 0 ? 0 : (double) r.done() / total);
         restoredFailFrac.set(total == 0 ? 0 : (double) r.failed() / total);
-        String folder = r.project.folderPath == null ? "no folder" : r.project.folderPath;
-        restoredSpec.setText(r.appsDone() + " apps · " + countTabs(r.project) + " tabs · " + folder);
+        int tabsSent = tabsSent(r);
+        restoredSpec.setText(r.appsDone() + " apps · " + tabsSent + " tabs");
 
         restoredRows.getChildren().clear();
-        List<String> browsers = new ArrayList<>();
+        List<String> browsers = new ArrayList<>(), apps = new ArrayList<>();
         for (LaunchStep step : r.plan.steps()) {
             if (step.state == LaunchStep.State.FAILED) restoredRows.getChildren().add(failRow(r, step));
-            if (step.state == LaunchStep.State.DONE && step.browser) browsers.add(step.label);
+            if (step.state == LaunchStep.State.DONE) (step.browser ? browsers : apps).add(step.label);
         }
-        restoredRows.getChildren().add(foldRow(Icons.APP_WINDOW, r.appsDone() + " apps launched", "on the project card"));
-        restoredRows.getChildren().add(foldRow(Icons.BROWSER, countTabs(r.project) + " tabs handed back",
-                browsers.isEmpty() ? "no browser connected" : String.join(" · ", browsers)));
-        long failed = r.failed();
-        restoredRows.getChildren().add(foldRow(Icons.TERMINAL, "Resume log", r.log.size() + " lines"
-                + (failed == 0 ? "" : " · " + failed + (failed == 1 ? " failure" : " failures"))));
+        restoredRows.getChildren().add(foldRow(Icons.APP_WINDOW, apps.size() + " apps launched",
+                apps.isEmpty() ? "nothing new to open" : names(apps)));
+        restoredRows.getChildren().add(foldRow(Icons.BROWSER, tabsSent + " tabs sent",
+                browsers.isEmpty() ? "no browser opened" : String.join(" · ", browsers)));
+        HBox log = foldRow(Icons.TERMINAL, "Resume log", r.log.size() + " lines · " + (logOpen ? "hide" : "show"));
+        clickable(log, () -> { logOpen = !logOpen; renderRestored(r); });
+        restoredRows.getChildren().add(log);
+        if (logOpen) {
+            Label lines = styled(new Label(String.join("\n", r.log)), "foot-note");
+            lines.setWrapText(true);
+            ScrollPane scroll = new ScrollPane(lines);
+            scroll.getStyleClass().add("tabs-scroll");
+            scroll.setFitToWidth(true);
+            scroll.setMaxHeight(140);
+            restoredRows.getChildren().add(scroll);
+        }
+    }
+
+    /** Tabs handed to a browser that started: every saved url of each browser step that ran. */
+    private static int tabsSent(ResumeRun r) {
+        int n = 0;
+        for (LaunchStep step : r.plan.steps()) {
+            if (step.browser && step.state == LaunchStep.State.DONE) {
+                List<String> urls = r.project.urlsByBrowser.get(step.label);
+                if (urls != null) n += urls.size();
+            }
+        }
+        return n;
     }
 
     private void startCountdown(ResumeRun r) {
@@ -1194,10 +1234,12 @@ public class HelloController {
             case FAILED -> Icons.node(Icons.FAILED, 14, BAD);
             default -> Icons.node(Icons.CHECK, 14, TX3);
         };
+        // a browser's "14 urls · one window" says something; "cmd /c start wt" does not - the
+        // raw command stays in the resume log
         String cmd = switch (step.state) {
-            case LAUNCHING -> "launching · " + step.command;
-            case FAILED -> "failed to launch";
-            default -> step.command;
+            case LAUNCHING -> step.browser ? step.command : "launching";
+            case FAILED -> failure(step);
+            default -> step.browser ? step.command : "";
         };
         Label name = styled(new Label(step.label), "step-label");
         name.setMaxWidth(Double.MAX_VALUE);
@@ -1259,8 +1301,9 @@ public class HelloController {
         HBox row = rowShell("fail-row");
         row.setMinHeight(56);
         row.setPrefHeight(56);
-        Label why = styled(new Label("failed to launch"), "fail-why");
+        Label why = styled(new Label(failure(step)), "fail-why");
         why.setMaxWidth(Double.MAX_VALUE);
+        if (step.error != null) Tooltip.install(why, tip(step.error));
         HBox.setHgrow(why, Priority.ALWAYS);
         Button retry = styled(new Button("Retry"), "btn-ghost");
         retry.setGraphic(Icons.node(Icons.RECAPTURE, 16, TX));
@@ -1269,6 +1312,14 @@ public class HelloController {
         retry.setOnAction(e -> retry(r, step));
         row.getChildren().addAll(Icons.node(Icons.FAILED, 14, BAD), styled(new Label(step.label), "step-label"), why, retry);
         return row;
+    }
+
+    /** Why a launch failed, in the OS's words: "The system cannot find the file specified"
+        rather than the whole "Cannot run program ... CreateProcess error=2, ..." line. */
+    static String failure(LaunchStep step) {
+        if (step.error == null || step.error.isBlank()) return "failed to launch";
+        int cut = step.error.lastIndexOf(", ");
+        return cut < 0 ? step.error : step.error.substring(cut + 2);
     }
 
     private static HBox rowShell(String styleClass) {
@@ -1529,10 +1580,17 @@ public class HelloController {
 
     /** The generic confirm scrim. The verb button carries the caller's word and action. */
     private void confirm(String title, String sub, String body, String verb, Runnable onOk) {
+        confirm(title, sub, body, verb, false, onOk);
+    }
+
+    /** danger: the verb deletes, so it wears brick, not checkpoint blue. */
+    private void confirm(String title, String sub, String body, String verb, boolean danger, Runnable onOk) {
         confirmTitle.setText(title);
         confirmSub.setText(sub);
         confirmBody.setText(body);
         btnConfirmOk.setText(verb);
+        btnConfirmOk.getStyleClass().removeAll("btn-checkpoint", "btn-danger");
+        btnConfirmOk.getStyleClass().add(danger ? "btn-danger" : "btn-checkpoint");
         btnConfirmOk.setOnAction(e -> {
             showOverlay(null);
             onOk.run();
@@ -1544,12 +1602,14 @@ public class HelloController {
         if (activeProject == null) return;
         Project projectObj = activeProject;
         try {
-            deleteProject(projectObj, rowsByProject.remove(projectObj.projectName));
+            // get, not remove: a failed write must leave the row findable for Retry
+            deleteProject(projectObj, rowsByProject.get(projectObj.projectName));
         } catch (IOException ex) {
             confirm("Project not deleted", projectsFile().getPath(),
-                    "Nothing changed on disk. " + ex.getMessage(), "Retry", this::deleteActive);
+                    "Nothing changed on disk. " + ex.getMessage(), "Retry", true, this::deleteActive);
             return;
         }
+        rowsByProject.remove(projectObj.projectName);
         refreshCount();
         if (projects.isEmpty()) {
             showEmpty(true);
@@ -1568,11 +1628,12 @@ public class HelloController {
         Platform.runLater(() -> {
             boolean live = !browsers.isEmpty();
             statusDot.getStyleClass().setAll(live ? "dot-live" : "dot-idle");
-            statusLabel.setText(!live ? ":8765 \u00b7 no extension"
-                    : browsers.size() == 1 ? "connected \u00b7 " + browsers.get(0)
-                    : "connected \u00b7 " + browsers.size() + " browsers");
+            statusLabel.setText(!live ? "no browser connected"
+                    : browsers.size() == 1 ? browserLabel(browsers.get(0)) + " connected"
+                    : browsers.size() + " browsers connected");
             statusLabel.getStyleClass().setAll(live ? "port-live" : "port");
-            statusTip.setText(live ? String.join(", ", browsers) : "no extension connected");
+            statusTip.setText(live ? String.join(", ", browsers) + " \u00b7 tabs come and go through the extension"
+                    : "install the coldstart extension to checkpoint tabs");
             // someone watching Settings to see the extension land must see it land
             if (settingsPane.isVisible()) renderSettingsRows();
         });
