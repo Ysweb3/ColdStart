@@ -452,6 +452,7 @@ public class HelloController {
         graphic(btnNewProjectEmpty, Icons.NEW, TX);
         graphic(btnNpBrowse, Icons.BROWSE, TX2);
         graphic(btnNpCreate, Icons.BOOKMARK_PLUS, TX);
+        for (CheckBox cb : List.of(motionToggle, sidebarToggle, npCapture)) iconCheck(cb);
 
         Pane play = Icons.node(Icons.RESUME, 30, GOI, 2.4);
         resumeGlyphBox.getChildren().add(play);
@@ -461,6 +462,20 @@ public class HelloController {
         emptyGlyphBox.getChildren().add(Icons.node(Icons.BOOKMARK_PLUS, 40, CK));
         deleteFolderGlyph.getChildren().add(Icons.node(Icons.OTHER, 16, TX3));
         npFolderGlyph.getChildren().add(Icons.node(Icons.OTHER, 16, TX3));
+    }
+
+    /** A CheckBox drawn as the slide's CHECKBOX glyph: the box always, the tick only while
+        selected, drawn in (the slide's rw-draw) each time it is ticked. hud.css colours it. */
+    private static void iconCheck(CheckBox cb) {
+        Pane glyph = Icons.node(Icons.CHECKBOX, 16, TX3);
+        Node tick = glyph.lookupAll(".ico").stream()
+                .filter(n -> "draw".equals(n.getProperties().get("anim"))).findFirst().orElseThrow();
+        cb.setGraphic(glyph);
+        tick.setVisible(cb.isSelected());
+        cb.selectedProperty().addListener((o, was, on) -> {
+            tick.setVisible(on);
+            if (on) Icons.play(glyph);
+        });
     }
 
     /** A Button's leading glyph, played on press. */

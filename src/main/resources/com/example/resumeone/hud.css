@@ -367,15 +367,16 @@
 .stat-link:hover { -fx-background-color: -rw-g2; -fx-border-color: -rw-ln2; }
 .stat-link:focus-visible { -fx-effect: dropshadow(gaussian, -rw-act, 3, 1.0, 0, 0); }
 
-.check-box { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
-.check-box .box {
-    -fx-background-color: -rw-raised;
-    -fx-background-radius: 4;
-    -fx-border-color: -rw-ln;
-    -fx-border-radius: 4;
-}
-.check-box:selected .box { -fx-background-color: -rw-act; -fx-border-color: -rw-act; }
-.check-box:selected .mark { -fx-background-color: -rw-g; }
+/* Checkboxes wear the icon system's CHECKBOX glyph (HelloController.iconCheck): Modena's
+   box and mark collapse to nothing, the glyph is the graphic. The tick shows only when
+   selected and draws itself in on the way. Ink, not a fill, says which state it is in. */
+.check-box { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; -fx-label-padding: 0; -fx-graphic-text-gap: 10; -fx-cursor: hand; }
+.check-box > .box { -fx-padding: 0; -fx-background-color: transparent; -fx-border-color: transparent; }
+.check-box > .box > .mark { -fx-padding: 0; -fx-shape: " "; }
+.check-box .ico { -fx-stroke: -rw-tx3; }
+.check-box:hover .ico { -fx-stroke: -rw-tx2; }
+.check-box:selected .ico { -fx-stroke: -rw-tx; }
+.check-box:selected { -fx-text-fill: -rw-tx; }
 
 .text-field {
     -fx-background-color: -rw-g;
