@@ -773,9 +773,9 @@ public class HelloController {
             "IDE", "AI", "Terminal", "Browser", "Database", "API", "Containers",
             "VersionControl", "Design", "Communication", "Notes", "Music");
 
-    /** "REBUILD 10 APPS \u00b7 14 TABS \u00b7 1 FOLDER" under RESUME: what one press brings back. */
+    /** "10 APPS \u00b7 14 TABS \u00b7 1 FOLDER" under RESUME: what one press brings back. */
     static String resumeLine(int apps, int tabs, boolean folder) {
-        return "REBUILD " + apps + (apps == 1 ? " APP" : " APPS") + " \u00b7 " + tabs + (tabs == 1 ? " TAB" : " TABS")
+        return apps + (apps == 1 ? " APP" : " APPS") + " \u00b7 " + tabs + (tabs == 1 ? " TAB" : " TABS")
                 + " \u00b7 " + (folder ? "1 FOLDER" : "NO FOLDER");
     }
 
