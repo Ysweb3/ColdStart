@@ -35,6 +35,30 @@ class HandoffCopyTest {
     }
 
     @Test
+    void appsWearTheirOwnNamesNotTheirExes() {
+        assertEquals("IntelliJ IDEA", HelloController.appName("idea64.exe"));
+        assertEquals("Windows Terminal", HelloController.appName("WindowsTerminal.exe"));
+        assertEquals("VS Code", HelloController.appName("Code.exe"));
+        assertEquals("PyCharm", HelloController.appName("pycharm64.exe"));
+        assertEquals("Obsidian", HelloController.appName("obsidian.exe"));
+        assertEquals("Claude", HelloController.appName("claude.exe"));
+        assertEquals("Brave", HelloController.appName("brave"));
+    }
+
+    @Test
+    void tabRowsKeepThePathSoSameSiteTabsDiffer() {
+        assertEquals("github.com/atlas-api/pull/42",
+                HelloController.tabLabel("https://www.github.com/atlas-api/pull/42?tab=files#diff"));
+        assertEquals("javalin.io", HelloController.tabLabel("https://javalin.io/"));
+    }
+
+    @Test
+    void resumeSaysWhatOnePressBringsBack() {
+        assertEquals("10 APPS · 14 TABS", HelloController.resumeCountLine(10, 14));
+        assertEquals("1 APP · 1 TAB", HelloController.resumeCountLine(1, 1));
+    }
+
+    @Test
     void tabGroupsAreHeadedByTheBrowsersName() {
         assertEquals("Brave", HelloController.browserLabel("brave"));
         assertEquals("Chrome", HelloController.browserLabel("Chrome"));

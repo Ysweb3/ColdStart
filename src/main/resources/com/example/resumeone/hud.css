@@ -305,6 +305,10 @@
 .cat-arg   { -fx-font-size: 11.5px; -fx-text-fill: -rw-live; }
 .cat-foot  { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 .cat-foot:failed { -fx-text-fill: -rw-bad; }   /* the new-project hint when the name is taken */
+/* "+3 more · Database, API, Notes": the folded categories, one press from showing */
+.cat-more { -fx-cursor: hand; }
+.cat-more:hover .label { -fx-text-fill: -rw-tx; }
+.cat-more:focus-visible .label { -fx-text-fill: -rw-tx; -fx-underline: true; }
 
 /* AppChip sm: 26 tall, raised, 13px category glyph in tx2, 11px mono name */
 .chip {

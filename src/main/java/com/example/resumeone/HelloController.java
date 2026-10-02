@@ -149,7 +149,12 @@ public class HelloController {
     @FXML public StackPane resumeGlyphBox, ckDoneGlyphBox, emptyGlyphBox,
             deleteFolderGlyph, npFolderGlyph;
     @FXML public Region statusDot;
-    @FXML public Label projectNameLabel, projectPathLabel, checkpointSub, ckDoneSub, tabsCount, statusLabel;
+    @FXML public Label projectNameLabel, projectPathLabel, checkpointSub, ckDoneSub, tabsCount, statusLabel, resumeCounts;
+    /** The full folder path, one hover away from the "…\\atlas-api" the header shows. */
+    private Tooltip pathTip;
+    /** The card lists four categories and folds the rest into a "+n more" row until asked. */
+    private boolean showAllCategories;
+    static final int CATEGORIES_SHOWN = 4;
 
     /** Hover-only: names the browsers on the socket, so the dot itself stays uncluttered. */
     // built in initialize(), not here: a Tooltip needs the JavaFX toolkit, which the unit tests
@@ -261,6 +266,8 @@ public class HelloController {
         restoredFill.prefWidthProperty().bind(restoredMeter.widthProperty().multiply(restoredFrac));
         restoredFailFill.prefWidthProperty().bind(restoredMeter.widthProperty().multiply(restoredFailFrac));
         countdownFill.prefWidthProperty().bind(countdownTrack.widthProperty().multiply(countdownFrac));
+        pathTip = tip("");
+        Tooltip.install(projectPathLabel, pathTip);
         statusTip = new Tooltip();
         statusTip.setShowDelay(Duration.millis(150));
         Tooltip.install(statusBox, statusTip);
@@ -781,12 +788,15 @@ public class HelloController {
         migrateLegacyUrls(projectObj);
 
         projectNameLabel.setText(projectObj.projectName);
-        projectPathLabel.setText(projectObj.folderPath == null ? "no folder" : projectObj.folderPath);
+        projectPathLabel.setText(projectObj.folderPath == null ? "no folder" : "\u2026\\" + new File(projectObj.folderPath).getName());
+        pathTip.setText(projectObj.folderPath == null ? "no folder chosen" : projectObj.folderPath);
 
         int apps = countApps(projectObj);
         int tabs = countTabs(projectObj);
 
         btnResume.setDisable(apps == 0 && tabs == 0);
+        // the count is the proof: what one press brings back, on the button that does it
+        resumeCounts.setText(apps == 0 && tabs == 0 ? "NOTHING SAVED YET" : resumeCountLine(apps, tabs));
         checkpointSub.setText(checkpointLine(projectObj.lastCheckpoint));
         tabsCount.setText(String.valueOf(tabs));
 
@@ -808,13 +818,21 @@ public class HelloController {
         return when(age);
     }
 
+    /** "10 APPS · 14 TABS" for the RESUME block. */
+    static String resumeCountLine(int apps, int tabs) {
+        return apps + (apps == 1 ? " APP" : " APPS") + " \u00b7 " + tabs + (tabs == 1 ? " TAB" : " TABS");
+    }
+
     private void renderCategories(Project projectObj) {
         categoryRows.getChildren().clear();
         if (projectObj.apps == null) return;
 
-        for (String category : CATEGORY_ORDER) {
+        List<String> filled = CATEGORY_ORDER.stream()
+                .filter(c -> projectObj.apps.get(c) != null && !projectObj.apps.get(c).isEmpty()).toList();
+        // one past the limit just shows: a "+1 more" row would take the same line as the row it hides
+        boolean fold = !showAllCategories && filled.size() > CATEGORIES_SHOWN + 1;
+        for (String category : fold ? filled.subList(0, CATEGORIES_SHOWN) : filled) {
             HashSet<String> bucket = projectObj.apps.get(category);
-            if (bucket == null || bucket.isEmpty()) continue;
 
             // a 96px label column: 12px glyph + spaced mono caps
             HBox labelBox = new HBox(6);
@@ -853,17 +871,53 @@ public class HelloController {
 
             categoryRows.getChildren().add(row);
         }
+        if (fold || (showAllCategories && filled.size() > CATEGORIES_SHOWN + 1)) {
+            List<String> rest = filled.subList(CATEGORIES_SHOWN, filled.size());
+            HBox more = new HBox(9, Icons.node(Icons.CHEVRON, 12, TX3), styled(new Label(fold
+                    ? "+" + rest.size() + " more \u00b7 " + String.join(", ", rest.stream().map(HelloController::categoryLabel).toList())
+                    : "show fewer"), "cat-foot"));
+            more.setAlignment(Pos.CENTER_LEFT);
+            more.getStyleClass().add("cat-more");
+            clickable(more, () -> { showAllCategories = !showAllCategories; renderCategories(projectObj); });
+            categoryRows.getChildren().add(more);
+        }
 
         // "Other" is captured but never relaunched, which the design calls out by name
         HashSet<String> other = projectObj.apps.get(OTHER);
         if (other != null && !other.isEmpty()) {
-            String first = new TreeSet<>(other).first();
+            String first = appName(new TreeSet<>(other).first());
             String rest = other.size() > 1 ? " (+" + (other.size() - 1) + ")" : "";
             HBox foot = new HBox(9, Icons.node(Icons.APP_WINDOW, 12, TX3),
                     styled(new Label(first + rest + " under Other \u2014 captured, not relaunched"), "cat-foot"));
             foot.setAlignment(Pos.CENTER_LEFT);
             categoryRows.getChildren().add(foot);
         }
+    }
+
+    // only where the exe name is not the app's name; everything else is the exe, capitalised
+    private static final Map<String, String> APP_NAMES = Map.ofEntries(
+            Map.entry("code", "VS Code"), Map.entry("code - insiders", "VS Code Insiders"),
+            Map.entry("idea", "IntelliJ IDEA"), Map.entry("pycharm", "PyCharm"), Map.entry("webstorm", "WebStorm"),
+            Map.entry("phpstorm", "PhpStorm"), Map.entry("clion", "CLion"), Map.entry("goland", "GoLand"),
+            Map.entry("rubymine", "RubyMine"), Map.entry("datagrip", "DataGrip"), Map.entry("studio", "Android Studio"),
+            Map.entry("devenv", "Visual Studio"), Map.entry("sublime_text", "Sublime Text"),
+            Map.entry("sublime_merge", "Sublime Merge"), Map.entry("notepad++", "Notepad++"),
+            Map.entry("windowsterminal", "Windows Terminal"), Map.entry("wezterm-gui", "WezTerm"),
+            Map.entry("conemu", "ConEmu"), Map.entry("msedge", "Edge"), Map.entry("githubdesktop", "GitHub Desktop"),
+            Map.entry("sourcetree", "Sourcetree"), Map.entry("gitkraken", "GitKraken"), Map.entry("ms-teams", "Teams"),
+            Map.entry("ssms", "SSMS"), Map.entry("pgadmin4", "pgAdmin"), Map.entry("mysqlworkbench", "MySQL Workbench"),
+            Map.entry("mongodbcompass", "MongoDB Compass"), Map.entry("dbeaver", "DBeaver"),
+            Map.entry("heidisql", "HeidiSQL"), Map.entry("tableplus", "TablePlus"), Map.entry("chatgpt", "ChatGPT"));
+
+    /** "idea64.exe" -> "IntelliJ IDEA", "WindowsTerminal.exe" -> "Windows Terminal",
+        "obsidian.exe" -> "Obsidian": what a person calls the app, not what Windows does. */
+    static String appName(String exe) {
+        String base = exe.replaceFirst("(?i)\\.exe$", "");
+        String key = base.toLowerCase().replaceFirst("64$", "");
+        String known = APP_NAMES.get(key);
+        if (known != null) return known;
+        String name = base.replaceFirst("64$", "");
+        return name.isEmpty() ? exe : Character.toUpperCase(name.charAt(0)) + name.substring(1);
     }
 
     /** "VersionControl" -> "VERSION CONTROL": the map key, spaced for reading. */
@@ -891,19 +945,14 @@ public class HelloController {
             head.setAlignment(Pos.CENTER_LEFT);
             // every group after the first sits 4px further down, as margin-top:4px does
             if (!tabRows.isEmpty()) VBox.setMargin(head, new Insets(4, 0, 0, 0));
-            Region dot = new Region();
-            dot.getStyleClass().add("dot-live");
-            dot.setMinSize(5, 5);
-            dot.setPrefSize(5, 5);
-            dot.setMaxSize(5, 5);
             Label name = styled(new Label(browserLabel(browser)), "browser-name");
-            Tooltip.install(name, tip("one window per browser on resume"));
-            head.getChildren().addAll(dot, name, styled(new Label(String.valueOf(urls.size())), "side-count"));
+            head.getChildren().addAll(name, styled(new Label(String.valueOf(urls.size())), "side-count"));
             tabRows.add(head);
 
             for (String url : urls) {
-                // the site is what you scan by; the whole url is one hover away
-                Label item = styled(new Label(site(url)), "tab-title");
+                // site + path: six github.com rows told nobody which six pages they were.
+                // The query and fragment are one hover away with the rest of the url.
+                Label item = styled(new Label(tabLabel(url)), "tab-title");
                 item.setMaxWidth(Double.MAX_VALUE);
                 item.setTextOverrun(OverrunStyle.ELLIPSIS);
                 HBox.setHgrow(item, Priority.ALWAYS);
@@ -927,6 +976,13 @@ public class HelloController {
         return url != null && !url.matches("(?i)^(chrome|edge|brave|opera|about|chrome-extension|devtools|view-source):.*");
     }
 
+    /** "github.com/atlas-api/pull/42" from "https://www.github.com/atlas-api/pull/42?tab=files#x". */
+    static String tabLabel(String url) {
+        String s = url.replaceFirst("^[a-zA-Z][a-zA-Z0-9+.-]*://", "").replaceFirst("^www\\.", "");
+        s = s.replaceFirst("[?#].*$", "");
+        return s.endsWith("/") ? s.substring(0, s.length() - 1) : s;
+    }
+
     /** "github.com" from "https://www.github.com/atlas-api/pull/42". */
     static String site(String url) {
         String s = url.replaceFirst("^[a-zA-Z][a-zA-Z0-9+.-]*://", "").replaceFirst("^www\\.", "");
@@ -934,9 +990,11 @@ public class HelloController {
         return cut < 0 ? s : s.substring(0, cut);
     }
 
-    /** The exe, then the hover-only x at the right end (the row's glyph already names the kind). */
+    /** The app's name, then the hover-only x at the right end (the row's glyph already names
+        the kind). The exe it was captured as is on hover. */
     private HBox chip(Project projectObj, String category, String app) {
-        HBox chip = new HBox(2, new Label(app), remover(() -> removeApp(projectObj, category, app), projectObj, 12));
+        HBox chip = new HBox(2, new Label(appName(app)), remover(() -> removeApp(projectObj, category, app), projectObj, 12));
+        Tooltip.install(chip, tip(app));
         chip.getStyleClass().add("chip");
         chip.setAlignment(Pos.CENTER_LEFT);
         return chip;
@@ -1340,7 +1398,7 @@ public class HelloController {
     /** "GitHubDesktop · obsidian · discord", three names then a count. */
     private static String names(List<String> labels) {
         List<String> shown = new ArrayList<>();
-        for (String l : labels.subList(0, Math.min(3, labels.size()))) shown.add(l.replace(".exe", ""));
+        for (String l : labels.subList(0, Math.min(3, labels.size()))) shown.add(appName(l));
         String out = String.join(" · ", shown);
         return labels.size() > 3 ? out + " +" + (labels.size() - 3) : out;
     }
@@ -2111,13 +2169,13 @@ public class HelloController {
                     }
                     List<String> cmd = claudeCommand(folder, claudeInTerminal);
                     // open claude's agent view, in the project folder when there is one
-                    steps.add(new LaunchStep(app, String.join(" ", cmd.subList(2, cmd.size())), false, () ->
+                    steps.add(new LaunchStep(appName(app), String.join(" ", cmd.subList(2, cmd.size())), false, () ->
                             new ProcessBuilder(cmd).directory(folder == null ? null : new File(folder)).start()));
 
                 } else if (appName.equalsIgnoreCase("Code")) {
                     if (folder == null) continue;
                     // open VS Code in project folder
-                    steps.add(new LaunchStep(app, "code " + folder, false, () ->
+                    steps.add(new LaunchStep(appName(app), "code " + folder, false, () ->
                             new ProcessBuilder("cmd.exe", "/c", "code", folder).start()));
 
                 } else if (appName.equalsIgnoreCase("WindowsTerminal")) {
@@ -2127,13 +2185,13 @@ public class HelloController {
                     }
                     // WindowsTerminal.exe is the process name, but "wt" is the actual
                     // launch command - "start WindowsTerminal" can't resolve it
-                    steps.add(new LaunchStep(app, "start wt", false, () ->
+                    steps.add(new LaunchStep(appName(app), "start wt", false, () ->
                             new ProcessBuilder("cmd.exe", "/c", "start", "wt").start()));
 
                 } else {
                     // no folder needed: this used to sit under the folderPath guard too, so a
                     // project without a folder relaunched nothing at all
-                    steps.add(new LaunchStep(app, "start " + appName, false, () ->
+                    steps.add(new LaunchStep(appName(app), "start " + appName, false, () ->
                             new ProcessBuilder("cmd.exe", "/c", "start", appName).start()));
                 }
             }

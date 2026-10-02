@@ -115,9 +115,9 @@
             <StackPane fx:id="resumeGlyphBox"/>
             <Label styleClass="resume-word" text="RESUME"/>
             <Region HBox.hgrow="ALWAYS" minWidth="0.0"/>
-            <!-- the shortcut, stated: Ctrl+R resumes (installKeys) -->
+            <!-- what one press brings back (renderDetail), and the shortcut, stated: Ctrl+R (installKeys) -->
             <VBox spacing="6.0" alignment="CENTER_RIGHT" minWidth="-Infinity">
-              <Label styleClass="resume-hint" text="ONE CLICK"/>
+              <Label fx:id="resumeCounts" styleClass="resume-hint" text=""/>
               <Label styleClass="resume-key" text="CTRL+R"/>
             </VBox>
           </HBox>
@@ -189,7 +189,6 @@
                         minHeight="0.0" VBox.vgrow="ALWAYS">
               <VBox fx:id="tabsList" spacing="8.0"/>
             </ScrollPane>
-            <Label styleClass="cat-foot" text="one window per browser"/>
           </VBox>
         </HBox>
       </VBox>
