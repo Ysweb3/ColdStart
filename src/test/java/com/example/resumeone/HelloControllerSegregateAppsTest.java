@@ -104,11 +104,16 @@ class HelloControllerSegregateAppsTest {
     @Test
     void claudeCapturedInsideTerminalIsLaunchedThroughWt() {
         // regression: `start wt` + `start claude` left an empty PowerShell window next to claude's
-        java.util.List<String> inWt = HelloController.claudeCommand("C:\\proj", true, true);
-        assertEquals(java.util.List.of("cmd.exe", "/c", "start", "wt", "-d", "C:\\proj", "claude", "--continue"), inWt);
+        java.util.List<String> inWt = HelloController.claudeCommand("C:\\proj", true);
+        assertEquals(java.util.List.of("cmd.exe", "/c", "start", "wt", "-d", "C:\\proj",
+                "claude", "agents", "--cwd", "C:\\proj"), inWt);
 
-        java.util.List<String> bare = HelloController.claudeCommand("C:\\proj", false, false);
-        assertEquals(java.util.List.of("cmd.exe", "/c", "start", "claude"), bare);
+        java.util.List<String> bare = HelloController.claudeCommand("C:\\proj", false);
+        assertEquals(java.util.List.of("cmd.exe", "/c", "start", "claude", "agents", "--cwd", "C:\\proj"), bare);
+
+        // regression: a project saved without a folder used to launch nothing at all
+        assertEquals(java.util.List.of("cmd.exe", "/c", "start", "wt", "claude", "agents"),
+                HelloController.claudeCommand(null, true));
     }
 
     @Test
