@@ -44,7 +44,15 @@ import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
 import javafx.css.PseudoClass;
+import javafx.animation.Animation;
 import javafx.animation.Interpolator;
+import javafx.animation.PauseTransition;
+import javafx.animation.RotateTransition;
+import javafx.scene.Group;
+import javafx.scene.shape.Arc;
+import javafx.scene.shape.ArcType;
+import javafx.scene.shape.Circle;
+import javafx.scene.shape.StrokeLineCap;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
@@ -156,6 +164,17 @@ public class HelloController {
     /** The card lists four categories and folds the rest into a "+n more" row until asked. */
     private boolean showAllCategories;
     static final int CATEGORIES_SHOWN = 4;
+
+    /** "connecting…": a 10px ring whose arc turns in place of the dot while no extension holds
+        the socket yet but one is expected - at startup, and after the last one leaves. */
+    private Group statusSpin;
+    private RotateTransition spin;
+    /** Until when (System.nanoTime) "no extension" still reads as "connecting". */
+    private volatile long connectingUntil;
+    private PauseTransition connectingEnds;
+    /** A live extension retries every 3s; a suspended one is woken by chrome.alarms at most a
+        minute later (ResumeOneExtension/background.js). Past this, nobody is coming. */
+    static final Duration CONNECT_GRACE = Duration.seconds(65);
 
     /** Hover-only: names the browsers on the socket, so the dot itself stays uncluttered. */
     // built in initialize(), not here: a Tooltip needs the JavaFX toolkit, which the unit tests
@@ -274,6 +293,23 @@ public class HelloController {
         countdownFill.prefWidthProperty().bind(countdownTrack.widthProperty().multiply(countdownFrac));
         pathTip = tip("");
         Tooltip.install(projectPathLabel, pathTip);
+        Circle track = new Circle(5, Color.TRANSPARENT);
+        track.setStroke(Color.web("#464A52"));
+        track.setStrokeWidth(1.6);
+        Arc arc = new Arc(0, 0, 5, 5, 90, -110);
+        arc.setType(ArcType.OPEN);
+        arc.setFill(null);
+        arc.setStroke(Color.web(TX2));
+        arc.setStrokeWidth(1.6);
+        arc.setStrokeLineCap(StrokeLineCap.ROUND);
+        // a Group, so it turns about the ring's centre rather than the arc's own bounds
+        statusSpin = new Group(track, arc);
+        statusBox.getChildren().add(0, statusSpin);
+        spin = new RotateTransition(Duration.millis(900), statusSpin);
+        spin.setByAngle(360);
+        spin.setCycleCount(Animation.INDEFINITE);
+        spin.setInterpolator(Interpolator.LINEAR);
+        startConnecting();
         statusTip = new Tooltip();
         statusTip.setShowDelay(Duration.millis(150));
         Tooltip.install(statusBox, statusTip);
@@ -655,7 +691,8 @@ public class HelloController {
         });
         settingsRows.getChildren().setAll(
                 statRow(Icons.BROWSER, "Browser extensions",
-                        browsers.isEmpty() ? "none connected \u00b7 install the coldstart extension"
+                        browsers.isEmpty() ? (System.nanoTime() < connectingUntil ? "connecting\u2026"
+                                                                           : "none connected \u00b7 install the coldstart extension")
                                            : String.join(" \u00b7 ", browsers) + " connected", null),
                 statRow(Icons.APP_WINDOW, "Ignored processes", names(ignored), String.join("\n", ignored)),
                 storageRow);
@@ -1774,7 +1811,26 @@ public class HelloController {
         }
     }
 
-    /** Title-bar dot: sage while any extension holds the socket, grey otherwise. */
+    /** Opens (or re-opens) the window in which a missing extension reads as "connecting…". */
+    private void startConnecting() {
+        connectingUntil = System.nanoTime() + (long) CONNECT_GRACE.toMillis() * 1_000_000L;
+        if (connectingEnds != null) connectingEnds.stop();
+        connectingEnds = new PauseTransition(CONNECT_GRACE);
+        connectingEnds.setOnFinished(e -> refreshStatusDot());
+        connectingEnds.play();
+    }
+
+    /** The title bar's words: who is connected, "connecting…", or nobody. */
+    static String statusLine(List<String> browsers, boolean connecting) {
+        if (!browsers.isEmpty()) {
+            return browsers.size() == 1 ? browserLabel(browsers.get(0)) + " connected"
+                    : browsers.size() + " browsers connected";
+        }
+        return connecting ? "connecting\u2026" : "no browser connected";
+    }
+
+    /** Title-bar dot: sage while any extension holds the socket, a turning ring while one is
+        expected, grey otherwise. */
     private void refreshStatusDot() {
         if (!isHud()) return;
         // one name per browser: every window of a browser shares one extension worker, so a
@@ -1783,12 +1839,18 @@ public class HelloController {
                 .map(HelloController::wsBrowser).distinct().sorted().toList();
         Platform.runLater(() -> {
             boolean live = !browsers.isEmpty();
+            boolean connecting = !live && System.nanoTime() < connectingUntil;
             statusDot.getStyleClass().setAll(live ? "dot-live" : "dot-idle");
-            statusLabel.setText(!live ? "no browser connected"
-                    : browsers.size() == 1 ? browserLabel(browsers.get(0)) + " connected"
-                    : browsers.size() + " browsers connected");
+            statusDot.setVisible(!connecting);
+            statusDot.setManaged(!connecting);
+            statusSpin.setVisible(connecting);
+            statusSpin.setManaged(connecting);
+            // motion off: the arc holds still, which still reads as "not yet"
+            if (connecting && !Motion.REDUCED) spin.play(); else spin.pause();
+            statusLabel.setText(statusLine(browsers, connecting));
             statusLabel.getStyleClass().setAll(live ? "port-live" : "port");
             statusTip.setText(live ? String.join(", ", browsers) + " \u00b7 tabs come and go through the extension"
+                    : connecting ? "waiting for the coldstart extension \u00b7 a browser can take a minute to reconnect"
                     : "install the coldstart extension to checkpoint tabs");
             // someone watching Settings to see the extension land must see it land
             if (settingsPane.isVisible()) renderSettingsRows();
@@ -2343,6 +2405,9 @@ public class HelloController {
                 });
             ws.onClose(ctx -> {
                 wsSessions.remove(ctx);
+                // the last one gone is usually a worker suspending or a browser restarting:
+                // it gets the same minute to come back before the title bar says nobody is here
+                if (wsSessions.isEmpty() && isHud()) Platform.runLater(this::startConnecting);
                 System.out.println("extension disconnected: " + wsBrowser(ctx)
                         + " (" + wsSessions.size() + " connected)");
                 refreshStatusDot();

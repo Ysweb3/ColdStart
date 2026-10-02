@@ -67,6 +67,14 @@ class HandoffCopyTest {
     }
 
     @Test
+    void titleBarSaysWhoIsConnectedOrThatOneIsComing() {
+        assertEquals("Brave connected", HelloController.statusLine(List.of("brave"), false));
+        assertEquals("2 browsers connected", HelloController.statusLine(List.of("brave", "Chrome"), true));
+        assertEquals("connecting…", HelloController.statusLine(List.of(), true));
+        assertEquals("no browser connected", HelloController.statusLine(List.of(), false));
+    }
+
+    @Test
     void tabGroupsAreHeadedByTheBrowsersName() {
         assertEquals("Brave", HelloController.browserLabel("brave"));
         assertEquals("Chrome", HelloController.browserLabel("Chrome"));
