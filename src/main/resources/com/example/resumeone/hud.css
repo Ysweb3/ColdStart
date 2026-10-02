@@ -30,6 +30,7 @@
     -rw-ckt:    #6E9BD1;   /* checkpoint text, hover border, ring */
     -rw-ckh:    #272A2F;   /* the chevron segment under the pointer */
     -rw-live:   #5DB075;
+    -rw-live-tx: #8ACB9D;   /* live green for words: "Brave connected" in the title bar */
     -rw-act:    #8E939C;   /* neutral active: focus, checkboxes */
     -rw-bad:    #EB7C73;   /* danger text and glyphs */
     -rw-brick:  #E0594F;   /* danger fill: meters, the window's close */
@@ -92,7 +93,7 @@
 /* ":8765 · no extension", or "connected · brave" in live green while an extension holds the socket */
 .port      { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 /* a lighter step of live green for the words; the dot keeps -rw-live */
-.port-live { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: #8ACB9D; -fx-font-weight: bold; }
+.port-live { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-live-tx; -fx-font-weight: bold; }
 
 /* tooltips are popups with their own scene; the selector still reaches them */
 .tooltip {
@@ -305,7 +306,8 @@
     -fx-border-radius: 13;
 }
 .cat-label { -fx-font-size: 12px; -fx-text-fill: -rw-hud; }
-.cat-arg   { -fx-font-size: 12px; -fx-text-fill: -rw-live; }
+/* green is only ever "live"; what resume will pass an app is plain secondary text */
+.cat-arg   { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 .cat-foot  { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 .cat-foot:failed { -fx-text-fill: -rw-bad; }   /* the new-project hint when the name is taken */
 /* "+3 more · Database, API, Notes": the folded categories, one press from showing */
@@ -337,7 +339,8 @@
     -fx-border-width: 0 0 0 1;
 }
 .tabs-scroll, .tabs-scroll > .viewport { -fx-background-color: transparent; -fx-padding: 0; }
-.browser-name { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-ckt; }
+/* blue is only ever Checkpoint, so a browser's name is ink */
+.browser-name { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .tab-title    { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 
 /* the stage is undecorated, so the app draws its own outer edge */
@@ -499,7 +502,7 @@
 
 .foot-note { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 .countdown-track { -fx-background-color: -rw-raised; }
-.countdown-fill  { -fx-background-color: -rw-ckt; }
+.countdown-fill  { -fx-background-color: -rw-tx3; }   /* time passing, not a checkpoint */
 
 /* ── keyboard focus ─────────────────────────────────────────────────
    :focus-visible, not :focused, so a mouse click never paints the ring. A hard 3px

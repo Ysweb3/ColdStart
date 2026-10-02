@@ -356,7 +356,7 @@
             <Region HBox.hgrow="ALWAYS"/>
             <Button fx:id="btnStayHere" styleClass="btn-ghost" text="Stay here"
                     prefHeight="34.0" minHeight="34.0"/>
-            <Button fx:id="btnOpenProject" styleClass="btn-checkpoint" text="Open project" graphicTextGap="8.0"
+            <Button fx:id="btnOpenProject" styleClass="btn-secondary" text="Open project" graphicTextGap="8.0"
                     contentDisplay="RIGHT" prefHeight="34.0" minHeight="34.0"/>
           </HBox>
         </VBox>

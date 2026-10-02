@@ -565,7 +565,7 @@ public class HelloController {
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN),
                 () -> { if (!overlayOpen() && detailPane.isVisible()) undoCheckpoint(); });
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.B, KeyCombination.SHORTCUT_DOWN),
-                () -> setRailWide(!rail.getStyleClass().contains("rail-wide")));
+                () -> { if (!overlayOpen()) setRailWide(!rail.getStyleClass().contains("rail-wide")); });
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() != KeyCode.ESCAPE) return;
             if (resumingPane.isVisible()) {
@@ -1401,10 +1401,10 @@ public class HelloController {
     /** Settings glyphs are 20px: big enough to read the tick at a glance. */
     private static final int SETTING_GLYPH = 20;
 
-    /** Settings: one behaviour the app has, stated as a fact. The same ticked checkbox glyph
-        the toggles use, so every setting reads alike - but no control, since it is fixed. */
+    /** Settings: one behaviour the app has, stated as a fact. A plain tick, not the toggles'
+        checkbox: a box that does not respond to a click read as a broken setting. */
     private HBox behaviourRow(String text) {
-        HBox row = new HBox(10, Icons.node(Icons.CHECKBOX, SETTING_GLYPH, TX2), styled(new Label(text), "behaviour"));
+        HBox row = new HBox(10, Icons.node(Icons.CHECK, SETTING_GLYPH, TX3), styled(new Label(text), "behaviour"));
         row.setAlignment(Pos.CENTER_LEFT);
         return row;
     }
