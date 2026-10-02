@@ -503,10 +503,29 @@
 
 /* ── keyboard focus ─────────────────────────────────────────────────
    :focus-visible, not :focused, so a mouse click never paints the ring. A hard 3px
-   dropshadow spread works on every shape here (notched blocks included) without moving layout. */
-.button:focus-visible, .resume:focus-visible, .checkpoint:focus-visible,
-.check-box:focus-visible, .text-field:focus-visible {
+   dropshadow spread rings the plain shapes without moving layout. */
+.button:focus-visible, .check-box:focus-visible, .text-field:focus-visible,
+.fold-row:focus-visible {
     -fx-effect: dropshadow(gaussian, -rw-act, 3, 1.0, 0, 0);
+}
+/* The notched blocks are clipped, and the clip cut that shadow away entirely, so their ring
+   is drawn inside them as background layers: an ink ring 4px in on RESUME, a neutral edge
+   in place of the slate one on Checkpoint and its chevron. */
+.resume:focus-visible {
+    -fx-background-color: -rw-go, -rw-goi, -rw-go;
+    -fx-background-insets: 0, 4, 6;
+}
+.resume:hover:focus-visible { -fx-background-color: -rw-go2, -rw-goi, -rw-go2; }
+.checkpoint:focus-visible { -fx-background-color: -rw-act, -ck-ground; -fx-background-insets: 0, 2; }
+.ck-menu:focus-visible { -fx-background-color: -rw-act, -ck-hover; -fx-background-insets: 0, 2; }
+/* the remove x shows itself when Tab reaches it, not only under the pointer */
+.rm:focus-visible { -fx-opacity: 1; }
+.rm:focus-visible .ico { -fx-stroke: -rw-tx; }
+.chip:focus-within .rm, .tab-row:focus-within .rm { -fx-opacity: 1; }
+/* the wide rows' transparent ground out-ranked .rail-btn's ring above; this puts it back */
+.rail-wide .side-row:focus-visible {
+    -fx-background-color: -rw-act, -rw-raised;
+    -fx-background-insets: 0, 2;
 }
 .iconbtn:focus-visible {
     -fx-background-color: -rw-act, -rw-g1;

@@ -15,6 +15,7 @@ import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.event.ActionEvent;
+import javafx.scene.AccessibleRole;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.application.Platform;
@@ -187,15 +188,15 @@ public class HelloController {
         startServer();
 
         if (!isHud()) return;
-        clickable(btnResume, this::onResume);
-        clickable(btnCheckpoint, this::onCheckpoint);
+        clickable(btnResume, "Resume", this::onResume);
+        clickable(btnCheckpoint, "Checkpoint", this::onCheckpoint);
         installCheckpointMenu();
         notch(btnResume, 18);
         // the block's -fx-shape draws it; this clip keeps the confirmation ring inside it too
         notch(btnCheckpoint, 14);
-        clickable(btnDelete, this::showDeleteView);
+        clickable(btnDelete, "Delete project", this::showDeleteView);
         // the gear is a toggle: the lit gear is the natural "close" in a rail
-        clickable(btnSettings, () -> { if (settingsPane.isVisible()) backToProjects(); else showSettings(); });
+        clickable(btnSettings, "Settings", () -> { if (settingsPane.isVisible()) backToProjects(); else showSettings(); });
         Tooltip.install(btnSettingsBack, tip("Esc"));
         for (Node b : List.of(btnNewProjectWide, btnNewProjectEmpty, btnSettingsBack, btnDeleteCancel, btnDeleteOk,
                 btnNpBrowse, btnNpCancel, btnNpCreate, btnConfirmCancel, btnConfirmOk,
@@ -220,7 +221,7 @@ public class HelloController {
                 behaviourRow("Claude reopens its conversations for the folder"),
                 behaviourRow("Apps already running are left alone"),
                 behaviourRow("coldstart stays on top while resuming"));
-        clickable(btnNewProjectRail, this::onNewProjectClick);
+        clickable(btnNewProjectRail, "New project", this::onNewProjectClick);
         btnNewProjectWide.setOnAction(e -> onNewProjectClick());
         setRailWide(PREFS.getBoolean(SIDEBAR_WIDE, true));
         Tooltip.install(sidebarToggle, tip("Ctrl+B"));
@@ -231,7 +232,10 @@ public class HelloController {
         installGlyphs();
         // the scene arrives after initialize(); accelerators and Escape hang off it once
         detailPane.sceneProperty().addListener((o, was, scene) -> {
-            if (scene != null && was == null) installKeys(scene);
+            if (scene != null && was == null) {
+                installKeys(scene);
+                trapFocus(scene);
+            }
         });
         btnDeleteCancel.setOnAction(e -> backToProjects());
         btnDeleteOk.setOnAction(e -> deleteActive());
@@ -253,6 +257,8 @@ public class HelloController {
         });
         btnNpCreate.setOnAction(e -> createFromDialog());
         npName.setOnAction(e -> { if (!btnNpCreate.isDisabled()) createFromDialog(); });   // Enter creates
+        npName.setAccessibleText("Project name");
+        btnNpBrowse.setAccessibleText("Browse for the project folder");
         btnNpCreate.textProperty().bind(Bindings.when(npCapture.selectedProperty())
                 .then("Create + checkpoint").otherwise("Create"));
         btnResumeStop.setGraphic(Icons.node(Icons.CLOSE, 16, TX2));
@@ -437,7 +443,7 @@ public class HelloController {
         Tooltip t = tip("");
         Tooltip.install(row, t);
         row.getProperties().put("tip", t);
-        clickable(row, () -> selectProject(projectObj));
+        clickable(row, projectObj.projectName, () -> selectProject(projectObj));
 
         rowsByProject.put(projectObj.projectName, row);
         projectList.getChildren().add(row);
@@ -526,8 +532,11 @@ public class HelloController {
         return List.of(0.0, 0.0, w - c, 0.0, w, c, w, h, c, h, 0.0, h - c);
     }
 
-    private void clickable(Node node, Runnable action) {
+    private void clickable(Node node, String name, Runnable action) {
         node.setFocusTraversable(true);
+        // a StackPane/HBox reads to Narrator as nothing at all; these make it a named button
+        node.setAccessibleRole(AccessibleRole.BUTTON);
+        node.setAccessibleText(name);
         Motion.pressable(node);
         node.setOnMouseClicked(e -> {
             // primary only: a right click on Checkpoint opens its menu, it must not also save
@@ -559,6 +568,11 @@ public class HelloController {
                 () -> setRailWide(!rail.getStyleClass().contains("rail-wide")));
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             if (e.getCode() != KeyCode.ESCAPE) return;
+            if (resumingPane.isVisible()) {
+                stopRequested = true;
+                e.consume();
+                return;
+            }
             if (overlayOpen()) {
                 showOverlay(null);
                 e.consume();
@@ -574,6 +588,24 @@ public class HelloController {
 
     private boolean overlayOpen() {
         return confirmPane.isVisible() || newProjectPane.isVisible() || deletePane.isVisible();
+    }
+
+    /** Keeps Tab inside an open dialog: focus that leaves it is put back where it was, or on
+        the dialog's first control. Without this, Tab walked out to the rail behind the scrim. */
+    private void trapFocus(javafx.scene.Scene scene) {
+        scene.focusOwnerProperty().addListener((o, was, now) -> {
+            Node open = deletePane.isVisible() ? deletePane : newProjectPane.isVisible() ? newProjectPane
+                    : confirmPane.isVisible() ? confirmPane : null;
+            if (open == null || now == null || inside(now, open)) return;
+            Node back = was != null && inside(was, open) ? was
+                    : open == deletePane ? btnDeleteCancel : open == newProjectPane ? npName : btnConfirmCancel;
+            Platform.runLater(back::requestFocus);
+        });
+    }
+
+    private static boolean inside(Node node, Node parent) {
+        for (Node n = node; n != null; n = n.getParent()) if (n == parent) return true;
+        return false;
     }
 
     /** 1h: behaviour rows are fixed copy; the STATUS column is live and re-renders on socket events. */
@@ -600,7 +632,7 @@ public class HelloController {
         // the one row that acts: open the data folder. Chevron + hand say so; the other two stay flat.
         storageRow.getChildren().add(Icons.node(Icons.CHEVRON, 14, TX3));
         storageRow.getStyleClass().add("stat-link");
-        clickable(storageRow, () -> {
+        clickable(storageRow, "Open the data folder", () -> {
             try {
                 Desktop.getDesktop().open(projectsFile().getParentFile());
             } catch (IOException | IllegalArgumentException ex) {
@@ -761,6 +793,8 @@ public class HelloController {
         String age = ago(projectObj.lastCheckpoint);
         Tooltip t = (Tooltip) row.getProperties().get("tip");
         t.setText(projectObj.projectName + " \u00b7 " + ("never".equals(age) ? "no checkpoint yet" : "checkpoint " + when(age)));
+        // the narrow rail shows only "01": the name is in the tooltip, which focus never opens
+        row.setAccessibleText(t.getText());
         if (row.lookup(".side-count") instanceof Label count) {
             count.setText("never".equals(age) ? "" : "just now".equals(age) ? "now" : age);
         }
@@ -878,7 +912,7 @@ public class HelloController {
                     : "show fewer"), "cat-foot"));
             more.setAlignment(Pos.CENTER_LEFT);
             more.getStyleClass().add("cat-more");
-            clickable(more, () -> { showAllCategories = !showAllCategories; renderCategories(projectObj); });
+            clickable(more, fold ? "Show all categories" : "Show fewer categories", () -> { showAllCategories = !showAllCategories; renderCategories(projectObj); });
             categoryRows.getChildren().add(more);
         }
 
@@ -960,7 +994,7 @@ public class HelloController {
                 item.setTextOverrun(OverrunStyle.ELLIPSIS);
                 HBox.setHgrow(item, Priority.ALWAYS);
                 Tooltip.install(item, tip(url));
-                HBox row = new HBox(2, item, remover(() -> removeUrl(projectObj, browser, url), projectObj, 12));
+                HBox row = new HBox(2, item, remover(() -> removeUrl(projectObj, browser, url), projectObj, 12, url));
                 row.getStyleClass().add("tab-row");
                 row.setAlignment(Pos.CENTER_LEFT);
                 tabRows.add(row);
@@ -996,25 +1030,27 @@ public class HelloController {
     /** The app's name, then the hover-only x at the right end (the row's glyph already names
         the kind). The exe it was captured as is on hover. */
     private HBox chip(Project projectObj, String category, String app) {
-        HBox chip = new HBox(2, new Label(appName(app)), remover(() -> removeApp(projectObj, category, app), projectObj, 12));
+        HBox chip = new HBox(2, new Label(appName(app)), remover(() -> removeApp(projectObj, category, app), projectObj, 12, appName(app)));
         Tooltip.install(chip, tip(app));
         chip.getStyleClass().add("chip");
         chip.setAlignment(Pos.CENTER_LEFT);
         return chip;
     }
 
-    /** The hover-only x on chips and tab rows. Opacity, not managed, so nothing shifts on hover.
-        No undo: the next checkpoint brings anything back. */
-    private StackPane remover(Runnable edit, Project projectObj, double size) {
+    /** The x on chips and tab rows, shown on hover or keyboard focus. Opacity, not managed, so
+        nothing shifts. No undo: the next checkpoint brings anything back. */
+    private StackPane remover(Runnable edit, Project projectObj, double size, String what) {
         StackPane x = new StackPane();
         x.getStyleClass().add("rm");
         Pane glyph = Icons.node(Icons.CLOSE, size, TX3);
         glyph.getStyleClass().add("rm-glyph");
         x.getChildren().add(glyph);
         Icons.animate(x, glyph);
-        x.setOnMouseClicked(e -> {
-            e.consume();
-            if (e.getButton() != MouseButton.PRIMARY) return;
+        // in the Tab order and shown on focus (hud.css), so it is not mouse-only
+        x.setFocusTraversable(true);
+        x.setAccessibleRole(AccessibleRole.BUTTON);
+        x.setAccessibleText("Remove " + what);
+        Runnable remove = () -> {
             edit.run();
             renderDetail(projectObj);
             try {
@@ -1025,6 +1061,16 @@ public class HelloController {
                         "Nothing changed on disk. " + ex.getMessage(),
                         "Retry", () -> { try { saveProject(projectObj); } catch (IOException ignored) { } });
             }
+        };
+        x.setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.SPACE) {
+                e.consume();
+                remove.run();
+            }
+        });
+        x.setOnMouseClicked(e -> {
+            e.consume();
+            if (e.getButton() == MouseButton.PRIMARY) remove.run();
         });
         return x;
     }
@@ -1198,8 +1244,13 @@ public class HelloController {
         showBase(restoredPane);
         renderRestored(r);
         long failed = r.failed();
-        if (failed == 0) startCountdown(r);
-        else restoredNote.setText(failed + " failed · Retry it, or Esc to go back");
+        if (failed == 0) {
+            startCountdown(r);
+            btnStayHere.requestFocus();   // one keypress keeps the screen, Esc leaves it
+        } else {
+            restoredNote.setText(failed + " failed \u00b7 Retry it, or Esc to go back");
+            if (restoredRows.lookup(".fail-row .button") instanceof Button retry) retry.requestFocus();
+        }
     }
 
     /** The resume log under 1l, shown only when asked for. */
@@ -1225,7 +1276,7 @@ public class HelloController {
         restoredRows.getChildren().add(foldRow(Icons.BROWSER, tabsSent + " tabs sent",
                 browsers.isEmpty() ? "no browser opened" : String.join(" · ", browsers)));
         HBox log = foldRow(Icons.TERMINAL, "Resume log", r.log.size() + " lines · " + (logOpen ? "hide" : "show"));
-        clickable(log, () -> { logOpen = !logOpen; renderRestored(r); });
+        clickable(log, logOpen ? "Hide the resume log" : "Show the resume log", () -> { logOpen = !logOpen; renderRestored(r); });
         restoredRows.getChildren().add(log);
         if (logOpen) {
             Label lines = styled(new Label(String.join("\n", r.log)), "foot-note");
@@ -1461,6 +1512,16 @@ public class HelloController {
                 || !undoByProject.containsKey(activeProject.projectName)));
         // consume, or the whole-button click handler fires an overwrite underneath the menu
         btnCheckpointMenu.setOnMouseClicked(e -> { e.consume(); menu.show(btnCheckpointMenu, Side.BOTTOM, 0, 4); });
+        // reachable without a mouse: Tab lands on it, Enter / Space / Down opens the menu
+        btnCheckpointMenu.setFocusTraversable(true);
+        btnCheckpointMenu.setAccessibleRole(AccessibleRole.MENU_BUTTON);
+        btnCheckpointMenu.setAccessibleText("Checkpoint options");
+        btnCheckpointMenu.setOnKeyPressed(e -> {
+            if (e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.SPACE || e.getCode() == KeyCode.DOWN) {
+                e.consume();   // or the block's own Enter handler checkpoints underneath
+                menu.show(btnCheckpointMenu, Side.BOTTOM, 0, 4);
+            }
+        });
         Tooltip.install(btnCheckpointMenu, tip("Add what is missing"));
         btnCheckpoint.setOnContextMenuRequested(e -> { e.consume(); menu.show(btnCheckpoint, e.getScreenX(), e.getScreenY()); });
     }

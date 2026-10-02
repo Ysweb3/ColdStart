@@ -93,6 +93,9 @@ public class HelloApplication extends Application {
         Icons.animate(box, box);   // the box, not the glyph: maximize swaps its child
         Motion.pressable(box);
         node.setFocusTraversable(true);
+        // named for Narrator, which otherwise reads three anonymous nodes in the title bar
+        node.setAccessibleRole(javafx.scene.AccessibleRole.BUTTON);
+        node.setAccessibleText(glyph == Icons.MINIMIZE ? "Minimize" : glyph == Icons.CLOSE ? "Close" : "Maximize");
         node.setOnMouseClicked(e -> action.run());
         node.setOnKeyPressed(e -> {
             if (e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.SPACE) {
