@@ -88,7 +88,8 @@
 
 /* ":8765 · no extension", or "connected · brave" in live green while an extension holds the socket */
 .port      { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
-.port-live { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-live; -fx-font-weight: bold; }
+/* a lighter step of live green for the words; the dot keeps -rw-live */
+.port-live { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: #8ACB9D; -fx-font-weight: bold; }
 
 /* tooltips are popups with their own scene; the selector still reaches them */
 .tooltip {
