@@ -224,19 +224,22 @@
 .resume { -fx-background-color: -rw-go; -fx-cursor: hand; }
 .resume:hover { -fx-background-color: -rw-go2; }
 .resume-word { -fx-font-size: 34px; -fx-font-family: "Sora ExtraBold"; -fx-text-fill: -rw-goi; }
-/* .rw-barcode from the design system: 1px, 2px, 1px bars on a 10px repeat, in the block's ink.
-   Texture, never data, and never behind text - it sits in the empty right of the block. */
-.resume-barcode {
-    -fx-background-color: linear-gradient(from 0px 0px to 10px 0px, repeat,
-        -rw-goi 0%, -rw-goi 10%, transparent 10%, transparent 30%,
-        -rw-goi 30%, -rw-goi 50%, transparent 50%, transparent 60%,
-        -rw-goi 60%, -rw-goi 70%, transparent 70%, transparent 100%);
-    -fx-opacity: 0.32;
+/* what a press rebuilds, and the shortcut that does the same: mono caps in the block's ink */
+.resume-spec { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-goi; -fx-opacity: 0.78; }
+.resume-hint { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-goi; -fx-opacity: 0.85; }
+.resume-key {
+    -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-goi;
+    -fx-border-color: rgba(26, 10, 0, 0.38);
+    -fx-border-radius: 4;
+    -fx-background-color: rgba(26, 10, 0, 0.06);
+    -fx-background-radius: 4;
+    -fx-padding: 2 8 2 8;
 }
-.resume:hover .resume-barcode { -fx-opacity: 0.42; }
 /* nothing to resume: orange is the verb, and there is no verb here */
 .resume:disabled { -fx-background-color: -rw-g3; -fx-opacity: 0.6; -fx-cursor: default; }
-.resume:disabled .resume-word { -fx-text-fill: -rw-tx3t; }
+.resume:disabled .resume-word, .resume:disabled .resume-spec,
+.resume:disabled .resume-hint, .resume:disabled .resume-key { -fx-text-fill: -rw-tx3t; }
+.resume:disabled .resume-key { -fx-border-color: -rw-ln2; -fx-background-color: transparent; }
 .resume:disabled .ico { -fx-stroke: -rw-tx3; }
 
 /* The checkpoint block keeps its own, earlier look - the slate theme it was drawn in - and only

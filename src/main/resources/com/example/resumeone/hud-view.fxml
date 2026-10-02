@@ -113,12 +113,17 @@
           <HBox fx:id="btnResume" styleClass="resume" alignment="CENTER_LEFT" spacing="16.0" HBox.hgrow="ALWAYS">
             <padding><Insets left="22.0" right="22.0"/></padding>
             <StackPane fx:id="resumeGlyphBox"/>
-            <Label styleClass="resume-word" text="RESUME"/>
+            <!-- minWidth 0: in a narrow window the spec line ellipsises before the keycap moves -->
+            <VBox spacing="7.0" alignment="CENTER_LEFT" minWidth="0.0">
+              <Label styleClass="resume-word" text="RESUME"/>
+              <Label fx:id="resumeSpec" styleClass="resume-spec" text="" minWidth="0.0"/>
+            </VBox>
             <Region HBox.hgrow="ALWAYS" minWidth="0.0"/>
-            <!-- decorative only: it encodes nothing, so nothing reads it out -->
-            <Region styleClass="resume-barcode" mouseTransparent="true"
-                    minWidth="0.0" prefWidth="132.0" maxWidth="132.0"
-                    minHeight="40.0" prefHeight="40.0" maxHeight="40.0"/>
+            <!-- the shortcut, stated: Enter resumes from the project view -->
+            <VBox spacing="6.0" alignment="CENTER_RIGHT" minWidth="-Infinity">
+              <Label styleClass="resume-hint" text="ONE CLICK"/>
+              <Label styleClass="resume-key" text="ENTER"/>
+            </VBox>
           </HBox>
 
           <!-- the checkpoint block as it was (296px, slate border following the notch, a neutral

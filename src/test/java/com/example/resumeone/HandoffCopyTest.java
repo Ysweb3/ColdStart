@@ -26,6 +26,12 @@ class HandoffCopyTest {
     }
 
     @Test
+    void resumeSaysWhatOnePressRebuilds() {
+        assertEquals("REBUILD 10 APPS · 14 TABS · 1 FOLDER", HelloController.resumeLine(10, 14, true));
+        assertEquals("REBUILD 1 APP · 1 TAB · NO FOLDER", HelloController.resumeLine(1, 1, false));
+    }
+
+    @Test
     void tabGroupsAreHeadedByTheBrowsersName() {
         assertEquals("Brave", HelloController.browserLabel("brave"));
         assertEquals("Chrome", HelloController.browserLabel("Chrome"));
