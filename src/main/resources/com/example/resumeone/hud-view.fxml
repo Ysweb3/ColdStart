@@ -114,6 +114,11 @@
             <padding><Insets left="22.0" right="22.0"/></padding>
             <StackPane fx:id="resumeGlyphBox"/>
             <Label styleClass="resume-word" text="RESUME"/>
+            <Region HBox.hgrow="ALWAYS" minWidth="0.0"/>
+            <!-- decorative only: it encodes nothing, so nothing reads it out -->
+            <Region styleClass="resume-barcode" mouseTransparent="true"
+                    minWidth="0.0" prefWidth="132.0" maxWidth="132.0"
+                    minHeight="40.0" prefHeight="40.0" maxHeight="40.0"/>
           </HBox>
 
           <!-- the checkpoint block as it was (296px, slate border following the notch, a neutral
