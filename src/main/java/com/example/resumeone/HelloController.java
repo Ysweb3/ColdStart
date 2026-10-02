@@ -744,7 +744,6 @@ public class HelloController {
 
     /** The extra argument resumeProject() will actually use for this category. */
     private String trailingNote(String category, Project projectObj) {
-        if (projectObj.folderPath == null) return null;
         if ("AI".equals(category) && hasApp(projectObj, "claude.exe")) {
             return "agents";
         }
@@ -1689,11 +1688,13 @@ public class HelloController {
     static List<String> claudeCommand(String folder, boolean inTerminal) {
         List<String> command = new ArrayList<>(List.of("cmd.exe", "/c", "start"));
         if (inTerminal) {
-            command.addAll(List.of("wt", "-d", folder));
+            command.add("wt");
+            if (folder != null) command.addAll(List.of("-d", folder));
         }
         // the agent view lists every conversation for the project, not just the latest one;
-        // --cwd scopes it to sessions started under this folder
-        command.addAll(List.of("claude", "agents", "--cwd", folder));
+        // --cwd scopes it to sessions started under this folder - with no folder it shows them all
+        command.addAll(List.of("claude", "agents"));
+        if (folder != null) command.addAll(List.of("--cwd", folder));
         return command;
     }
 
@@ -1832,19 +1833,15 @@ public class HelloController {
                 String appName = app.replace(".exe", "");
 
                 if (appName.equalsIgnoreCase("claude")) {
-                    if (folder == null) continue;     // a session is per folder; nowhere to open it
-                    if (claudeRunningIn(folder)) {
+                    if (folder != null && claudeRunningIn(folder)) {
                         skipped.add(app);
                         log.add("skipping claude: already running in " + folder);
                         continue;
                     }
                     List<String> cmd = claudeCommand(folder, claudeInTerminal);
-                    // open claude CLI in project folder
-                    steps.add(new LaunchStep(app, String.join(" ", cmd.subList(2, cmd.size())), false, () -> {
-                        ProcessBuilder pb = new ProcessBuilder(cmd);
-                        pb.directory(new File(folder));
-                        pb.start();
-                    }));
+                    // open claude's agent view, in the project folder when there is one
+                    steps.add(new LaunchStep(app, String.join(" ", cmd.subList(2, cmd.size())), false, () ->
+                            new ProcessBuilder(cmd).directory(folder == null ? null : new File(folder)).start()));
 
                 } else if (appName.equalsIgnoreCase("Code")) {
                     if (folder == null) continue;

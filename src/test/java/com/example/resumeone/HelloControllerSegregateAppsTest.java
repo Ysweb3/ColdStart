@@ -110,6 +110,10 @@ class HelloControllerSegregateAppsTest {
 
         java.util.List<String> bare = HelloController.claudeCommand("C:\\proj", false);
         assertEquals(java.util.List.of("cmd.exe", "/c", "start", "claude", "agents", "--cwd", "C:\\proj"), bare);
+
+        // regression: a project saved without a folder used to launch nothing at all
+        assertEquals(java.util.List.of("cmd.exe", "/c", "start", "wt", "claude", "agents"),
+                HelloController.claudeCommand(null, true));
     }
 
     @Test
