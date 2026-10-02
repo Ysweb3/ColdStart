@@ -149,7 +149,7 @@ public class HelloController {
     @FXML public StackPane resumeGlyphBox, ckDoneGlyphBox, emptyGlyphBox,
             deleteFolderGlyph, npFolderGlyph;
     @FXML public Region statusDot;
-    @FXML public Label projectNameLabel, projectPathLabel, checkpointSub, ckDoneSub, tabsCount;
+    @FXML public Label projectNameLabel, projectPathLabel, checkpointSub, ckDoneSub, tabsCount, statusLabel;
 
     /** Hover-only: names the browsers on the socket, so the dot itself stays uncluttered. */
     // built in initialize(), not here: a Tooltip needs the JavaFX toolkit, which the unit tests
@@ -438,7 +438,7 @@ public class HelloController {
     /** Every glyph on the HUD, drawn into the empty slots the fxml leaves. Action glyphs play
         their slide animation on press. Sizes and strokes are the handoff's. */
     private void installGlyphs() {
-        Pane trash = Icons.node(Icons.DELETE, 14, TX2);
+        Pane trash = Icons.node(Icons.DELETE, 16, TX2);
         btnDelete.getChildren().add(trash);
         Icons.animate(btnDelete, trash);
         btnDelete.getStyleClass().add("delete");
@@ -853,7 +853,8 @@ public class HelloController {
             dot.setMinSize(5, 5);
             dot.setPrefSize(5, 5);
             dot.setMaxSize(5, 5);
-            Label name = styled(new Label(browserExe(browser)), "browser-name");
+            Label name = styled(new Label(browserLabel(browser)), "browser-name");
+            Tooltip.install(name, tip("one window per browser on resume"));
             head.getChildren().addAll(dot, name, styled(new Label(String.valueOf(urls.size())), "side-count"));
             tabRows.add(head);
 
@@ -873,11 +874,9 @@ public class HelloController {
         tabsList.getChildren().setAll(tabRows);
     }
 
-    /** The tabs column heads each group with its process, as the chips do: "brave.exe".
-        Urls saved before the browser was tracked open in the system default. */
-    static String browserExe(String browser) {
-        if (DEFAULT_BROWSER.equals(browser)) return "default browser";
-        return BROWSER_EXE.getOrDefault(browser.toLowerCase(), browser.toLowerCase());
+    /** "brave" -> "Brave": extension brands arrive in whatever case the browser reports. */
+    static String browserLabel(String browser) {
+        return browser.isEmpty() ? browser : Character.toUpperCase(browser.charAt(0)) + browser.substring(1);
     }
 
     /** A page someone might want back. chrome://newtab and friends are the browser's own. */
@@ -892,16 +891,11 @@ public class HelloController {
         return cut < 0 ? s : s.substring(0, cut);
     }
 
-    /** AppChip sm: the category glyph, then the exe. On hover the glyph's slot becomes the
-        remove x, so the chip keeps the handoff's size at rest and under the pointer. */
+    /** The exe, then the hover-only x at the right end (the row's glyph already names the kind). */
     private HBox chip(Project projectObj, String category, String app) {
-        Pane glyph = Icons.node(Icons.CATEGORY.getOrDefault(category, Icons.APP_WINDOW), 13, TX2);
-        glyph.getStyleClass().add("chip-glyph");
-        StackPane slot = new StackPane(glyph, remover(() -> removeApp(projectObj, category, app), projectObj, 13));
-        HBox chip = new HBox(6, slot, new Label(app));
+        HBox chip = new HBox(2, new Label(app), remover(() -> removeApp(projectObj, category, app), projectObj, 12));
         chip.getStyleClass().add("chip");
         chip.setAlignment(Pos.CENTER_LEFT);
-        Tooltip.install(slot, tip("remove " + app + " from this checkpoint"));
         return chip;
     }
 
@@ -1479,10 +1473,12 @@ public class HelloController {
                 .map(HelloController::wsBrowser).distinct().sorted().toList();
         Platform.runLater(() -> {
             boolean live = !browsers.isEmpty();
-            // 5a draws the dot alone; what it means is one hover away
             statusDot.getStyleClass().setAll(live ? "dot-live" : "dot-idle");
-            statusTip.setText(live ? "connected \u00b7 " + String.join(", ", browsers)
-                    : ":8765 \u00b7 no extension connected");
+            statusLabel.setText(!live ? ":8765 \u00b7 no extension"
+                    : browsers.size() == 1 ? "connected \u00b7 " + browsers.get(0)
+                    : "connected \u00b7 " + browsers.size() + " browsers");
+            statusLabel.getStyleClass().setAll(live ? "port-live" : "port");
+            statusTip.setText(live ? String.join(", ", browsers) : "no extension connected");
             // someone watching Settings to see the extension land must see it land
             if (settingsPane.isVisible()) renderSettingsRows();
         });

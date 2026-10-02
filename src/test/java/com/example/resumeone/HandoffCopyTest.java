@@ -26,11 +26,9 @@ class HandoffCopyTest {
     }
 
     @Test
-    void tabGroupsAreHeadedByTheirProcess() {
-        assertEquals("brave.exe", HelloController.browserExe("brave"));
-        assertEquals("chrome.exe", HelloController.browserExe("Chrome"));
-        assertEquals("msedge.exe", HelloController.browserExe("Edge"));
-        assertEquals("default browser", HelloController.browserExe(HelloController.DEFAULT_BROWSER));
+    void tabGroupsAreHeadedByTheBrowsersName() {
+        assertEquals("Brave", HelloController.browserLabel("brave"));
+        assertEquals("Chrome", HelloController.browserLabel("Chrome"));
     }
 
     @Test

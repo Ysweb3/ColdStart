@@ -19,7 +19,8 @@
     -rw-ln2:    #464A52;
     -rw-tx:     #E9E3DF;
     -rw-tx2:    #A8A29E;
-    -rw-tx3:    #77726E;
+    -rw-tx3:    #77726E;   /* glyphs, dots */
+    -rw-tx3t:   #8E8A86;   /* muted TEXT: one step up, 5.5:1 on the card, readable at 12px */
     -rw-hud:    #A8A29E;   /* micro-labels: PROJECTS, TABS, IDE */
     -rw-go:     #FF6500;   /* orange is only ever RESUME */
     -rw-go2:    #FF8533;   /* resume hover */
@@ -54,11 +55,11 @@
 .wordmark      { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .wordmark-dot  { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-go; }
 
-/* IconButton sm: a 26px ghost box, 14px glyph in tx2; hover lifts it to raised + tx.
+/* IconButton: a 32px ghost box, 16px glyph in tx2; hover lifts it to raised + tx.
    Icons.node colours the glyph; these rules carry the states CSS owns. */
 .iconbtn {
-    -fx-min-width: 26; -fx-pref-width: 26; -fx-max-width: 26;
-    -fx-min-height: 26; -fx-pref-height: 26; -fx-max-height: 26;
+    -fx-min-width: 32; -fx-pref-width: 32; -fx-max-width: 32;
+    -fx-min-height: 32; -fx-pref-height: 32; -fx-max-height: 32;
     -fx-background-color: transparent;
     -fx-background-radius: 7;
     -fx-cursor: hand;
@@ -85,6 +86,10 @@
     -fx-background-radius: 999;
 }
 
+/* ":8765 · no extension", or "connected · brave" in live green while an extension holds the socket */
+.port      { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
+.port-live { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-live; -fx-font-weight: bold; }
+
 /* tooltips are popups with their own scene; the selector still reaches them */
 .tooltip {
     -fx-background-color: -rw-raised;
@@ -106,8 +111,8 @@
     -fx-padding: 16 0 16 0;
     -fx-spacing: 8;
 }
-.rail-label { -fx-font-size: 10px; -fx-text-fill: -rw-hud; }
-.rail-count { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3; }
+.rail-label { -fx-font-size: 11px; -fx-text-fill: -rw-hud; }
+.rail-count { -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3t; }
 /* the narrow rail: a 32x32 numbered button; the active project carries the orange ring */
 .rail-btn {
     -fx-min-width: 32; -fx-pref-width: 32; -fx-max-width: 32;
@@ -137,7 +142,7 @@
 .folder-open, .rail-active .folder-shut { visibility: hidden; }
 .rail-active .folder-open { visibility: visible; }
 .side-name  { -fx-font-family: "Sora"; -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
-.side-count { -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
+.side-count { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 
 .rail-wide .rail-head { -fx-padding: 14 12 8 12; }
 .rail-wide .project-list { -fx-spacing: 2; -fx-padding: 0 8 0 8; }
@@ -186,6 +191,7 @@
     -fx-pref-height: 34; -fx-min-height: 34;
 }
 .btn-secondary:hover, .btn-secondary:armed { -fx-background-color: -rw-hover; }
+.side-new { -fx-pref-height: 40; -fx-min-height: 40; -fx-font-family: "Sora"; -fx-font-weight: bold; }
 
 .btn-checkpoint {
     -fx-background-color: -rw-ck;
@@ -210,7 +216,7 @@
 
 /* ── main column ───────────────────────────────────────────────────── */
 .project-name { -fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.project-path { -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
+.project-path { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 
 /* The two verbs. Their notches are clips cut in the controller (JavaFX has no clip-path),
    so a clipped edge is simply cut, borders included, as the handoff draws it. */
@@ -219,7 +225,7 @@
 .resume-word { -fx-font-size: 34px; -fx-font-family: "Sora ExtraBold"; -fx-text-fill: -rw-goi; }
 /* nothing to resume: orange is the verb, and there is no verb here */
 .resume:disabled { -fx-background-color: -rw-g3; -fx-opacity: 0.6; -fx-cursor: default; }
-.resume:disabled .resume-word { -fx-text-fill: -rw-tx3; }
+.resume:disabled .resume-word { -fx-text-fill: -rw-tx3t; }
 .resume:disabled .ico { -fx-stroke: -rw-tx3; }
 
 /* The checkpoint block keeps its own, earlier look - the slate theme it was drawn in - and only
@@ -268,12 +274,12 @@
 .menu-item .label { -fx-font-size: 13px; -fx-text-fill: -rw-tx; }
 .menu-item:focused, .menu-item:hover { -fx-background-color: -rw-raised; }
 .menu-item:focused .label, .menu-item:hover .label { -fx-text-fill: -rw-tx; }
-.menu-item:disabled .label { -fx-text-fill: -rw-tx3; }
+.menu-item:disabled .label { -fx-text-fill: -rw-tx3t; }
 /* the menu's heading: a section label like TABS, set once so the items can be one word.
    Disabled only to stay out of hover and focus, so it opts back out of Modena's fade. */
 .menu-item.menu-head:disabled { -fx-opacity: 1; -fx-padding: 6 12 2 12; }
 .menu-item.menu-head:focused, .menu-item.menu-head:hover { -fx-background-color: transparent; }
-.menu-head .label { -fx-font-family: "Space Mono"; -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3; }
+.menu-head .label { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3t; }
 .menu .arrow { -fx-background-color: -rw-tx2; }
 
 /* ── what gets saved ───────────────────────────────────────────────── */
@@ -283,9 +289,9 @@
     -fx-border-color: -rw-ln;
     -fx-border-radius: 13;
 }
-.cat-label { -fx-font-size: 9.5px; -fx-text-fill: -rw-hud; }
-.cat-arg   { -fx-font-size: 10.5px; -fx-text-fill: -rw-live; }
-.cat-foot  { -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
+.cat-label { -fx-font-size: 10.5px; -fx-text-fill: -rw-hud; }
+.cat-arg   { -fx-font-size: 11.5px; -fx-text-fill: -rw-live; }
+.cat-foot  { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 
 /* AppChip sm: 26 tall, raised, 13px category glyph in tx2, 11px mono name */
 .chip {
@@ -293,26 +299,26 @@
     -fx-background-radius: 7;
     -fx-border-color: -rw-ln;
     -fx-border-radius: 7;
-    -fx-padding: 0 8 0 8;
-    -fx-spacing: 6;
+    -fx-padding: 0 3 0 8;   /* the x's own box is the right edge */
+    -fx-spacing: 2;
     -fx-min-height: 26; -fx-pref-height: 26; -fx-max-height: 26;
 }
-.chip .label { -fx-font-size: 11px; -fx-text-fill: -rw-tx; }
-/* hover-only remove: on a chip it takes the glyph's slot, on a tab row it waits at the end.
-   Opacity, never managed, so nothing shifts. */
-.rm { -fx-cursor: hand; -fx-opacity: 0; }
+.chip .label { -fx-font-size: 12px; -fx-text-fill: -rw-tx; }
+/* hover-only remove at the end of chips and tab rows. Opacity, never managed, so nothing
+   shifts on hover. */
+.rm { -fx-cursor: hand; -fx-opacity: 0;
+      -fx-min-width: 12; -fx-pref-width: 12; -fx-max-width: 12;
+      -fx-min-height: 16; -fx-pref-height: 16; -fx-max-height: 16; }
 .chip:hover .rm, .tab-row:hover .rm { -fx-opacity: 1; }
-.chip:hover .chip-glyph { -fx-opacity: 0; }
 .rm:hover .ico { -fx-stroke: -rw-bad; }
-.tab-row .rm { -fx-min-width: 12; -fx-pref-width: 12; -fx-max-width: 12; }
 
 .tabs-col {
     -fx-border-color: transparent transparent transparent -rw-ln;
     -fx-border-width: 0 0 0 1;
 }
 .tabs-scroll, .tabs-scroll > .viewport { -fx-background-color: transparent; -fx-padding: 0; }
-.browser-name { -fx-font-size: 10.5px; -fx-font-weight: bold; -fx-text-fill: -rw-ckt; }
-.tab-title    { -fx-font-size: 11px; -fx-text-fill: -rw-tx2; }
+.browser-name { -fx-font-size: 11.5px; -fx-font-weight: bold; -fx-text-fill: -rw-ckt; }
+.tab-title    { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 
 /* the stage is undecorated, so the app draws its own outer edge */
 .shell { -fx-border-color: -rw-ln; -fx-border-width: 1; }
@@ -376,7 +382,7 @@
     -fx-border-color: -rw-ln;
     -fx-border-radius: 7;
     -fx-text-fill: -rw-tx;
-    -fx-prompt-text-fill: -rw-tx3;
+    -fx-prompt-text-fill: -rw-tx3t;
     -fx-font-family: "Space Mono";
     -fx-font-size: 11px;
     -fx-highlight-fill: -rw-ck;
@@ -394,7 +400,7 @@
     -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.65), 32, 0.16, 0, 12);
 }
 .dialog-title { -fx-font-size: 17px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.dialog-sub   { -fx-font-size: 11px; -fx-text-fill: -rw-tx3; -fx-font-family: "Space Mono"; }
+.dialog-sub   { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; -fx-font-family: "Space Mono"; }
 
 .inset-row {
     -fx-background-color: -rw-g;
@@ -413,7 +419,7 @@
 /* ── resume in progress · resume done ───────────────────────────────── */
 .dot-go { -fx-background-color: -rw-go; -fx-background-radius: 999; }
 .title-verb { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-go; }
-.title-name { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx2; }
+.title-name { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 
 .strip {
     -fx-background-color: -rw-g1;
@@ -423,7 +429,7 @@
 .strip-verb  { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-go; }
 .strip-count { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx; }
 .strip-pct   { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-go; }
-.strip-took  { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
+.strip-took  { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 .meter-track { -fx-background-color: -rw-raised; -fx-background-radius: 3; }
 .meter-fill  { -fx-background-color: -rw-go; -fx-background-radius: 3 0 0 3; }
 .meter-fail  { -fx-background-color: -rw-brick; -fx-background-radius: 0 3 3 0; }
@@ -447,7 +453,7 @@
 .step-row:launching { -fx-border-color: -rw-go; }
 .step-row:failed { -fx-border-color: -rw-bad; }
 .step-label { -fx-font-family: "Space Mono"; -fx-font-size: 13px; -fx-text-fill: -rw-tx; }
-.step-cmd   { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
+.step-cmd   { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 .step-row:launching .step-cmd { -fx-text-fill: -rw-go; }
 .step-row:failed    .step-cmd { -fx-text-fill: -rw-bad; }
 
@@ -459,7 +465,7 @@
     -fx-border-radius: 7;
 }
 .fold-title { -fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.fold-meta  { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx2; }
+.fold-meta  { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 
 /* a failure stays visible, on the danger wash, with a Retry */
 .fail-row {
@@ -470,7 +476,7 @@
 }
 .fail-why { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-bad; }
 
-.foot-note { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
+.foot-note { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 .countdown-track { -fx-background-color: -rw-raised; }
 .countdown-fill  { -fx-background-color: -rw-ckt; }
 

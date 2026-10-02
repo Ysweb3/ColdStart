@@ -51,10 +51,11 @@
     </HBox>
 
     <!-- live once a browser extension holds the socket; the tooltip names them -->
-    <HBox fx:id="statusBox" alignment="CENTER" minWidth="7.0">
+    <HBox fx:id="statusBox" alignment="CENTER_LEFT" spacing="8.0">
       <HBox.margin><Insets right="14.0"/></HBox.margin>
       <Region fx:id="statusDot" styleClass="dot-idle" minWidth="7.0" prefWidth="7.0" maxWidth="7.0"
               minHeight="7.0" prefHeight="7.0" maxHeight="7.0"/>
+      <Label fx:id="statusLabel" styleClass="port" text=":8765"/>
     </HBox>
 
     <HBox spacing="2.0" alignment="CENTER_LEFT">
@@ -84,7 +85,7 @@
       <Region styleClass="rail-spine" minWidth="1.0" prefWidth="1.0" maxWidth="1.0" VBox.vgrow="ALWAYS"/>
 
       <HBox styleClass="rail-foot" alignment="CENTER" spacing="8.0">
-        <Button fx:id="btnNewProjectWide" styleClass="btn-secondary" text="New project"
+        <Button fx:id="btnNewProjectWide" styleClass="btn-secondary, side-new" text="New project"
                 maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
         <StackPane fx:id="btnSettings" styleClass="rail-btn" pickOnBounds="true"/>
       </HBox>
