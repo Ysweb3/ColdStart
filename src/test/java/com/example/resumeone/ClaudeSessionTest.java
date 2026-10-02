@@ -8,7 +8,6 @@ import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -16,20 +15,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ClaudeSessionTest {
 
     private final HelloController controller = new HelloController();
-
-    @Test
-    void slugMatchesTheDirectoryNameClaudeActuallyUses() {
-        // verified against the real ~/.claude/projects listing
-        assertEquals("C--Users-yashs-OneDrive-Desktop-Projects",
-                HelloController.claudeSessionSlug("C:\\Users\\yashs\\OneDrive\\Desktop\\Projects"));
-        assertEquals("D--work-repo",
-                HelloController.claudeSessionSlug("D:\\work\\repo"));
-    }
-
-    @Test
-    void foldersWithoutTranscriptsFallBackToAFreshSession() {
-        assertFalse(controller.hasClaudeSession("Z:\\no\\such\\folder\\anywhere"));
-    }
 
     @Test
     void claudeCountsAsRunningOnlyWithALiveSessionFileForThatFolder(@TempDir Path sessions) throws Exception {

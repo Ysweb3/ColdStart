@@ -197,7 +197,7 @@ public class HelloController {
                 behaviourRow("Running apps, grouped by kind"));
         resumeRows.getChildren().setAll(
                 behaviourRow("Browser tabs reopen in one window per browser"),
-                behaviourRow("Claude continues its last session (--continue)"),
+                behaviourRow("Claude opens its agent view for the project"),
                 behaviourRow("Apps already running are left alone"),
                 behaviourRow("coldstart stays on top while resuming"));
         clickable(btnNewProjectRail, this::onNewProjectClick);
@@ -745,8 +745,8 @@ public class HelloController {
     /** The extra argument resumeProject() will actually use for this category. */
     private String trailingNote(String category, Project projectObj) {
         if (projectObj.folderPath == null) return null;
-        if ("AI".equals(category) && hasClaudeSession(projectObj.folderPath)) {
-            return "--continue";
+        if ("AI".equals(category) && hasApp(projectObj, "claude.exe")) {
+            return "agents";
         }
         return null;
     }
@@ -1552,7 +1552,7 @@ public class HelloController {
     //                       extension is connected, then push {"open":[urls]} over the socket
     //                       and let it open only the tabs that are not already there
     //                    3. `start` every other captured app, with special cases for
-    //                       claude (project folder, --continue), VS Code (project folder), wt
+    //                       claude (agent view of the project folder), VS Code (project folder), wt
 
     /** `where <name>` - first PATH hit or null. Currently unused; browsers go via browserPath(). */
     public String getAppPath(String appName) throws IOException {
@@ -1564,21 +1564,8 @@ public class HelloController {
         String path = reader.readLine();
         return path != null ? path.trim() : null;
     }
-    // claude keeps transcripts at ~/.claude/projects/<folder with : and \ swapped for ->/<uuid>.jsonl
-    static String claudeSessionSlug(String folderPath) {
-        return folderPath.replace(":", "-").replace("\\", "-");
-    }
-
-    boolean hasClaudeSession(String folderPath) {
-        File dir = new File(System.getProperty("user.home"),
-                ".claude/projects/" + claudeSessionSlug(folderPath));
-        String[] transcripts = dir.list((d, name) -> name.endsWith(".jsonl"));
-        return transcripts != null && transcripts.length > 0;
-    }
-
-    // every running claude writes ~/.claude/sessions/<pid>.json with its cwd. a second
-    // `claude --continue` in the same folder just prints "already running in the background"
-    // and exits 1, so a live one for this folder means: leave it alone.
+    // every running claude writes ~/.claude/sessions/<pid>.json with its cwd. a live one for
+    // this folder means its window is already up, so opening another would only duplicate it.
     boolean claudeRunningIn(String folderPath) {
         return claudeRunningIn(folderPath, new File(System.getProperty("user.home"), ".claude/sessions"));
     }
@@ -1699,16 +1686,14 @@ public class HelloController {
     // claude was captured next to WindowsTerminal.exe because it ran inside a terminal tab.
     // launched separately, `start wt` only brings back an empty PowerShell window beside the
     // one claude's console opens - so claude is launched *through* wt and wt itself is skipped.
-    static List<String> claudeCommand(String folder, boolean hasSession, boolean inTerminal) {
+    static List<String> claudeCommand(String folder, boolean inTerminal) {
         List<String> command = new ArrayList<>(List.of("cmd.exe", "/c", "start"));
         if (inTerminal) {
             command.addAll(List.of("wt", "-d", folder));
         }
-        command.add("claude");
-        // --continue reopens the most recent conversation, but errors out with no history yet
-        if (hasSession) {
-            command.add("--continue");
-        }
+        // the agent view lists every conversation for the project, not just the latest one;
+        // --cwd scopes it to sessions started under this folder
+        command.addAll(List.of("claude", "agents", "--cwd", folder));
         return command;
     }
 
@@ -1853,7 +1838,7 @@ public class HelloController {
                         log.add("skipping claude: already running in " + folder);
                         continue;
                     }
-                    List<String> cmd = claudeCommand(folder, hasClaudeSession(folder), claudeInTerminal);
+                    List<String> cmd = claudeCommand(folder, claudeInTerminal);
                     // open claude CLI in project folder
                     steps.add(new LaunchStep(app, String.join(" ", cmd.subList(2, cmd.size())), false, () -> {
                         ProcessBuilder pb = new ProcessBuilder(cmd);
