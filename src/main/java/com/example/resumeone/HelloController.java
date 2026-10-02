@@ -834,12 +834,12 @@ public class HelloController {
         for (String category : fold ? filled.subList(0, CATEGORIES_SHOWN) : filled) {
             HashSet<String> bucket = projectObj.apps.get(category);
 
-            // a 96px label column: 12px glyph + spaced mono caps
+            // a 120px label column: 12px glyph + the 12px label; "Communication" is the widest
             HBox labelBox = new HBox(6);
             labelBox.setAlignment(Pos.CENTER_LEFT);
-            labelBox.setMinWidth(96);
-            labelBox.setPrefWidth(96);
-            labelBox.setMaxWidth(96);
+            labelBox.setMinWidth(120);
+            labelBox.setPrefWidth(120);
+            labelBox.setMaxWidth(120);
             labelBox.getChildren().addAll(categoryIcon(category),
                     styled(new Label(categoryLabel(category)), "cat-label"));
 
@@ -920,9 +920,12 @@ public class HelloController {
         return name.isEmpty() ? exe : Character.toUpperCase(name.charAt(0)) + name.substring(1);
     }
 
-    /** "VersionControl" -> "VERSION CONTROL": the map key, spaced for reading. */
+    /** "VersionControl" -> "Version control": the map key, spaced and in sentence case, which
+        reads faster than tracked-out caps JavaFX cannot track. Acronyms (IDE, AI, API) stay. */
     static String categoryLabel(String category) {
-        return category.replaceAll("([a-z])([A-Z])", "$1 $2").toUpperCase();
+        if (category.equals(category.toUpperCase())) return category;
+        String spaced = category.replaceAll("([a-z])([A-Z])", "$1 $2");
+        return spaced.charAt(0) + spaced.substring(1).toLowerCase();
     }
 
     /** The extra argument resumeProject() will actually use for this category: claude opens its

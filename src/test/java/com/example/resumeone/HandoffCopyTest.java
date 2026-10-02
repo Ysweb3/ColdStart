@@ -46,6 +46,14 @@ class HandoffCopyTest {
     }
 
     @Test
+    void categoriesReadInSentenceCaseAndKeepAcronyms() {
+        assertEquals("Version control", HelloController.categoryLabel("VersionControl"));
+        assertEquals("Communication", HelloController.categoryLabel("Communication"));
+        assertEquals("IDE", HelloController.categoryLabel("IDE"));
+        assertEquals("API", HelloController.categoryLabel("API"));
+    }
+
+    @Test
     void tabRowsKeepThePathSoSameSiteTabsDiffer() {
         assertEquals("github.com/atlas-api/pull/42",
                 HelloController.tabLabel("https://www.github.com/atlas-api/pull/42?tab=files#diff"));
