@@ -10,6 +10,7 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane; // explicit: java.awt.* also exports ScrollPane
 import javafx.scene.control.TextField;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
@@ -99,13 +100,13 @@ public class HelloController {
     @FXML public VBox detailPane, emptyPane, categoryRows, tabsList;
     @FXML public VBox deletePane, newProjectPane, confirmPane;
     @FXML public Label confirmTitle, confirmSub, confirmBody;
-    private final Region ckFlash = new Region();   // the block lighting up on save
     private LaunchStep lastLaunching;   // the row whose beat already played
     @FXML public Button btnConfirmCancel, btnConfirmOk;
     // 1e / 1l (resume in progress, resume done) - see the resume section below
     @FXML public VBox resumingPane, restoredPane, resumingRows, restoredRows;
-    @FXML public HBox titleState, resumingMeter, restoredMeter, countdownTrack;
-    @FXML public Region titleStateDot, resumingFill, restoredFill, restoredFailFill, countdownFill;
+    @FXML public HBox titleState, restoredMeter, countdownTrack;
+    @FXML public StackPane resumingMeter;
+    @FXML public Region titleStateDot, resumingFill, resumingSheen, restoredFill, restoredFailFill, countdownFill;
     @FXML public Label titleStateVerb, titleStateName, resumingCount, resumingPct, resumingName,
             resumingSkipped, restoredCount, restoredTook, restoredSpec, restoredNote;
     @FXML public Button btnResumeStop, btnStayHere, btnOpenProject;
@@ -123,13 +124,13 @@ public class HelloController {
     @FXML public CheckBox npCapture;
     @FXML public Button btnNpBrowse, btnNpCancel, btnNpCreate;
     @FXML public ScrollPane settingsPane;
-    @FXML public StackPane btnSettings, btnNewProjectRail;   // the rail's + ; hello-view keeps its own Button
+    @FXML public StackPane btnSettings, btnNewProjectRail;   // the sidebar's gear; the narrow rail's +
     // the rail opens to 200px (.rail-wide): a PROJECTS header, named rows, a New project button.
     // Switched from Settings (sidebarToggle) or Ctrl+B.
     @FXML public VBox rail;
     @FXML public HBox railHead;
     @FXML public Label railCount;
-    @FXML public Button btnNewProjectWide;
+    @FXML public Button btnNewProjectWide, btnNewProjectEmpty;
     @FXML public CheckBox sidebarToggle;
     /** Same node Motion keeps "motion" in; projects.json stays projects only. */
     private static final Preferences PREFS = Preferences.userNodeForPackage(HelloController.class);
@@ -138,13 +139,17 @@ public class HelloController {
     @FXML public CheckBox motionToggle;
     @FXML public Label deleteBody, deletePath;
     @FXML public Button btnDeleteOk, btnDeleteCancel, btnSettingsBack;
-    @FXML public HBox btnResume, btnCheckpoint, statusBox;
-    @FXML public StackPane btnCheckpointMenu;
+    @FXML public HBox btnResume, statusBox;
+    // the split checkpoint button: ring, bar, idle content, done content, chevron segment
+    @FXML public StackPane btnCheckpoint, btnCheckpointMenu;
+    @FXML public HBox ckIdle, ckDone;
+    @FXML public Region ckRing, ckBar;
     @FXML public StackPane btnDelete;
-    @FXML public SVGPath resumeGlyph, checkpointGlyph;   // the 1b artwork; Resume nudges on press, the bookmark seats on save
+    // empty slots in the fxml that Icons draws into
+    @FXML public StackPane resumeGlyphBox, ckDoneGlyphBox, emptyGlyphBox,
+            deleteFolderGlyph, npFolderGlyph;
     @FXML public Region statusDot;
-    @FXML public Label projectNameLabel, projectPathLabel, resumeSpec, checkpointSub,
-            tabsCount, statusLabel;
+    @FXML public Label projectNameLabel, projectPathLabel, checkpointSub, ckDoneSub, tabsCount, statusLabel;
 
     /** Hover-only: names the browsers on the socket, so the dot itself stays uncluttered. */
     // built in initialize(), not here: a Tooltip needs the JavaFX toolkit, which the unit tests
@@ -180,16 +185,26 @@ public class HelloController {
         clickable(btnResume, this::onResume);
         clickable(btnCheckpoint, this::onCheckpoint);
         installCheckpointMenu();
-        ckFlash.getStyleClass().add("ck-flash");
-        ckFlash.setManaged(false);
-        ckFlash.setMouseTransparent(true);
-        ckFlash.setOpacity(0);
-        btnCheckpoint.getChildren().add(0, ckFlash);   // first child: under the word and the glyph
-        btnCheckpoint.layoutBoundsProperty().addListener((o, was, b) -> ckFlash.resize(b.getWidth(), b.getHeight()));
+        notch(btnResume, 18);
+        // the block's -fx-shape draws it; this clip keeps the confirmation ring inside it too
+        notch(btnCheckpoint, 14);
         clickable(btnDelete, this::showDeleteView);
         // the gear is a toggle: the lit gear is the natural "close" in a rail
         clickable(btnSettings, () -> { if (settingsPane.isVisible()) backToProjects(); else showSettings(); });
         Tooltip.install(btnSettingsBack, tip("Esc"));
+        for (Node b : List.of(btnNewProjectWide, btnNewProjectEmpty, btnSettingsBack, btnDeleteCancel, btnDeleteOk,
+                btnNpBrowse, btnNpCancel, btnNpCreate, btnConfirmCancel, btnConfirmOk,
+                btnResumeStop, btnStayHere, btnOpenProject)) {
+            Motion.pressable(b);
+        }
+        // rwSweep: a quarter-width sheen crossing the fill, clipped to the fill
+        resumingSheen.prefWidthProperty().bind(resumingMeter.widthProperty().multiply(.25));
+        javafx.scene.shape.Rectangle sheenClip = new javafx.scene.shape.Rectangle();
+        sheenClip.widthProperty().bind(resumingFill.widthProperty());
+        sheenClip.heightProperty().bind(resumingMeter.heightProperty());
+        resumingSheen.setClip(sheenClip);
+        resumingSheen.translateXProperty().bind(resumingSheen.prefWidthProperty().multiply(sweepPhase.multiply(4).subtract(1)));
+        sheenClip.xProperty().bind(resumingSheen.translateXProperty().negate());
         // what the app does, as plain check + label: these were disabled checkboxes, which read
         // as "locked" and rendered at 2:1. The copy states each behaviour as a fact.
         captureRows.getChildren().setAll(
@@ -201,7 +216,6 @@ public class HelloController {
                 behaviourRow("Apps already running are left alone"),
                 behaviourRow("coldstart stays on top while resuming"));
         clickable(btnNewProjectRail, this::onNewProjectClick);
-        Tooltip.install(btnNewProjectRail, tip("New project"));
         btnNewProjectWide.setOnAction(e -> onNewProjectClick());
         setRailWide(PREFS.getBoolean(SIDEBAR_WIDE, true));
         Tooltip.install(sidebarToggle, tip("Ctrl+B"));
@@ -421,26 +435,70 @@ public class HelloController {
     //   Space all land on the same action, and the node is in the Tab order. Focus is shown
     //   only when it came from the keyboard (:focus-visible), the way the web does it.
 
-    /** The slide's action glyphs on the chrome that FXML only shapes; hover/press plays each one. */
+    /** Every glyph on the HUD, drawn into the empty slots the fxml leaves. Action glyphs play
+        their slide animation on press. Sizes and strokes are the handoff's. */
     private void installGlyphs() {
-        for (var e : Map.of(btnNewProjectRail, Icons.NEW, btnSettings, Icons.SETTINGS, btnDelete, Icons.DELETE).entrySet()) {
+        Pane trash = Icons.node(Icons.DELETE, 16, TX2);
+        btnDelete.getChildren().add(trash);
+        Icons.animate(btnDelete, trash);
+        btnDelete.getStyleClass().add("delete");
+        for (var e : Map.of(btnNewProjectRail, Icons.NEW, btnSettings, Icons.SETTINGS).entrySet()) {
             Pane g = Icons.node(e.getValue(), 16, TX3);
             e.getKey().getChildren().add(g);
             Icons.animate(e.getKey(), g);
         }
-        btnDelete.getStyleClass().add("danger");
-        btnNewProjectWide.setGraphic(Icons.node(Icons.NEW, 16, TX));
-        btnNewProjectWide.setGraphicTextGap(8);
-        Icons.animate(btnNewProjectWide, btnNewProjectWide.getGraphic());
-        btnNpBrowse.setGraphic(Icons.node(Icons.BROWSE, 16, TX));
-        btnNpBrowse.setGraphicTextGap(8);
-        Icons.animate(btnNpBrowse, btnNpBrowse.getGraphic());
-        Icons.tag(resumeGlyph, "nudge");
-        Icons.animate(btnResume, resumeGlyph);
+        Tooltip.install(btnNewProjectRail, tip("New project"));
+        graphic(btnNewProjectWide, Icons.NEW, TX);
+        graphic(btnNewProjectEmpty, Icons.NEW, TX);
+        graphic(btnNpBrowse, Icons.BROWSE, TX2);
+        graphic(btnNpCreate, Icons.BOOKMARK_PLUS, TX);
+        for (CheckBox cb : List.of(motionToggle, sidebarToggle, npCapture)) iconCheck(cb);
+
+        Pane play = Icons.node(Icons.RESUME, 30, GOI, 2.4);
+        resumeGlyphBox.getChildren().add(play);
+        Icons.animate(btnResume, play);
+        // the checkpoint block keeps its earlier slate; its "Saved" check matches that sub-line
+        ckDoneGlyphBox.getChildren().add(Icons.node(Icons.CHECK, 22, "#7A94BC", 2.2));
+        emptyGlyphBox.getChildren().add(Icons.node(Icons.BOOKMARK_PLUS, 40, CK));
+        deleteFolderGlyph.getChildren().add(Icons.node(Icons.OTHER, 16, TX3));
+        npFolderGlyph.getChildren().add(Icons.node(Icons.OTHER, 16, TX3));
+    }
+
+    /** A CheckBox drawn as the slide's CHECKBOX glyph: the box always, the tick only while
+        selected, drawn in (the slide's rw-draw) each time it is ticked. hud.css colours it. */
+    private static void iconCheck(CheckBox cb) {
+        Pane glyph = Icons.node(Icons.CHECKBOX, SETTING_GLYPH, TX3);
+        Node tick = glyph.lookupAll(".ico").stream()
+                .filter(n -> "draw".equals(n.getProperties().get("anim"))).findFirst().orElseThrow();
+        cb.setGraphic(glyph);
+        tick.setVisible(cb.isSelected());
+        cb.selectedProperty().addListener((o, was, on) -> {
+            tick.setVisible(on);
+            if (on) Icons.play(glyph);
+        });
+    }
+
+    /** A Button's leading glyph, played on press. */
+    private static void graphic(Button b, Icons.Glyph glyph, String color) {
+        b.setGraphic(Icons.node(glyph, 16, color));
+        Icons.animate(b, b.getGraphic());
+    }
+
+    /** clip-path: polygon(0 0, 100%-c 0, 100% c, 100% 100%, c 100%, 0 100%-c) - the top-right
+        and bottom-left corners cut at 45°, re-cut on every resize so the cut stays c px. */
+    static void notch(Region r, double c) {
+        javafx.scene.shape.Polygon clip = new javafx.scene.shape.Polygon();
+        r.layoutBoundsProperty().addListener((o, was, b) -> clip.getPoints().setAll(notchPoints(b.getWidth(), b.getHeight(), c)));
+        r.setClip(clip);
+    }
+
+    static List<Double> notchPoints(double w, double h, double c) {
+        return List.of(0.0, 0.0, w - c, 0.0, w, c, w, h, c, h, 0.0, h - c);
     }
 
     private void clickable(Node node, Runnable action) {
         node.setFocusTraversable(true);
+        Motion.pressable(node);
         node.setOnMouseClicked(e -> {
             // primary only: a right click on Checkpoint opens its menu, it must not also save
             if (e.getButton() != MouseButton.PRIMARY) return;
@@ -490,7 +548,7 @@ public class HelloController {
     private void showSettings() {
         renderSettingsRows();
         showBase(settingsPane);
-        // one ring at a time: orange means "where you are", and right now that is the gear
+        // one lit control at a time, and right now that is the gear
         rowsByProject.values().forEach(r -> r.getStyleClass().remove("rail-active"));
         btnSettings.getStyleClass().add("rail-active");
     }
@@ -506,7 +564,7 @@ public class HelloController {
         String size = projectsFile().length() < 1024 ? "<1 KB" : kb + " KB";
         String storage = projects.size() + (projects.size() == 1 ? " project" : " projects") + " \u00b7 " + size + " \u00b7 ";
         List<String> ignored = IGNORED_WINDOWS.stream().sorted().toList();
-        HBox storageRow = statRow(Icons.TERMINAL, "Storage", storage + shown, storage + path);
+        HBox storageRow = statRow(Icons.DATABASE, "Storage", storage + shown, storage + path);
         // the one row that acts: open the data folder. Chevron + hand say so; the other two stay flat.
         storageRow.getChildren().add(Icons.node(Icons.CHEVRON, 14, TX3));
         storageRow.getStyleClass().add("stat-link");
@@ -541,6 +599,22 @@ public class HelloController {
         showOverlay(null);
         if (target != resumingPane && target != restoredPane) titleState(null, null, false);
         if (target != settingsPane) btnSettings.getStyleClass().remove("rail-active");
+        sweep(target == resumingPane);
+    }
+
+    /** rwSweep: translateX(-100%) → (300%), 1400ms linear, while the launching strip is up.
+        A 0..1 phase rather than pixels, so it is right before the strip's first layout. */
+    private final DoubleProperty sweepPhase = new SimpleDoubleProperty();
+    private Timeline sweep;
+    private void sweep(boolean on) {
+        if (sweep != null) sweep.stop();
+        resumingSheen.setVisible(on && !Motion.REDUCED);
+        if (!resumingSheen.isVisible()) return;
+        sweep = new Timeline(
+                new KeyFrame(Duration.ZERO, new KeyValue(sweepPhase, 0)),
+                new KeyFrame(Duration.millis(1400), new KeyValue(sweepPhase, 1, Interpolator.LINEAR)));
+        sweep.setCycleCount(Timeline.INDEFINITE);
+        sweep.play();
     }
 
     /** "RESUMING atlas-api" in the title bar; null verb puts the port cluster back. */
@@ -628,23 +702,33 @@ public class HelloController {
         PREFS.putBoolean(SIDEBAR_WIDE, wide);
     }
 
-    /** The wide rail's face of a row: a folder (open on the active row, via hud.css) and the name. */
+    /** The wide rail's face of a row, SidebarItem: a 15px folder (open on the active row, via
+        hud.css), the name and the checkpoint's age. */
     private static HBox sideFace(String name) {
-        Pane shut = Icons.node(Icons.OTHER, 16, TX3), open = Icons.node(Icons.BROWSE, 16, TX);
+        Pane shut = Icons.node(Icons.OTHER, 15, TX2), open = Icons.node(Icons.BROWSE, 15, TX);
         shut.getStyleClass().add("folder-shut");
         open.getStyleClass().add("folder-open");
         Label label = new Label(name);
         label.getStyleClass().add("side-name");
-        HBox face = new HBox(12, new StackPane(shut, open), label);
+        label.setMaxWidth(Double.MAX_VALUE);
+        label.setTextOverrun(OverrunStyle.ELLIPSIS);
+        HBox.setHgrow(label, Priority.ALWAYS);
+        Label age = new Label();
+        age.getStyleClass().add("side-count");
+        HBox face = new HBox(12, new StackPane(shut, open), label, age);
         face.getStyleClass().add("side-face");
         face.setAlignment(Pos.CENTER_LEFT);
         return face;
     }
 
+    /** The row's age ("2h") and its tooltip, refreshed whenever a checkpoint lands. */
     private void railTip(StackPane row, Project projectObj) {
         String age = ago(projectObj.lastCheckpoint);
         Tooltip t = (Tooltip) row.getProperties().get("tip");
         t.setText(projectObj.projectName + " \u00b7 " + ("never".equals(age) ? "no checkpoint yet" : "checkpoint " + when(age)));
+        if (row.lookup(".side-count") instanceof Label count) {
+            count.setText("never".equals(age) ? "" : "just now".equals(age) ? "now" : age);
+        }
     }
 
     /** Highlights the sidebar row, makes it the active project and draws its card. */
@@ -658,7 +742,6 @@ public class HelloController {
                 r.getStyleClass().add("rail-active");
             }
         });
-        btnSettings.getStyleClass().remove("rail-active");
         showEmpty(false);
         renderDetail(projectObj);
         if (switching && Motion.showing(detailPane)) panelIn(detailPane);
@@ -675,14 +758,8 @@ public class HelloController {
         int apps = countApps(projectObj);
         int tabs = countTabs(projectObj);
 
-        resumeSpec.setText(apps + " APPS \u00b7 " + tabs + " TABS \u00b7 "
-                + (projectObj.folderPath == null ? "NO FOLDER" : "1 FOLDER"));
         btnResume.setDisable(apps == 0 && tabs == 0);
-        String age = ago(projectObj.lastCheckpoint);
-        // "now", not "just now": the block's text column holds ~18 mono characters and
-        // "overwrite · just now" is 20 - it truncated to "just..." right after every save
-        checkpointSub.setText("never".equals(age) ? "no checkpoint yet"
-                : "overwrite \u00b7 " + ("just now".equals(age) ? "now" : when(age)));
+        checkpointSub.setText(checkpointLine(projectObj.lastCheckpoint));
         tabsCount.setText(String.valueOf(tabs));
 
         renderCategories(projectObj);
@@ -695,6 +772,14 @@ public class HelloController {
             "IDE", "AI", "Terminal", "Browser", "Database", "API", "Containers",
             "VersionControl", "Design", "Communication", "Notes", "Music");
 
+    /** "overwrite \u00b7 2h old" under Checkpoint; "now", not "just now", because the 296px block's
+        text column holds ~18 mono characters and "overwrite \u00b7 just now" is 20. */
+    static String checkpointLine(String lastCheckpoint) {
+        String age = ago(lastCheckpoint);
+        if ("never".equals(age)) return "no checkpoint yet";
+        return "overwrite \u00b7 " + ("just now".equals(age) ? "now" : age + " old");
+    }
+
     private void renderCategories(Project projectObj) {
         categoryRows.getChildren().clear();
         if (projectObj.apps == null) return;
@@ -703,7 +788,8 @@ public class HelloController {
             HashSet<String> bucket = projectObj.apps.get(category);
             if (bucket == null || bucket.isEmpty()) continue;
 
-            HBox labelBox = new HBox(8);
+            // a 96px label column: 12px glyph + spaced mono caps
+            HBox labelBox = new HBox(6);
             labelBox.setAlignment(Pos.CENTER_LEFT);
             labelBox.setMinWidth(96);
             labelBox.setPrefWidth(96);
@@ -711,18 +797,31 @@ public class HelloController {
             labelBox.getChildren().addAll(categoryIcon(category),
                     styled(new Label(categoryLabel(category)), "cat-label"));
 
-            HBox chips = new HBox(8);
+            // flex-wrap: as wide as its chips, wrapping only when the row runs out. FlowPane
+            // otherwise asks for a fixed 400px, which pushed the note off its chip.
+            FlowPane chips = new FlowPane(5, 5) {
+                @Override protected double computePrefWidth(double height) {
+                    double w = -getHgap();
+                    for (Node n : getManagedChildren()) w += n.prefWidth(-1) + getHgap();
+                    return Math.max(0, w) + snappedLeftInset() + snappedRightInset();
+                }
+            };
             chips.setAlignment(Pos.CENTER_LEFT);
+            chips.setMinWidth(0);
             for (String app : new TreeSet<>(bucket)) {
                 chips.getChildren().add(chip(projectObj, category, app));
             }
 
-            HBox row = new HBox(8);
+            HBox row = new HBox(10);
             row.setAlignment(Pos.CENTER_LEFT);
             row.getChildren().addAll(labelBox, chips);
 
             String note = trailingNote(category, projectObj);
-            if (note != null) row.getChildren().add(styled(new Label(note), "cat-arg"));
+            if (note != null) {
+                Label arg = styled(new Label(note), "cat-arg");
+                arg.setMinWidth(Region.USE_PREF_SIZE);   // white-space: nowrap
+                row.getChildren().add(arg);
+            }
 
             categoryRows.getChildren().add(row);
         }
@@ -732,8 +831,10 @@ public class HelloController {
         if (other != null && !other.isEmpty()) {
             String first = new TreeSet<>(other).first();
             String rest = other.size() > 1 ? " (+" + (other.size() - 1) + ")" : "";
-            categoryRows.getChildren().add(styled(
-                    new Label(first + rest + " under Other \u2014 captured, not relaunched"), "cat-foot"));
+            HBox foot = new HBox(9, Icons.node(Icons.APP_WINDOW, 12, TX3),
+                    styled(new Label(first + rest + " under Other \u2014 captured, not relaunched"), "cat-foot"));
+            foot.setAlignment(Pos.CENTER_LEFT);
+            categoryRows.getChildren().add(foot);
         }
     }
 
@@ -742,10 +843,14 @@ public class HelloController {
         return category.replaceAll("([a-z])([A-Z])", "$1 $2").toUpperCase();
     }
 
-    /** The extra argument resumeProject() will actually use for this category. */
-    private String trailingNote(String category, Project projectObj) {
+    /** The extra argument resumeProject() will actually use for this category: claude opens its
+        agent view, VS Code opens the project folder ("…\atlas-api"). */
+    static String trailingNote(String category, Project projectObj) {
         if ("AI".equals(category) && hasApp(projectObj, "claude.exe")) {
             return "agents";
+        }
+        if ("IDE".equals(category) && hasApp(projectObj, "Code.exe") && projectObj.folderPath != null) {
+            return "…\\" + new File(projectObj.folderPath).getName();
         }
         return null;
     }
@@ -756,6 +861,8 @@ public class HelloController {
         projectObj.urlsByBrowser.forEach((browser, urls) -> {
             HBox head = new HBox(8);
             head.setAlignment(Pos.CENTER_LEFT);
+            // every group after the first sits 4px further down, as margin-top:4px does
+            if (!tabRows.isEmpty()) VBox.setMargin(head, new Insets(4, 0, 0, 0));
             Region dot = new Region();
             dot.getStyleClass().add("dot-live");
             dot.setMinSize(5, 5);
@@ -773,10 +880,9 @@ public class HelloController {
                 item.setTextOverrun(OverrunStyle.ELLIPSIS);
                 HBox.setHgrow(item, Priority.ALWAYS);
                 Tooltip.install(item, tip(url));
-                HBox row = new HBox(2, item, remover(() -> removeUrl(projectObj, browser, url), projectObj));
+                HBox row = new HBox(2, item, remover(() -> removeUrl(projectObj, browser, url), projectObj, 12));
                 row.getStyleClass().add("tab-row");
                 row.setAlignment(Pos.CENTER_LEFT);
-                row.setMaxWidth(256);
                 tabRows.add(row);
             }
         });
@@ -800,23 +906,20 @@ public class HelloController {
         return cut < 0 ? s : s.substring(0, cut);
     }
 
+    /** The exe, then the hover-only x at the right end (the row's glyph already names the kind). */
     private HBox chip(Project projectObj, String category, String app) {
-        HBox chip = new HBox(2);
+        HBox chip = new HBox(2, new Label(app), remover(() -> removeApp(projectObj, category, app), projectObj, 12));
         chip.getStyleClass().add("chip");
         chip.setAlignment(Pos.CENTER_LEFT);
-        chip.setMinHeight(24);
-        chip.setPrefHeight(24);
-        chip.setPadding(new Insets(0, 3, 0, 8));   // the x's own box is the right edge
-        chip.getChildren().addAll(new Label(app), remover(() -> removeApp(projectObj, category, app), projectObj));
         return chip;
     }
 
     /** The hover-only x on chips and tab rows. Opacity, not managed, so nothing shifts on hover.
         No undo: the next checkpoint brings anything back. */
-    private StackPane remover(Runnable edit, Project projectObj) {
+    private StackPane remover(Runnable edit, Project projectObj, double size) {
         StackPane x = new StackPane();
         x.getStyleClass().add("rm");
-        Pane glyph = Icons.node(Icons.CLOSE, 12, TX3);
+        Pane glyph = Icons.node(Icons.CLOSE, size, TX3);
         glyph.getStyleClass().add("rm-glyph");
         x.getChildren().add(glyph);
         Icons.animate(x, glyph);
@@ -852,7 +955,7 @@ public class HelloController {
     }
 
     private static Pane categoryIcon(String category) {
-        return Icons.node(Icons.CATEGORY.getOrDefault(category, Icons.OTHER), 14, HUD);
+        return Icons.node(Icons.CATEGORY.getOrDefault(category, Icons.APP_WINDOW), 12, HUD);
     }
 
     private static Tooltip tip(String text) {
@@ -1121,13 +1224,17 @@ public class HelloController {
         VBox text = new VBox(2, styled(new Label(title), "fold-title"), m);
         text.setAlignment(Pos.CENTER_LEFT);
         HBox.setHgrow(text, Priority.ALWAYS);
-        row.getChildren().addAll(Icons.node(iconPath, 14, TX3), text);
+        row.getChildren().addAll(Icons.node(iconPath, 18, TX2), text);
         return row;
     }
 
-    /** Settings: one behaviour the app has, stated as a fact. Check glyph + label, no control. */
+    /** Settings glyphs are 20px: big enough to read the tick at a glance. */
+    private static final int SETTING_GLYPH = 20;
+
+    /** Settings: one behaviour the app has, stated as a fact. The same ticked checkbox glyph
+        the toggles use, so every setting reads alike - but no control, since it is fixed. */
     private HBox behaviourRow(String text) {
-        HBox row = new HBox(12, Icons.node(Icons.CHECK, 14, TX3), styled(new Label(text), "behaviour"));
+        HBox row = new HBox(10, Icons.node(Icons.CHECKBOX, SETTING_GLYPH, TX2), styled(new Label(text), "behaviour"));
         row.setAlignment(Pos.CENTER_LEFT);
         return row;
     }
@@ -1171,8 +1278,10 @@ public class HelloController {
         return labels.size() > 3 ? out + " +" + (labels.size() - 3) : out;
     }
 
-    private static final String TX = "#E8D8C9", TX2 = "#A99B8D", TX3 = "#6F655C",
-            GO = "#F3701E", BAD = "#D96C5E", HUD = "#7A94BC";
+    /** Glyph colours, set from code (hud.css still re-colours them on hover): the 5a tokens. */
+    private static final String TX = "#E9E3DF", TX2 = "#A8A29E", TX3 = "#77726E",
+            GO = "#FF6500", GOI = "#1A0A00", BAD = "#EB7C73", HUD = "#A8A29E",
+            CK = "#2A5688";
 
     static int countApps(Project projectObj) {
         if (projectObj == null || projectObj.apps == null) return 0;
@@ -1224,7 +1333,8 @@ public class HelloController {
     }
 
     private void onCheckpoint() {
-        if (activeProject == null) return;
+        // the confirmation cannot be re-triggered while it runs
+        if (activeProject == null || System.nanoTime() < ckBusyUntil) return;
         Project projectObj = activeProject;
         // A checkpoint from another day with something in it gets one beat before it is
         // replaced; today's, or an empty one, just overwrites.
@@ -1268,7 +1378,8 @@ public class HelloController {
         if (row != null) railTip(row, projectObj);
 
         renderDetail(projectObj);
-        checkpointSaved();
+        // "just now" dropped: the block's column holds ~18 characters, and "Saved" already says it
+        checkpointSaved(countApps(projectObj) + " apps · " + countTabs(projectObj) + " tabs");
     }
 
     /** Add mode: every exe open now joins its category; nothing saved is dropped. */
@@ -1283,30 +1394,52 @@ public class HelloController {
         return new ArrayList<>(out);
     }
 
-    /** The save, on the Checkpoint block itself - no stamp, the block already says "now".
-        One slate breath: the block lights and slowly exhales, the bookmark settles in with a
-        soft overshoot, the sub-line's new age fades in. Fires once per written save; never on
-        the press, never on the menu. Motion off: light and fade only.
-        Slower than --dur-capture and on a soft-start curve on purpose: the user found the
-        --ease-out start a snap. No plateau anywhere; every segment eases into the next. */
-    private void checkpointSaved() {
-        if (!Motion.showing(btnCheckpoint)) return;
-        Motion.stop(ckFlash);
-        Motion.run(ckFlash, new Timeline(
-                new KeyFrame(Duration.ZERO, new KeyValue(ckFlash.opacityProperty(), 0)),
-                new KeyFrame(Duration.millis(800), new KeyValue(ckFlash.opacityProperty(), 1, SOFT)),
-                new KeyFrame(Duration.millis(2500), new KeyValue(ckFlash.opacityProperty(), 0, Interpolator.EASE_BOTH))));
-        Motion.enter(checkpointSub, 0, 3, 1, Duration.millis(650), SOFT);
-        if (Motion.REDUCED) return;
-        // --ease-snap overshoots, which Interpolator.SPLINE cannot: the overshoot is its own key
-        Motion.run(checkpointGlyph, new Timeline(
-                new KeyFrame(Duration.ZERO, new KeyValue(checkpointGlyph.translateYProperty(), -6)),
-                new KeyFrame(Duration.millis(800), new KeyValue(checkpointGlyph.translateYProperty(), .8, SOFT)),
-                new KeyFrame(Duration.millis(1200), new KeyValue(checkpointGlyph.translateYProperty(), 0, Interpolator.EASE_BOTH))));
+    /** The checkpoint confirmation won't re-trigger before this (System.nanoTime). */
+    private long ckBusyUntil;
+
+    /** The handoff's checkpoint confirmation, on the button's four layers, once per written save:
+          t=0     ring    rwCkRing  400ms standard  - 28px, 2px blue, scale .55 → 2.7, fading out
+                  bar     rwCkBar   400ms snap      - the 3px strip rises into the bottom edge
+                  idle    rwCkOut   160ms ease-in   - "Checkpoint / overwrite · …" lifts away
+                  done    rwCkIn    300ms snap, after 120ms - "Saved / 10 apps · 14 tabs · just now"
+          t=2400  done    rwCkOut   200ms ease-in
+                  bar     rwCkBarOut 260ms standard
+                  idle    rwCkIn    260ms standard, after 140ms
+        Clicks are ignored until t=2860. Motion off: the words swap in place, no ring, no bar. */
+    private void checkpointSaved(String doneLine) {
+        if (!Motion.showing(btnCheckpoint) || System.nanoTime() < ckBusyUntil) return;
+        ckBusyUntil = System.nanoTime() + 2_860_000_000L;
+        ckDoneSub.setText(doneLine);
+        Interpolator std = Motion.STANDARD, in = Motion.IN, snap = Motion.SNAP;
+        DoubleProperty ringS = ckRing.scaleXProperty(), ringO = ckRing.opacityProperty(),
+                bar = ckBar.translateYProperty(),
+                idleO = ckIdle.opacityProperty(), idleY = ckIdle.translateYProperty(),
+                doneO = ckDone.opacityProperty(), doneY = ckDone.translateYProperty();
+        ckRing.scaleYProperty().bind(ringS);
+        Timeline t = Motion.REDUCED
+                ? new Timeline(
+                        new KeyFrame(Duration.ZERO, kv(idleO, 0), kv(doneO, 1), kv(doneY, 0)),
+                        new KeyFrame(Duration.millis(2400), kv(idleO, 0), kv(doneO, 1)),
+                        new KeyFrame(Duration.millis(2401), kv(idleO, 1), kv(doneO, 0)))
+                : new Timeline(
+                        new KeyFrame(Duration.ZERO, kv(ringS, .55), kv(ringO, .85), kv(bar, 3),
+                                kv(idleO, 1), kv(idleY, 0), kv(doneO, 0), kv(doneY, 5)),
+                        new KeyFrame(Duration.millis(120), kv(doneO, 0), kv(doneY, 5)),
+                        new KeyFrame(Duration.millis(160), kv(idleO, 0, in), kv(idleY, -5, in)),
+                        new KeyFrame(Duration.millis(400), kv(ringS, 2.7, std), kv(ringO, 0, std), kv(bar, 0, snap)),
+                        new KeyFrame(Duration.millis(420), kv(doneO, 1, snap), kv(doneY, 0, snap)),
+                        new KeyFrame(Duration.millis(2400), kv(doneO, 1), kv(doneY, 0), kv(bar, 0),
+                                kv(idleO, 0), kv(idleY, 5)),
+                        new KeyFrame(Duration.millis(2540), kv(idleO, 0), kv(idleY, 5)),
+                        new KeyFrame(Duration.millis(2600), kv(doneO, 0, in), kv(doneY, -5, in)),
+                        new KeyFrame(Duration.millis(2660), kv(bar, 3, std)),
+                        new KeyFrame(Duration.millis(2800), kv(idleO, 1, std), kv(idleY, 0, std)));
+        Motion.stop(btnCheckpoint);
+        Motion.run(btnCheckpoint, t);
     }
 
-    /** Starts gently and lands gently - the checkpoint's own curve, where --ease-out snapped. */
-    private static final Interpolator SOFT = Interpolator.SPLINE(.4, 0, .2, 1);
+    private static KeyValue kv(DoubleProperty p, double v) { return new KeyValue(p, v); }
+    private static KeyValue kv(DoubleProperty p, double v, Interpolator i) { return new KeyValue(p, v, i); }
 
     /** The browsers whose saved tabs will survive this checkpoint untouched, because nobody on
         the socket is about to re-post them. Read-only: nothing is dropped. Only

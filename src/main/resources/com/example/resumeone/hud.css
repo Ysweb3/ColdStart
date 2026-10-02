@@ -1,50 +1,48 @@
-/* Resume Work HUD v2 — theme A "slate terminal".
-   Ported from claude.ai/design project b78487db, artboard 1b.
-   States: hover on every control, :focus-visible everywhere, no pressed yet. */
+/* Resume Work HUD, option 5a (design_handoff_resume_hud). Every value below is copied from the
+   5a .dv-card tokens and the design-system components it imports (SidebarItem, AppChip,
+   Button, IconButton, StatusDot).
+   Two things JavaFX 21 CSS cannot say, so they are not here: letter-spacing (the mono labels'
+   .12em tracking, RESUME's -.045em) and transitions (hover snaps instead of fading 140ms).
+   Press is .985 for 80ms, from Motion.pressable. */
 
-/* Sora + Space Mono ship with the app and are registered by
+/* Sora (400/500/600/700/800) + Space Mono ship with the app and are registered by
    HelloApplication.loadFonts() — JavaFX CSS has no @font-face. */
 
 .root {
-    -rw-g:    #0B0C0D;
-    -rw-g1:   #111315;
-    -rw-g2:   #171A1D;
-    -rw-g3:   #212529;
-    -rw-ln:   #333A40;
-    -rw-ln2:  #454E56;
-    -rw-tx:   #E8D8C9;
-    -rw-tx2:  #A99B8D;
-    -rw-tx3:  #6F655C;
-    -rw-hud:  #7A94BC;
-    -rw-go:   #F3701E;
-    -rw-goi:  #1A0C03;
-    -rw-ck:   #4B607F;
-    -rw-live: #8B9E7C;
-    -rw-act:  #A8986F;   /* neutral active: every interactive that is not a verb */
-    -rw-bad:  #D96C5E;   /* brick-bright: destructive only, per the two-verb rule */
-
-    /* muted TEXT. #6F655C (tx3) is 3.1-3.4:1 on these grounds - fine for a glyph or a dot,
-       under AA for 11px text. One step up clears 4.5:1 on ink-800/900/black. Glyphs keep tx3. */
-    -rw-tx3t: #8E8275;
-
-    /* the rest of the ramps this file reaches for, so no rule carries a bare literal */
-    -rw-go2:      #FF8C42;   /* orange-bright: resume hover */
-    -rw-gop:      #C2540F;   /* orange-pressed: the launching ring */
-    -rw-ck-tint:  #171C23;   /* checkpoint hover ground */
-    -rw-brick:    #C0453A;   /* brick base: the failed fraction of a meter */
-    -rw-bad-fill: #B03D33;   /* brick one rung deeper: #C0453A sits at 4.43:1 under On Danger, just short */
-    -rw-bad-tint: #26120F;   /* the danger wash under a failed row */
-    -rw-on-bad:   #FBEDEA;   /* ink on brick */
-    -rw-act-tint: #292823;   /* act at 16% over g1: the wide rail's active row and New project */
+    -rw-g:      #000000;   /* --surface-app */
+    -rw-g1:     #0F1012;   /* rail, title bar, card */
+    -rw-g2:     #16171A;   /* panel; the checkpoint's ground */
+    -rw-g3:     #1E2024;   /* the checkpoint's hover ground */
+    -rw-raised: #222428;   /* chips, the active row, secondary buttons */
+    -rw-hover:  #2B2E33;   /* a raised surface under the pointer */
+    -rw-ln:     #32353B;
+    -rw-ln2:    #464A52;
+    -rw-tx:     #E9E3DF;
+    -rw-tx2:    #A8A29E;
+    -rw-tx3:    #77726E;   /* glyphs, dots */
+    -rw-tx3t:   #8E8A86;   /* muted TEXT: one step up, 5.5:1 on the card, readable at 12px */
+    -rw-hud:    #A8A29E;   /* micro-labels: PROJECTS, TABS, IDE */
+    -rw-go:     #FF6500;   /* orange is only ever RESUME */
+    -rw-go2:    #FF8533;   /* resume hover */
+    -rw-gop:    #D95500;   /* resume pressed; the launching ring */
+    -rw-goi:    #1A0A00;   /* ink on orange */
+    -rw-ck:     #2A5688;   /* blue is only ever CHECKPOINT: border, bar */
+    -rw-ckt:    #6E9BD1;   /* checkpoint text, hover border, ring */
+    -rw-ckh:    #272A2F;   /* the chevron segment under the pointer */
+    -rw-live:   #5DB075;
+    -rw-act:    #8E939C;   /* neutral active: focus, checkboxes */
+    -rw-bad:    #EB7C73;   /* danger text and glyphs */
+    -rw-brick:  #E0594F;   /* danger fill */
+    -rw-bad-tint: #2A1412;
+    -rw-on-bad: #FFF1F0;
 
     -fx-background-color: -rw-g;
     -fx-font-family: "Sora";
 }
 
 /* Space Mono is the machine face: paths, process names, counts, labels. */
-.mono, .rail-label, .rail-count, .side-count, .project-path, .resume-spec,
-.checkpoint-sub, .card-title, .card-note, .cat-label, .cat-arg, .cat-more,
-.browser-name, .cat-foot, .chip .label {
+.rail-label, .rail-count, .side-count, .project-path,
+.checkpoint-sub, .cat-label, .cat-arg, .cat-foot, .browser-name, .chip .label {
     -fx-font-family: "Space Mono";
 }
 
@@ -56,144 +54,227 @@
 }
 .wordmark      { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .wordmark-dot  { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-go; }
-/* 32x32 hit box on the 8 grid; the 16px glyph inside is drawn by Icons.node */
-.winctl { -fx-min-width: 32; -fx-pref-width: 32; -fx-max-width: 32;
-          -fx-min-height: 32; -fx-pref-height: 32; -fx-max-height: 32; }
 
-/* Lucide stroke icon: 1.75 in the 24-unit box, so ~1.17 once scaled to 16. Icons.node draws
-   and colours them; these rules only carry the states CSS owns. */
-.winctl.danger:hover .ico { -fx-stroke: -rw-bad; }
-.empty-glyph { -fx-fill: transparent; -fx-stroke: -rw-ck; -fx-stroke-width: 2; -fx-stroke-line-cap: round; -fx-stroke-line-join: round; }
+/* IconButton: a 32px ghost box, 16px glyph in tx2; hover lifts it to raised + tx.
+   Icons.node colours the glyph; these rules carry the states CSS owns. */
+.iconbtn {
+    -fx-min-width: 32; -fx-pref-width: 32; -fx-max-width: 32;
+    -fx-min-height: 32; -fx-pref-height: 32; -fx-max-height: 32;
+    -fx-background-color: transparent;
+    -fx-background-radius: 7;
+    -fx-cursor: hand;
+}
+.iconbtn:hover { -fx-background-color: -rw-raised; }
+.iconbtn:hover .ico { -fx-stroke: -rw-tx; }
+/* variant="danger": brick on its tint, solid brick under the pointer */
+.iconbtn.danger { -fx-background-color: -rw-bad-tint; }
+.iconbtn.danger .ico { -fx-stroke: -rw-bad; }
+.iconbtn.danger:hover { -fx-background-color: -rw-brick; }
+.iconbtn.danger:hover .ico { -fx-stroke: #FFF2EF; }
+/* the project's delete stays a quiet ghost until it is meant */
+.iconbtn.delete:hover { -fx-background-color: -rw-bad-tint; }
+.iconbtn.delete:hover .ico { -fx-stroke: -rw-bad; }
 
+/* StatusDot: live glows, idle does not */
 .dot-live {
     -fx-background-color: -rw-live;
     -fx-background-radius: 999;
+    -fx-effect: dropshadow(gaussian, -rw-live, 8, 0, 0, 0);
 }
+.dot-idle {
+    -fx-background-color: -rw-tx3;
+    -fx-background-radius: 999;
+}
+
+/* ":8765 · no extension", or "connected · brave" in live green while an extension holds the socket */
+.port      { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
+/* a lighter step of live green for the words; the dot keeps -rw-live */
+.port-live { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: #8ACB9D; -fx-font-weight: bold; }
 
 /* tooltips are popups with their own scene; the selector still reaches them */
 .tooltip {
-    -fx-background-color: -rw-g3;
+    -fx-background-color: -rw-raised;
     -fx-background-radius: 5;
     -fx-border-color: -rw-ln;
     -fx-border-radius: 5;
     -fx-text-fill: -rw-tx;
     -fx-font-family: "Space Mono";
     -fx-font-size: 11px;
-    -fx-padding: 4 8 4 8;   /* the one sub-8 padding: a transient overlay */
+    -fx-padding: 4 8 4 8;
     -fx-effect: none;
 }
 
-/* the ":8765 · no extension" label turns into "connected · brave" while an extension holds the socket */
-.port-live { -fx-font-size: 11px; -fx-text-fill: -rw-live; -fx-font-family: "Space Mono"; -fx-font-weight: bold; }
-
-/* ── rail ──────────────────────────────────────────────────────────── */
+/* ── sidebar ───────────────────────────────────────────────────────── */
 .rail {
     -fx-background-color: -rw-g1;
     -fx-border-color: transparent -rw-ln transparent transparent;
     -fx-border-width: 0 1 0 0;
+    -fx-padding: 16 0 16 0;
+    -fx-spacing: 8;
 }
-.rail-label { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-hud; }
-.rail-count { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3t; }
-/* a 32x32 numbered button; the active project carries the orange ring from the artboards */
+.rail-label { -fx-font-size: 11px; -fx-text-fill: -rw-hud; }
+.rail-count { -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3t; }
+/* the narrow rail: a 32x32 numbered button; the active project carries the orange ring */
 .rail-btn {
     -fx-min-width: 32; -fx-pref-width: 32; -fx-max-width: 32;
     -fx-min-height: 32; -fx-pref-height: 32; -fx-max-height: 32;
     -fx-background-color: -rw-ln, -rw-g1;
     -fx-background-insets: 0, 1;
-    -fx-background-radius: 6, 5;
+    -fx-background-radius: 7, 6;
     -fx-cursor: hand;
 }
-.rail-btn .label { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-tx2; }
-.rail-btn:hover { -fx-background-color: -rw-ln2, -rw-g2; }
-.rail-btn:hover .label { -fx-text-fill: -rw-tx; }
+/* "> .label": the number only, never the wide face's name and age */
+.rail-btn > .label { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-tx2; }
+.rail-btn:hover { -fx-background-color: -rw-ln2, -rw-raised; }
+.rail-btn:hover > .label { -fx-text-fill: -rw-tx; }
 .rail-active { -fx-background-color: -rw-go, -rw-g1; }
-.rail-active .label { -fx-text-fill: -rw-tx; }
-.rail-active .ico { -fx-stroke: -rw-tx; }
+.rail-active > .label { -fx-text-fill: -rw-tx; }
 .rail-btn:hover .ico { -fx-stroke: -rw-tx; }
 .rail-spine { -fx-border-color: transparent transparent transparent -rw-ln; -fx-border-width: 0 0 0 1; -fx-border-style: dotted; }
 .rail-btn:focus-visible { -fx-background-color: -rw-act, -rw-g1; }
+.project-list { -fx-spacing: 8; }
 
 /* widths here, not in FXML, so .rail-wide alone swaps them */
 .rail      { -fx-min-width: 48;  -fx-pref-width: 48;  -fx-max-width: 48; }
-.rail-wide { -fx-min-width: 200; -fx-pref-width: 200; -fx-max-width: 200; }
-.rail-head { -fx-alignment: center; }
+.rail-wide { -fx-min-width: 212; -fx-pref-width: 212; -fx-max-width: 212; -fx-padding: 0; -fx-spacing: 0; }
 
 /* each row stacks two faces: the number (narrow) and folder + name (wide); one is hidden */
-.side-face { visibility: hidden; -fx-padding: 0 12 0 12; }
+.side-face { visibility: hidden; -fx-padding: 0 10 0 10; -fx-spacing: 12; }
 .folder-open, .rail-active .folder-shut { visibility: hidden; }
 .rail-active .folder-open { visibility: visible; }
-.rail-btn .side-name { -fx-font-family: "Sora"; -fx-font-size: 14px; -fx-font-weight: normal; }
+.side-name  { -fx-font-family: "Sora"; -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+.side-count { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 
-/* right 20 = list padding 8 + row padding 12: the count lines up with the row content */
-.rail-wide .rail-head { -fx-alignment: center-left; -fx-padding: 0 20 0 16; }
+.rail-wide .rail-head { -fx-padding: 14 12 8 12; }
 .rail-wide .project-list { -fx-spacing: 2; -fx-padding: 0 8 0 8; }
+/* SidebarItem: 34px, radius 7; active and hover are raised, active adds a 2px ink edge */
 .rail-wide .side-row {
-    -fx-min-width: 0; -fx-pref-width: 184; -fx-max-width: 10000;
-    -fx-min-height: 40; -fx-pref-height: 40; -fx-max-height: 40;
+    -fx-min-width: 0; -fx-pref-width: 196; -fx-max-width: 10000;
+    -fx-min-height: 34; -fx-pref-height: 34; -fx-max-height: 34;
     -fx-background-color: transparent;
     -fx-background-radius: 7;
 }
 .rail-wide .side-row > .label { visibility: hidden; }
 .rail-wide .side-face { visibility: visible; }
-.rail-wide .side-row:hover { -fx-background-color: -rw-g2; }
-/* neutral active, not orange: a 2px act edge under the tint (the 1b sidebar) */
+.rail-wide .side-row:hover { -fx-background-color: -rw-raised; }
+.rail-wide .side-row:hover .side-name { -fx-text-fill: -rw-tx2; }
 .rail-wide .side-row.rail-active {
-    -fx-background-color: -rw-act, -rw-act-tint;
+    -fx-background-color: -rw-tx, -rw-raised;
     -fx-background-insets: 0, 0 0 0 2;
-    -fx-background-radius: 7, 6;
+    -fx-background-radius: 7, 0 7 7 0;
 }
+.rail-wide .rail-active .side-name { -fx-font-family: "Sora Medium"; -fx-text-fill: -rw-tx; }
 .rail-wide .rail-spine { -fx-border-color: transparent; }
+.rail-foot { -fx-padding: 0; }
 .rail-wide .rail-foot {
     -fx-border-color: -rw-ln transparent transparent transparent;
     -fx-border-width: 1 0 0 0;
-    -fx-padding: 16 8 0 8;
+    -fx-padding: 10 12 12 12;
 }
-.side-new { -fx-pref-height: 40; -fx-font-weight: bold; -fx-background-color: -rw-act-tint; }
-.side-new:hover { -fx-background-color: -rw-g3; }
 
-.btn-secondary {
-    -fx-background-color: -rw-g2;
+/* ── buttons (Button.jsx): Sora 600 13px, 34 tall, radius 7 ───────── */
+.button {
+    -fx-background-insets: 0;
     -fx-background-radius: 7;
-    -fx-border-color: -rw-ln;
     -fx-border-radius: 7;
+    -fx-focus-color: -rw-act;
+    -fx-faint-focus-color: transparent;
+    -fx-cursor: hand;
+    -fx-font-family: "Sora SemiBold";
     -fx-font-size: 13px;
+    -fx-padding: 0 14 0 14;
+    -fx-graphic-text-gap: 8;
+}
+.btn-secondary {
+    -fx-background-color: -rw-raised;
+    -fx-border-color: -rw-ln;
+    -fx-text-fill: -rw-tx;
+    -fx-pref-height: 34; -fx-min-height: 34;
+}
+.btn-secondary:hover, .btn-secondary:armed { -fx-background-color: -rw-hover; }
+.side-new { -fx-pref-height: 40; -fx-min-height: 40; -fx-font-family: "Sora"; -fx-font-weight: bold; }
+
+.btn-checkpoint {
+    -fx-background-color: -rw-ck;
     -fx-text-fill: -rw-tx;
 }
+.btn-checkpoint:hover, .btn-checkpoint:armed { -fx-background-color: -rw-ckt; -fx-text-fill: -rw-g; }
+.btn-checkpoint:hover .ico, .btn-checkpoint:armed .ico { -fx-stroke: -rw-g; }
+
+.btn-danger {
+    -fx-background-color: -rw-brick;
+    -fx-text-fill: -rw-on-bad;
+}
+.btn-danger:hover, .btn-danger:armed { -fx-background-color: -rw-bad; }
+
+.btn-ghost {
+    -fx-background-color: transparent;
+    -fx-text-fill: -rw-tx2;
+}
+.btn-ghost:hover, .btn-ghost:armed { -fx-background-color: -rw-raised; -fx-text-fill: -rw-tx; }
+.btn-ghost:hover .ico { -fx-stroke: -rw-tx; }
+.button:disabled { -fx-opacity: 0.45; }
 
 /* ── main column ───────────────────────────────────────────────────── */
 .project-name { -fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.project-path { -fx-font-size: 11px; -fx-text-fill: -rw-tx3t; }
+.project-path { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 
-/* The signature notched blocks. JavaFX has no clip-path; -fx-shape does it,
-   which is why both blocks are pinned to the design's exact pixel size. */
-.resume {
-    -fx-background-color: -rw-go;
-    -fx-shape: "M0 0 L432 0 L450 18 L450 104 L18 104 L0 86 Z";
-}
+/* The two verbs. Their notches are clips cut in the controller (JavaFX has no clip-path),
+   so a clipped edge is simply cut, borders included, as the handoff draws it. */
+.resume { -fx-background-color: -rw-go; -fx-cursor: hand; }
+.resume:hover { -fx-background-color: -rw-go2; }
 .resume-word { -fx-font-size: 34px; -fx-font-family: "Sora ExtraBold"; -fx-text-fill: -rw-goi; }
-/* 0.68 composited to 3.9:1; 0.85 clears AA at 5.3:1 and still reads as a sub-line */
-.resume-spec { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-goi; -fx-opacity: 0.85; }
+/* the shortcut that does the same as a press: mono caps in the block's ink */
+.resume-hint { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-goi; -fx-opacity: 0.85; }
+.resume-key {
+    -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-goi;
+    -fx-border-color: rgba(26, 10, 0, 0.38);
+    -fx-border-radius: 4;
+    -fx-background-color: rgba(26, 10, 0, 0.06);
+    -fx-background-radius: 4;
+    -fx-padding: 2 8 2 8;
+}
+/* nothing to resume: orange is the verb, and there is no verb here */
+.resume:disabled { -fx-background-color: -rw-g3; -fx-opacity: 0.6; -fx-cursor: default; }
+.resume:disabled .resume-word, .resume:disabled .resume-hint, .resume:disabled .resume-key { -fx-text-fill: -rw-tx3t; }
+.resume:disabled .resume-key { -fx-border-color: -rw-ln2; -fx-background-color: transparent; }
+.resume:disabled .ico { -fx-stroke: -rw-tx3; }
 
+/* The checkpoint block keeps its own, earlier look - the slate theme it was drawn in - and only
+   borrows the handoff's confirmation. A fixed 296 x 104, so -fx-shape lands exactly and the
+   1px slate edge follows the notch; the controller's clip keeps the ring inside it too. */
 .checkpoint {
-    -fx-background-color: -rw-ck, -rw-g2;
+    -ck-slate:   #4B607F;   /* edge, and the confirmation bar */
+    -ck-text:    #7A94BC;   /* the sub-line, "Saved", the ring */
+    -ck-ground:  #171A1D;
+    -ck-tint:    #171C23;   /* hover ground */
+    -ck-line:    #333A40;   /* the neutral divider */
+    -ck-hover:   #212529;   /* the chevron segment under the pointer */
+    -ck-ink:     #E8D8C9;
+    -fx-background-color: -ck-slate, -ck-ground;
     -fx-background-insets: 0, 1;
     -fx-shape: "M0 0 L282 0 L296 14 L296 104 L14 104 L0 90 Z";
+    -fx-padding: 1;
+    -fx-cursor: hand;
 }
-.checkpoint-word { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.checkpoint-sub  { -fx-font-size: 12px; -fx-text-fill: -rw-hud; }
-/* split segment: the checkpoint's right 64px, a full-height target. Same notch as the button
-   (its last 14px are the cut), so the hover fill never pokes outside the shape. The divider is
-   a sibling Region because a shaped region strokes its whole outline, not one side. The
-   chevron rests in bone at full 24px so it reads as a control, not a decoration. */
-.ck-divider { -fx-background-color: -rw-ln; }
+.checkpoint:hover { -fx-background-color: -ck-slate, -ck-tint; }
+.checkpoint-word { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -ck-ink; }
+.checkpoint-sub  { -fx-font-size: 12px; -fx-text-fill: -ck-text; }
+.ck-done-word    { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -ck-text; }
+/* the confirmation's two moving layers */
+.ck-ring { -fx-border-color: -ck-text; -fx-border-width: 2; -fx-border-radius: 999; }
+.ck-bar  { -fx-background-color: -ck-slate; }
+/* split segment: the block's right 64px. Same notch as the block (its last 14px are the cut),
+   so the hover fill never pokes outside the shape; the divider is its own 1px region. */
+.ck-divider { -fx-background-color: -ck-line; }
 .ck-menu {
     -fx-cursor: hand;
     -fx-background-color: transparent;
     -fx-shape: "M0 0 L50 0 L64 14 L64 102 L0 102 Z";
 }
-.ck-menu:hover { -fx-background-color: -rw-g3; }
-.ck-glyph { -fx-stroke: -rw-tx; }
-.ck-menu:hover .ck-glyph { -fx-stroke: -rw-tx; }
+.ck-menu:hover { -fx-background-color: -ck-hover; }
+.ck-glyph { -fx-stroke: -ck-ink; }
+
 .context-menu {
     -fx-background-color: -rw-ln, -rw-g2;
     -fx-background-insets: 0, 1;
@@ -203,103 +284,61 @@
 }
 .menu-item { -fx-padding: 6 12 6 12; -fx-background-radius: 5; }
 .menu-item .label { -fx-font-size: 13px; -fx-text-fill: -rw-tx; }
-.menu-item:focused, .menu-item:hover { -fx-background-color: -rw-g3; }
+.menu-item:focused, .menu-item:hover { -fx-background-color: -rw-raised; }
 .menu-item:focused .label, .menu-item:hover .label { -fx-text-fill: -rw-tx; }
 .menu-item:disabled .label { -fx-text-fill: -rw-tx3t; }
 /* the menu's heading: a section label like TABS, set once so the items can be one word.
    Disabled only to stay out of hover and focus, so it opts back out of Modena's fade. */
 .menu-item.menu-head:disabled { -fx-opacity: 1; -fx-padding: 6 12 2 12; }
 .menu-item.menu-head:focused, .menu-item.menu-head:hover { -fx-background-color: transparent; }
-.menu-head .label { -fx-font-family: "Space Mono"; -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3t; }
+.menu-head .label { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3t; }
 .menu .arrow { -fx-background-color: -rw-tx2; }
 
-/* ── "what gets saved" card ────────────────────────────────────────── */
+/* ── what gets saved ───────────────────────────────────────────────── */
 .card {
     -fx-background-color: -rw-g1;
     -fx-background-radius: 13;
     -fx-border-color: -rw-ln;
     -fx-border-radius: 13;
 }
-.card-head {
-    -fx-border-color: transparent transparent -rw-ln transparent;
-    -fx-border-width: 0 0 1 0;
-}
-.card-title { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-hud; }
-.card-note  { -fx-font-size: 11px; -fx-text-fill: -rw-tx2; }
+.cat-label { -fx-font-size: 10.5px; -fx-text-fill: -rw-hud; }
+.cat-arg   { -fx-font-size: 11.5px; -fx-text-fill: -rw-live; }
+.cat-foot  { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 
-.cat-label  { -fx-font-size: 10px; -fx-text-fill: -rw-hud; }
-.cat-arg    { -fx-font-size: 10.5px; -fx-text-fill: -rw-live; }
-.cat-more   { -fx-font-size: 10.5px; -fx-text-fill: -rw-tx2; }
-.cat-foot   { -fx-font-size: 11px;   -fx-text-fill: -rw-tx3t; }
-
+/* AppChip sm: 26 tall, raised, 13px category glyph in tx2, 11px mono name */
 .chip {
-    -fx-background-color: -rw-g3;
+    -fx-background-color: -rw-raised;
     -fx-background-radius: 7;
     -fx-border-color: -rw-ln;
     -fx-border-radius: 7;
+    -fx-padding: 0 3 0 8;   /* the x's own box is the right edge */
+    -fx-spacing: 2;
+    -fx-min-height: 26; -fx-pref-height: 26; -fx-max-height: 26;
 }
-.chip .label { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx; }
-/* hover-only remove on chips and tab rows: opacity, not managed, so nothing shifts */
+.chip .label { -fx-font-size: 12px; -fx-text-fill: -rw-tx; }
+/* hover-only remove at the end of chips and tab rows. Opacity, never managed, so nothing
+   shifts on hover. */
 .rm { -fx-cursor: hand; -fx-opacity: 0;
       -fx-min-width: 12; -fx-pref-width: 12; -fx-max-width: 12;
       -fx-min-height: 16; -fx-pref-height: 16; -fx-max-height: 16; }
 .chip:hover .rm, .tab-row:hover .rm { -fx-opacity: 1; }
-.rm:hover .rm-glyph .ico { -fx-stroke: -rw-bad; }
+.rm:hover .ico { -fx-stroke: -rw-bad; }
 
 .tabs-col {
     -fx-border-color: transparent transparent transparent -rw-ln;
     -fx-border-width: 0 0 0 1;
 }
 .tabs-scroll, .tabs-scroll > .viewport { -fx-background-color: transparent; -fx-padding: 0; }
-.browser-name { -fx-font-size: 10.5px; -fx-font-weight: bold; -fx-text-fill: -rw-hud; }
-.tab-title    { -fx-font-size: 11px; -fx-text-fill: -rw-tx2; }
+.browser-name { -fx-font-size: 11.5px; -fx-font-weight: bold; -fx-text-fill: -rw-ckt; }
+.tab-title    { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 
 /* the stage is undecorated, so the app draws its own outer edge */
 .shell { -fx-border-color: -rw-ln; -fx-border-width: 1; }
 
-/* ── extras for the wired-up view ─────────────────────────────────── */
-.port { -fx-font-size: 11px; -fx-text-fill: -rw-tx3t; -fx-font-family: "Space Mono"; }
-
-.dot-idle {
-    -fx-background-color: -rw-tx3;
-    -fx-background-radius: 999;
-}
-
-/* Buttons carry the platform look by default; flatten it back to the design. */
-.button {
-    -fx-background-insets: 0;
-    -fx-focus-color: -rw-act;
-    -fx-faint-focus-color: transparent;
-    -fx-cursor: hand;
-}
-.btn-secondary:hover { -fx-background-color: -rw-g3; }
-
-.btn-checkpoint {
-    -fx-background-color: -rw-ck;
-    -fx-background-radius: 7;
-    -fx-padding: 0 16 0 16;
-    -fx-font-size: 13px;
-    -fx-text-fill: -rw-tx;
-}
-.btn-checkpoint:hover { -fx-background-color: -rw-hud; -fx-text-fill: -rw-g; }
-
-.btn-secondary-lg {
-    -fx-background-color: -rw-g2;
-    -fx-background-radius: 7;
-    -fx-border-color: -rw-ln;
-    -fx-border-radius: 7;
-    -fx-padding: 0 16 0 16;
-    -fx-font-size: 13px;
-    -fx-text-fill: -rw-tx2;
-}
-
 .empty-title { -fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .empty-body  { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
 
-/* ── scrollbars ─────────────────────────────────────────────────────
-   Modena paints these light grey with arrow buttons at each end. Styled
-   globally rather than scoped to .settings-scroll, so any surface that
-   starts scrolling later inherits the theme instead of repeating this. */
+/* ── scrollbars: thin, trackless, thumb only ───────────────────────── */
 .scroll-bar { -fx-background-color: transparent; }
 .scroll-bar:vertical   { -fx-pref-width: 10; }
 .scroll-bar:horizontal { -fx-pref-height: 10; }
@@ -308,14 +347,14 @@
     -fx-background-radius: 0;
     -fx-border-color: transparent;
 }
+/* ln2, not ln: a #32353B thumb on the card's #0F1012 hid that the columns scroll at all */
 .scroll-bar > .thumb {
-    -fx-background-color: -rw-ln;
+    -fx-background-color: -rw-ln2;
     -fx-background-insets: 2;
-    -fx-background-radius: 4;
+    -fx-background-radius: 999;
 }
-.scroll-bar > .thumb:hover   { -fx-background-color: -rw-ln2; }
-.scroll-bar > .thumb:pressed { -fx-background-color: -rw-tx3; }
-/* the design has no stepper control, so the end buttons collapse to nothing */
+.scroll-bar > .thumb:hover   { -fx-background-color: -rw-tx3; }
+.scroll-bar > .thumb:pressed { -fx-background-color: -rw-tx2; }
 .scroll-bar > .increment-button, .scroll-bar > .decrement-button {
     -fx-background-color: transparent;
     -fx-padding: 0;
@@ -327,7 +366,7 @@
 }
 .scroll-pane > .corner { -fx-background-color: transparent; }
 
-/* ── settings · saving · delete ─────────────────────────────────────── */
+/* ── settings · dialogs ─────────────────────────────────────────────── */
 .settings-scroll,
 .settings-scroll > .viewport { -fx-background-color: -rw-g; -fx-background: -rw-g; }
 .settings-scroll { -fx-padding: 0; }
@@ -339,18 +378,19 @@
 .stat-link:hover { -fx-background-color: -rw-g2; -fx-border-color: -rw-ln2; }
 .stat-link:focus-visible { -fx-effect: dropshadow(gaussian, -rw-act, 3, 1.0, 0, 0); }
 
-.check-box { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
-.check-box .box {
-    -fx-background-color: -rw-g2;
-    -fx-background-radius: 4;
-    -fx-border-color: -rw-ln;
-    -fx-border-radius: 4;
-}
-.check-box:selected .box { -fx-background-color: -rw-act; -fx-border-color: -rw-act; }
-.check-box:selected .mark { -fx-background-color: -rw-goi; }
+/* Checkboxes wear the icon system's CHECKBOX glyph (HelloController.iconCheck): Modena's
+   box and mark collapse to nothing, the glyph is the graphic. The tick shows only when
+   selected and draws itself in on the way. Ink, not a fill, says which state it is in. */
+.check-box { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; -fx-label-padding: 0; -fx-graphic-text-gap: 10; -fx-cursor: hand; }
+.check-box > .box { -fx-padding: 0; -fx-background-color: transparent; -fx-border-color: transparent; }
+.check-box > .box > .mark { -fx-padding: 0; -fx-shape: " "; }
+.check-box .ico { -fx-stroke: -rw-tx3; }
+.check-box:hover .ico { -fx-stroke: -rw-tx2; }
+.check-box:selected .ico { -fx-stroke: -rw-tx; }
+.check-box:selected { -fx-text-fill: -rw-tx; }
 
-.text-field, .combo-box {
-    -fx-background-color: -rw-g2;
+.text-field {
+    -fx-background-color: -rw-g;
     -fx-background-radius: 7;
     -fx-border-color: -rw-ln;
     -fx-border-radius: 7;
@@ -359,21 +399,21 @@
     -fx-font-family: "Space Mono";
     -fx-font-size: 11px;
     -fx-highlight-fill: -rw-ck;
+    -fx-pref-height: 34;
 }
-.combo-box .list-cell { -fx-text-fill: -rw-tx; -fx-background-color: transparent; }
-.combo-box .arrow { -fx-background-color: -rw-tx3; }
+.text-field:focused { -fx-border-color: -rw-act; }
 
 /* Scrim: opaque enough to demote the view underneath without hiding it. */
-.scrim { -fx-background-color: rgba(11, 12, 13, 0.74); }
+.scrim { -fx-background-color: rgba(0, 0, 0, 0.74); }
 .dialog {
     -fx-background-color: -rw-g1;
-    -fx-background-radius: 13;
+    -fx-background-radius: 19;
     -fx-border-color: -rw-ln;
-    -fx-border-radius: 13;
-    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.55), 28, 0.16, 0, 8);
+    -fx-border-radius: 19;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.65), 32, 0.16, 0, 12);
 }
 .dialog-title { -fx-font-size: 17px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.dialog-sub   { -fx-font-size: 11px; -fx-text-fill: -rw-tx3t; -fx-font-family: "Space Mono"; }
+.dialog-sub   { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; -fx-font-family: "Space Mono"; }
 
 .inset-row {
     -fx-background-color: -rw-g;
@@ -382,46 +422,17 @@
     -fx-border-radius: 7;
 }
 
-/* the checkpoint bar from motion-checkpoint; the note beside it turns slate for one beat */
-
-/* rest 5.2:1, hover 5.7:1. Hover brightens and flips to ink - the same move Checkpoint makes. */
-.btn-danger {
-    -fx-background-color: -rw-bad-fill;
-    -fx-background-radius: 7;
-    -fx-padding: 0 16 0 16;
-    -fx-font-size: 13px;
-    -fx-text-fill: -rw-on-bad;
-}
-.btn-danger:hover { -fx-background-color: -rw-bad; -fx-text-fill: -rw-goi; }
-
-.btn-ghost {
-    -fx-background-color: transparent;
-    -fx-background-radius: 7;
-    -fx-padding: 0 16 0 16;
-    -fx-font-size: 13px;
-    -fx-text-fill: -rw-tx2;
-}
-.btn-ghost:hover { -fx-background-color: -rw-g2; -fx-text-fill: -rw-tx; }
-.button:disabled { -fx-opacity: 0.45; }
-
 /* the name is prose, not a path, so it opts out of the mono .text-field default */
 .input-name { -fx-font-family: "Sora"; -fx-font-size: 13px; }
 .divider-top {
     -fx-border-color: -rw-ln transparent transparent transparent;
     -fx-border-width: 1 0 0 0;
 }
-.btn-glyph {
-    -fx-fill: transparent;
-    -fx-stroke: -rw-tx;
-    -fx-stroke-width: 1.75;
-    -fx-stroke-line-cap: round;
-    -fx-stroke-line-join: round;
-}
 
-/* ── 1e resume in progress · 1l resume done ─────────────────────────── */
+/* ── resume in progress · resume done ───────────────────────────────── */
 .dot-go { -fx-background-color: -rw-go; -fx-background-radius: 999; }
 .title-verb { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-go; }
-.title-name { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx2; }
+.title-name { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 
 .strip {
     -fx-background-color: -rw-g1;
@@ -431,10 +442,14 @@
 .strip-verb  { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-go; }
 .strip-count { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx; }
 .strip-pct   { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-go; }
-.strip-took  { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx3t; }
-.meter-track { -fx-background-color: -rw-g3; -fx-background-radius: 3; }
+.strip-took  { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
+.meter-track { -fx-background-color: -rw-raised; -fx-background-radius: 3; }
 .meter-fill  { -fx-background-color: -rw-go; -fx-background-radius: 3 0 0 3; }
 .meter-fail  { -fx-background-color: -rw-brick; -fx-background-radius: 0 3 3 0; }
+/* rwSweep: a sheen crossing the track while anything launches */
+.meter-sheen {
+    -fx-background-color: linear-gradient(to right, transparent, rgba(255,255,255,0.35), transparent);
+}
 
 .hero-word { -fx-font-family: "Sora ExtraBold"; -fx-font-size: 44px; -fx-text-fill: -rw-tx; }
 .hero-name { -fx-font-family: "Sora ExtraBold"; -fx-font-size: 44px; -fx-text-fill: -rw-go; }
@@ -448,10 +463,10 @@
     -fx-border-radius: 7;
 }
 /* the ring alone at rest; the bloom is one beat, flashed from code when the launch starts */
-.step-row:launching { -fx-border-color: -rw-gop; }
+.step-row:launching { -fx-border-color: -rw-go; }
 .step-row:failed { -fx-border-color: -rw-bad; }
 .step-label { -fx-font-family: "Space Mono"; -fx-font-size: 13px; -fx-text-fill: -rw-tx; }
-.step-cmd   { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx3t; }
+.step-cmd   { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 .step-row:launching .step-cmd { -fx-text-fill: -rw-go; }
 .step-row:failed    .step-cmd { -fx-text-fill: -rw-bad; }
 
@@ -463,9 +478,9 @@
     -fx-border-radius: 7;
 }
 .fold-title { -fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.fold-meta  { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx2; }
+.fold-meta  { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 
-/* 1l keeps every failure visible, on the danger wash, with a Retry */
+/* a failure stays visible, on the danger wash, with a Retry */
 .fail-row {
     -fx-background-color: -rw-bad-tint;
     -fx-background-radius: 7;
@@ -474,35 +489,19 @@
 }
 .fail-why { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-bad; }
 
-.foot-note { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-text-fill: -rw-tx3t; }
-.countdown-track { -fx-background-color: -rw-g3; }
-.countdown-fill  { -fx-background-color: -rw-ck; }
+.foot-note { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
+.countdown-track { -fx-background-color: -rw-raised; }
+.countdown-fill  { -fx-background-color: -rw-ckt; }
 
 /* ── keyboard focus ─────────────────────────────────────────────────
-   Active (#A8986F) is the designated focus colour. :focus-visible, not :focused, so a
-   mouse click never paints the ring. A hard 3px dropshadow spread is the one ring that
-   works on every shape here (notched blocks included) without moving layout. */
+   :focus-visible, not :focused, so a mouse click never paints the ring. A hard 3px
+   dropshadow spread works on every shape here (notched blocks included) without moving layout. */
 .button:focus-visible, .resume:focus-visible, .checkpoint:focus-visible,
-.check-box:focus-visible, .text-field:focus-visible, .combo-box:focus-visible {
+.check-box:focus-visible, .text-field:focus-visible {
     -fx-effect: dropshadow(gaussian, -rw-act, 3, 1.0, 0, 0);
 }
-.winctl:focus-visible {
+.iconbtn:focus-visible {
     -fx-background-color: -rw-act, -rw-g1;
     -fx-background-insets: 0, 2;
-    -fx-background-radius: 6, 4;
-}
-
-/* clickable affordances */
-.resume, .checkpoint, .winctl { -fx-cursor: hand; }
-.resume:hover { -fx-background-color: -rw-go2; }
-/* nothing to resume: orange is the verb, and there is no verb here */
-.resume:disabled { -fx-background-color: -rw-g3; -fx-opacity: 0.6; -fx-cursor: default; }
-.resume:disabled .resume-word, .resume:disabled .resume-spec { -fx-text-fill: -rw-tx3t; }
-.checkpoint:hover { -fx-background-color: -rw-ck, -rw-ck-tint; }
-/* the save lighting the block: its edge brightens over the slate tint, then exhales. The same
-   notch as the block, laid under its content; only its opacity ever moves. */
-.ck-flash {
-    -fx-background-color: -rw-hud, -rw-ck-tint;
-    -fx-background-insets: 0, 1;
-    -fx-shape: "M0 0 L282 0 L296 14 L296 104 L14 104 L0 90 Z";
+    -fx-background-radius: 7, 5;
 }
