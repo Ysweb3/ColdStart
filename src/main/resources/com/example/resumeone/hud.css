@@ -40,7 +40,7 @@
 }
 
 /* Space Mono is the machine face: paths, process names, counts, labels. */
-.rail-label, .rail-count, .side-count, .project-path, .resume-spec,
+.rail-label, .rail-count, .side-count, .project-path,
 .checkpoint-sub, .cat-label, .cat-arg, .cat-foot, .browser-name, .chip .label {
     -fx-font-family: "Space Mono";
 }
@@ -138,7 +138,6 @@
 .rail-active .folder-open { visibility: visible; }
 .side-name  { -fx-font-family: "Sora"; -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
 .side-count { -fx-font-size: 11px; -fx-text-fill: -rw-tx3; }
-.side-dot   { visibility: hidden; }
 
 .rail-wide .rail-head { -fx-padding: 14 12 8 12; }
 .rail-wide .project-list { -fx-spacing: 2; -fx-padding: 0 8 0 8; }
@@ -159,7 +158,6 @@
     -fx-background-radius: 7, 0 7 7 0;
 }
 .rail-wide .rail-active .side-name { -fx-font-family: "Sora Medium"; -fx-text-fill: -rw-tx; }
-.rail-wide .rail-active .side-dot { visibility: visible; }
 .rail-wide .rail-spine { -fx-border-color: transparent; }
 .rail-foot { -fx-padding: 0; }
 .rail-wide .rail-foot {
@@ -219,36 +217,45 @@
 .resume { -fx-background-color: -rw-go; -fx-cursor: hand; }
 .resume:hover { -fx-background-color: -rw-go2; }
 .resume-word { -fx-font-size: 34px; -fx-font-family: "Sora ExtraBold"; -fx-text-fill: -rw-goi; }
-.resume-spec { -fx-font-size: 10px; -fx-font-weight: bold; -fx-text-fill: -rw-goi; -fx-opacity: 0.68; }
 /* nothing to resume: orange is the verb, and there is no verb here */
 .resume:disabled { -fx-background-color: -rw-g3; -fx-opacity: 0.6; -fx-cursor: default; }
-.resume:disabled .resume-word, .resume:disabled .resume-spec { -fx-text-fill: -rw-tx3; }
+.resume:disabled .resume-word { -fx-text-fill: -rw-tx3; }
 .resume:disabled .ico { -fx-stroke: -rw-tx3; }
 
-/* the 1px border is the outer background, the ground the inner one: hover re-colours both */
+/* The checkpoint block keeps its own, earlier look - the slate theme it was drawn in - and only
+   borrows the handoff's confirmation. A fixed 296 x 104, so -fx-shape lands exactly and the
+   1px slate edge follows the notch; the controller's clip keeps the ring inside it too. */
 .checkpoint {
-    -fx-background-color: -rw-ck, -rw-g2;
+    -ck-slate:   #4B607F;   /* edge, and the confirmation bar */
+    -ck-text:    #7A94BC;   /* the sub-line, "Saved", the ring */
+    -ck-ground:  #171A1D;
+    -ck-tint:    #171C23;   /* hover ground */
+    -ck-line:    #333A40;   /* the neutral divider */
+    -ck-hover:   #212529;   /* the chevron segment under the pointer */
+    -ck-ink:     #E8D8C9;
+    -fx-background-color: -ck-slate, -ck-ground;
     -fx-background-insets: 0, 1;
+    -fx-shape: "M0 0 L282 0 L296 14 L296 104 L14 104 L0 90 Z";
     -fx-padding: 1;
     -fx-cursor: hand;
 }
-.checkpoint:hover { -fx-background-color: -rw-ckt, -rw-g3; }
-.checkpoint-word { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.checkpoint-sub  { -fx-font-size: 12px; -fx-text-fill: -rw-ckt; }
-.ck-done-word    { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-ckt; }
+.checkpoint:hover { -fx-background-color: -ck-slate, -ck-tint; }
+.checkpoint-word { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -ck-ink; }
+.checkpoint-sub  { -fx-font-size: 12px; -fx-text-fill: -ck-text; }
+.ck-done-word    { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -ck-text; }
 /* the confirmation's two moving layers */
-.ck-ring { -fx-border-color: -rw-ckt; -fx-border-width: 2; -fx-border-radius: 999; }
-.ck-bar  { -fx-background-color: -rw-ck; }
-/* split segment: 64px, a 1px divider in the checkpoint border colour */
+.ck-ring { -fx-border-color: -ck-text; -fx-border-width: 2; -fx-border-radius: 999; }
+.ck-bar  { -fx-background-color: -ck-slate; }
+/* split segment: the block's right 64px. Same notch as the block (its last 14px are the cut),
+   so the hover fill never pokes outside the shape; the divider is its own 1px region. */
+.ck-divider { -fx-background-color: -ck-line; }
 .ck-menu {
     -fx-cursor: hand;
     -fx-background-color: transparent;
-    -fx-border-color: transparent transparent transparent -rw-ck;
-    -fx-border-width: 0 0 0 1;
+    -fx-shape: "M0 0 L50 0 L64 14 L64 102 L0 102 Z";
 }
-.checkpoint:hover .ck-menu { -fx-border-color: transparent transparent transparent -rw-ckt; }
-.ck-menu:hover { -fx-background-color: -rw-ckh; }
-.ck-menu:hover .ico { -fx-stroke: -rw-ckt; }
+.ck-menu:hover { -fx-background-color: -ck-hover; }
+.ck-glyph { -fx-stroke: -ck-ink; }
 
 .context-menu {
     -fx-background-color: -rw-ln, -rw-g2;
@@ -322,13 +329,14 @@
     -fx-background-radius: 0;
     -fx-border-color: transparent;
 }
+/* ln2, not ln: a #32353B thumb on the card's #0F1012 hid that the columns scroll at all */
 .scroll-bar > .thumb {
-    -fx-background-color: -rw-ln;
-    -fx-background-insets: 3;
+    -fx-background-color: -rw-ln2;
+    -fx-background-insets: 2;
     -fx-background-radius: 999;
 }
-.scroll-bar > .thumb:hover   { -fx-background-color: -rw-ln2; }
-.scroll-bar > .thumb:pressed { -fx-background-color: -rw-tx3; }
+.scroll-bar > .thumb:hover   { -fx-background-color: -rw-tx3; }
+.scroll-bar > .thumb:pressed { -fx-background-color: -rw-tx2; }
 .scroll-bar > .increment-button, .scroll-bar > .decrement-button {
     -fx-background-color: transparent;
     -fx-padding: 0;

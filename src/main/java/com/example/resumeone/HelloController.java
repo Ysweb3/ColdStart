@@ -124,7 +124,7 @@ public class HelloController {
     @FXML public CheckBox npCapture;
     @FXML public Button btnNpBrowse, btnNpCancel, btnNpCreate;
     @FXML public ScrollPane settingsPane;
-    @FXML public StackPane btnMore, btnNewProjectRail;   // title-bar "…" opens Settings; the narrow rail's +
+    @FXML public StackPane btnSettings, btnNewProjectRail;   // the sidebar's gear; the narrow rail's +
     // the rail opens to 200px (.rail-wide): a PROJECTS header, named rows, a New project button.
     // Switched from Settings (sidebarToggle) or Ctrl+B.
     @FXML public VBox rail;
@@ -139,18 +139,17 @@ public class HelloController {
     @FXML public CheckBox motionToggle;
     @FXML public Label deleteBody, deletePath;
     @FXML public Button btnDeleteOk, btnDeleteCancel, btnSettingsBack;
-    @FXML public HBox btnResume, statusBox, verbRow;
+    @FXML public HBox btnResume, statusBox;
     // the split checkpoint button: ring, bar, idle content, done content, chevron segment
     @FXML public StackPane btnCheckpoint, btnCheckpointMenu;
     @FXML public HBox ckIdle, ckDone;
     @FXML public Region ckRing, ckBar;
     @FXML public StackPane btnDelete;
     // empty slots in the fxml that Icons draws into
-    @FXML public StackPane resumeGlyphBox, checkpointGlyphBox, ckDoneGlyphBox, emptyGlyphBox,
+    @FXML public StackPane resumeGlyphBox, ckDoneGlyphBox, emptyGlyphBox,
             deleteFolderGlyph, npFolderGlyph;
     @FXML public Region statusDot;
-    @FXML public Label projectNameLabel, projectPathLabel, resumeSpec, checkpointSub, ckDoneSub,
-            tabsCount;
+    @FXML public Label projectNameLabel, projectPathLabel, checkpointSub, ckDoneSub, tabsCount;
 
     /** Hover-only: names the browsers on the socket, so the dot itself stays uncluttered. */
     // built in initialize(), not here: a Tooltip needs the JavaFX toolkit, which the unit tests
@@ -187,17 +186,11 @@ public class HelloController {
         clickable(btnCheckpoint, this::onCheckpoint);
         installCheckpointMenu();
         notch(btnResume, 18);
+        // the block's -fx-shape draws it; this clip keeps the confirmation ring inside it too
         notch(btnCheckpoint, 14);
-        // RESUME : Checkpoint is 1.6 : 1 across the row, less the 12px gap
-        verbRow.widthProperty().addListener((o, was, w) -> {
-            double ck = (w.doubleValue() - 12) / 2.6;
-            btnCheckpoint.setMinWidth(ck);
-            btnCheckpoint.setPrefWidth(ck);
-            btnCheckpoint.setMaxWidth(ck);
-        });
         clickable(btnDelete, this::showDeleteView);
-        // "…" is a toggle: pressed again from Settings, it closes them
-        clickable(btnMore, () -> { if (settingsPane.isVisible()) backToProjects(); else showSettings(); });
+        // the gear is a toggle: the lit gear is the natural "close" in a rail
+        clickable(btnSettings, () -> { if (settingsPane.isVisible()) backToProjects(); else showSettings(); });
         Tooltip.install(btnSettingsBack, tip("Esc"));
         for (Node b : List.of(btnNewProjectWide, btnNewProjectEmpty, btnSettingsBack, btnDeleteCancel, btnDeleteOk,
                 btnNpBrowse, btnNpCancel, btnNpCreate, btnConfirmCancel, btnConfirmOk,
@@ -261,7 +254,7 @@ public class HelloController {
         statusTip = new Tooltip();
         statusTip.setShowDelay(Duration.millis(150));
         Tooltip.install(statusBox, statusTip);
-        Tooltip.install(btnMore, tip("Settings"));
+        Tooltip.install(btnSettings, tip("Settings"));
         Tooltip.install(btnDelete, tip("Delete project"));
         refreshStatusDot();
         refreshCount();
@@ -445,15 +438,15 @@ public class HelloController {
     /** Every glyph on the HUD, drawn into the empty slots the fxml leaves. Action glyphs play
         their slide animation on press. Sizes and strokes are the handoff's. */
     private void installGlyphs() {
-        for (var e : Map.of(btnMore, Icons.MORE, btnDelete, Icons.DELETE).entrySet()) {
-            Pane g = Icons.node(e.getValue(), 14, TX2);
+        Pane trash = Icons.node(Icons.DELETE, 14, TX2);
+        btnDelete.getChildren().add(trash);
+        Icons.animate(btnDelete, trash);
+        btnDelete.getStyleClass().add("delete");
+        for (var e : Map.of(btnNewProjectRail, Icons.NEW, btnSettings, Icons.SETTINGS).entrySet()) {
+            Pane g = Icons.node(e.getValue(), 16, TX3);
             e.getKey().getChildren().add(g);
             Icons.animate(e.getKey(), g);
         }
-        btnDelete.getStyleClass().add("delete");
-        Pane plus = Icons.node(Icons.NEW, 16, TX3);
-        btnNewProjectRail.getChildren().add(plus);
-        Icons.animate(btnNewProjectRail, plus);
         Tooltip.install(btnNewProjectRail, tip("New project"));
         graphic(btnNewProjectWide, Icons.NEW, TX);
         graphic(btnNewProjectEmpty, Icons.NEW, TX);
@@ -463,9 +456,8 @@ public class HelloController {
         Pane play = Icons.node(Icons.RESUME, 30, GOI, 2.4);
         resumeGlyphBox.getChildren().add(play);
         Icons.animate(btnResume, play);
-        checkpointGlyphBox.getChildren().add(Icons.node(Icons.BOOKMARK_PLUS, 24, TX, 2));
-        ckDoneGlyphBox.getChildren().add(Icons.node(Icons.CHECK, 24, CKT, 2.6));
-        btnCheckpointMenu.getChildren().add(Icons.node(Icons.CHEVRON_DOWN, 20, TX, 2));
+        // the checkpoint block keeps its earlier slate; its "Saved" check matches that sub-line
+        ckDoneGlyphBox.getChildren().add(Icons.node(Icons.CHECK, 22, "#7A94BC", 2.2));
         emptyGlyphBox.getChildren().add(Icons.node(Icons.BOOKMARK_PLUS, 40, CK));
         deleteFolderGlyph.getChildren().add(Icons.node(Icons.OTHER, 16, TX3));
         npFolderGlyph.getChildren().add(Icons.node(Icons.OTHER, 16, TX3));
@@ -541,8 +533,9 @@ public class HelloController {
     private void showSettings() {
         renderSettingsRows();
         showBase(settingsPane);
-        // one active row at a time, and right now no project is what the main column shows
+        // one lit control at a time, and right now that is the gear
         rowsByProject.values().forEach(r -> r.getStyleClass().remove("rail-active"));
+        btnSettings.getStyleClass().add("rail-active");
     }
 
     private void renderSettingsRows() {
@@ -590,6 +583,7 @@ public class HelloController {
         }
         showOverlay(null);
         if (target != resumingPane && target != restoredPane) titleState(null, null, false);
+        if (target != settingsPane) btnSettings.getStyleClass().remove("rail-active");
         sweep(target == resumingPane);
     }
 
@@ -694,7 +688,7 @@ public class HelloController {
     }
 
     /** The wide rail's face of a row, SidebarItem: a 15px folder (open on the active row, via
-        hud.css), the name, the checkpoint's age, and the live dot that only the active row shows. */
+        hud.css), the name and the checkpoint's age. */
     private static HBox sideFace(String name) {
         Pane shut = Icons.node(Icons.OTHER, 15, TX2), open = Icons.node(Icons.BROWSE, 15, TX);
         shut.getStyleClass().add("folder-shut");
@@ -706,13 +700,7 @@ public class HelloController {
         HBox.setHgrow(label, Priority.ALWAYS);
         Label age = new Label();
         age.getStyleClass().add("side-count");
-        Region dot = new Region();
-        dot.getStyleClass().addAll("side-dot", "dot-live");
-        dot.setMinSize(7, 7);
-        dot.setPrefSize(7, 7);
-        dot.setMaxSize(7, 7);
-        Motion.breathe(dot, true);
-        HBox face = new HBox(12, new StackPane(shut, open), label, age, dot);
+        HBox face = new HBox(12, new StackPane(shut, open), label, age);
         face.getStyleClass().add("side-face");
         face.setAlignment(Pos.CENTER_LEFT);
         return face;
@@ -755,10 +743,7 @@ public class HelloController {
         int apps = countApps(projectObj);
         int tabs = countTabs(projectObj);
 
-        resumeSpec.setText(apps + " APPS \u00b7 " + tabs + " TABS \u00b7 "
-                + (projectObj.folderPath == null ? "NO FOLDER" : "1 FOLDER"));
         btnResume.setDisable(apps == 0 && tabs == 0);
-        // the idle content keeps 84px clear on the right, so "overwrite · just now" fits whole
         checkpointSub.setText(checkpointLine(projectObj.lastCheckpoint));
         tabsCount.setText(String.valueOf(tabs));
 
@@ -772,11 +757,12 @@ public class HelloController {
             "IDE", "AI", "Terminal", "Browser", "Database", "API", "Containers",
             "VersionControl", "Design", "Communication", "Notes", "Music");
 
-    /** "overwrite \u00b7 2h old" under Checkpoint, as the handoff words it. */
+    /** "overwrite \u00b7 2h old" under Checkpoint; "now", not "just now", because the 296px block's
+        text column holds ~18 mono characters and "overwrite \u00b7 just now" is 20. */
     static String checkpointLine(String lastCheckpoint) {
         String age = ago(lastCheckpoint);
         if ("never".equals(age)) return "no checkpoint yet";
-        return "overwrite \u00b7 " + ("just now".equals(age) ? age : age + " old");
+        return "overwrite \u00b7 " + ("just now".equals(age) ? "now" : age + " old");
     }
 
     private void renderCategories(Project projectObj) {
@@ -1282,7 +1268,7 @@ public class HelloController {
     /** Glyph colours, set from code (hud.css still re-colours them on hover): the 5a tokens. */
     private static final String TX = "#E9E3DF", TX2 = "#A8A29E", TX3 = "#77726E",
             GO = "#FF6500", GOI = "#1A0A00", BAD = "#EB7C73", HUD = "#A8A29E",
-            CK = "#2A5688", CKT = "#6E9BD1";
+            CK = "#2A5688";
 
     static int countApps(Project projectObj) {
         if (projectObj == null || projectObj.apps == null) return 0;
@@ -1379,7 +1365,8 @@ public class HelloController {
         if (row != null) railTip(row, projectObj);
 
         renderDetail(projectObj);
-        checkpointSaved(countApps(projectObj) + " apps · " + countTabs(projectObj) + " tabs · just now");
+        // "just now" dropped: the block's column holds ~18 characters, and "Saved" already says it
+        checkpointSaved(countApps(projectObj) + " apps · " + countTabs(projectObj) + " tabs");
     }
 
     /** Add mode: every exe open now joins its category; nothing saved is dropped. */
@@ -1494,7 +1481,6 @@ public class HelloController {
             boolean live = !browsers.isEmpty();
             // 5a draws the dot alone; what it means is one hover away
             statusDot.getStyleClass().setAll(live ? "dot-live" : "dot-idle");
-            Motion.breathe(statusDot, live);
             statusTip.setText(live ? "connected \u00b7 " + String.join(", ", browsers)
                     : ":8765 \u00b7 no extension connected");
             // someone watching Settings to see the extension land must see it land

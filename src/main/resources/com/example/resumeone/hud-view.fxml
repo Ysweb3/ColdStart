@@ -57,7 +57,6 @@
               minHeight="7.0" prefHeight="7.0" maxHeight="7.0"/>
     </HBox>
 
-    <StackPane fx:id="btnMore" styleClass="iconbtn" pickOnBounds="true"/>
     <HBox spacing="2.0" alignment="CENTER_LEFT">
       <StackPane fx:id="btnMin" styleClass="iconbtn" pickOnBounds="true"/>
       <StackPane fx:id="btnMax" styleClass="iconbtn" pickOnBounds="true"/>
@@ -84,9 +83,10 @@
 
       <Region styleClass="rail-spine" minWidth="1.0" prefWidth="1.0" maxWidth="1.0" VBox.vgrow="ALWAYS"/>
 
-      <HBox styleClass="rail-foot" alignment="CENTER">
+      <HBox styleClass="rail-foot" alignment="CENTER" spacing="8.0">
         <Button fx:id="btnNewProjectWide" styleClass="btn-secondary" text="New project"
                 maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
+        <StackPane fx:id="btnSettings" styleClass="rail-btn" pickOnBounds="true"/>
       </HBox>
     </VBox>
 
@@ -105,55 +105,69 @@
           <StackPane fx:id="btnDelete" styleClass="iconbtn" pickOnBounds="true"/>
         </HBox>
 
-        <!-- the two verbs, 1.6 : 1. Both notches are clips cut by the controller, so the
-             corners stay 18 and 14px at any width. -->
-        <HBox fx:id="verbRow" spacing="12.0" minHeight="104.0" prefHeight="104.0" maxHeight="104.0">
+        <!-- the two verbs: RESUME takes the row, Checkpoint is a fixed 296. RESUME's notch is a
+             clip cut by the controller, so its corner stays 18px at any width. -->
+        <HBox spacing="12.0" minHeight="104.0" prefHeight="104.0" maxHeight="104.0">
 
           <HBox fx:id="btnResume" styleClass="resume" alignment="CENTER_LEFT" spacing="16.0" HBox.hgrow="ALWAYS">
             <padding><Insets left="22.0" right="22.0"/></padding>
             <StackPane fx:id="resumeGlyphBox"/>
-            <VBox spacing="7.0" alignment="CENTER_LEFT">
-              <Label styleClass="resume-word" text="RESUME"/>
-              <Label fx:id="resumeSpec" styleClass="resume-spec" text=""/>
-            </VBox>
+            <Label styleClass="resume-word" text="RESUME"/>
           </HBox>
 
-          <!-- a split button in four layers: ring, bar, idle content, done content; the
-               chevron segment sits on top so it takes its own clicks -->
-          <StackPane fx:id="btnCheckpoint" styleClass="checkpoint">
+          <!-- the checkpoint block as it was (296px, slate border following the notch, a neutral
+               divider, the bone bookmark), in layers so the handoff's confirmation can play over
+               it: ring, bar, idle content, done content; the chevron segment sits on top so it
+               takes its own clicks -->
+          <StackPane fx:id="btnCheckpoint" styleClass="checkpoint"
+                     minWidth="296.0" prefWidth="296.0" maxWidth="296.0">
             <Region fx:id="ckRing" styleClass="ck-ring" StackPane.alignment="CENTER_LEFT" mouseTransparent="true"
                     opacity="0" minWidth="28.0" prefWidth="28.0" maxWidth="28.0"
                     minHeight="28.0" prefHeight="28.0" maxHeight="28.0">
-              <StackPane.margin><Insets left="18.0"/></StackPane.margin>
+              <StackPane.margin><Insets left="19.0"/></StackPane.margin>
             </Region>
             <Region fx:id="ckBar" styleClass="ck-bar" StackPane.alignment="BOTTOM_CENTER" mouseTransparent="true"
                     minHeight="3.0" prefHeight="3.0" maxHeight="3.0" maxWidth="Infinity" translateY="3.0"/>
-            <HBox fx:id="ckIdle" alignment="CENTER_LEFT" spacing="14.0" mouseTransparent="true">
-              <padding><Insets left="20.0" right="84.0"/></padding>
-              <StackPane fx:id="checkpointGlyphBox"/>
-              <VBox spacing="6.0" alignment="CENTER_LEFT">
+            <HBox fx:id="ckIdle" alignment="CENTER_LEFT" spacing="16.0" mouseTransparent="true">
+              <padding><Insets left="23.0" right="81.0"/></padding>
+              <SVGPath content="M4 2 H16 V21 L10 16 L4 21 Z M19 4 V10 M16 7 H22"
+                       fill="TRANSPARENT" stroke="#E8D8C9" strokeWidth="1.8"
+                       strokeLineCap="ROUND" strokeLineJoin="ROUND"/>
+              <VBox spacing="8.0" alignment="CENTER_LEFT">
                 <Label styleClass="checkpoint-word" text="Checkpoint"/>
                 <Label fx:id="checkpointSub" styleClass="checkpoint-sub" text=""/>
               </VBox>
             </HBox>
-            <HBox fx:id="ckDone" alignment="CENTER_LEFT" spacing="14.0" mouseTransparent="true" opacity="0">
-              <padding><Insets left="20.0" right="20.0"/></padding>
+            <HBox fx:id="ckDone" alignment="CENTER_LEFT" spacing="16.0" mouseTransparent="true" opacity="0">
+              <padding><Insets left="23.0" right="81.0"/></padding>
               <StackPane fx:id="ckDoneGlyphBox"/>
-              <VBox spacing="6.0" alignment="CENTER_LEFT">
+              <VBox spacing="8.0" alignment="CENTER_LEFT">
                 <Label styleClass="ck-done-word" text="Saved"/>
                 <Label fx:id="ckDoneSub" styleClass="checkpoint-sub" text=""/>
               </VBox>
             </HBox>
+            <Region styleClass="ck-divider" StackPane.alignment="CENTER_RIGHT" mouseTransparent="true"
+                    minWidth="1.0" prefWidth="1.0" maxWidth="1.0" maxHeight="Infinity">
+              <StackPane.margin><Insets right="64.0"/></StackPane.margin>
+            </Region>
+            <!-- split segment: 64px, full height, its own notch so the hover fill stays inside -->
             <StackPane fx:id="btnCheckpointMenu" styleClass="ck-menu" StackPane.alignment="CENTER_RIGHT" pickOnBounds="true"
-                       minWidth="64.0" prefWidth="64.0" maxWidth="64.0" maxHeight="Infinity"/>
+                       minWidth="64.0" prefWidth="64.0" maxWidth="64.0" maxHeight="Infinity">
+              <SVGPath styleClass="ck-glyph" content="M6 9 L12 15 L18 9"
+                       fill="TRANSPARENT" strokeWidth="2.0" strokeLineCap="ROUND" strokeLineJoin="ROUND"/>
+            </StackPane>
           </StackPane>
         </HBox>
 
         <!-- what gets saved: apps by category on the left, tabs by browser in the 288px column -->
-        <HBox styleClass="card" VBox.vgrow="ALWAYS">
-          <VBox fx:id="categoryRows" HBox.hgrow="ALWAYS" spacing="11.0">
-            <padding><Insets top="14.0" right="16.0" bottom="14.0" left="16.0"/></padding>
-          </VBox>
+        <!-- minHeight 0: the card always fits the window and its columns scroll instead -->
+        <HBox styleClass="card" VBox.vgrow="ALWAYS" minHeight="0.0">
+          <ScrollPane styleClass="tabs-scroll" fitToWidth="true" hbarPolicy="NEVER"
+                      minHeight="0.0" HBox.hgrow="ALWAYS">
+            <VBox fx:id="categoryRows" spacing="11.0">
+              <padding><Insets top="14.0" right="16.0" bottom="14.0" left="16.0"/></padding>
+            </VBox>
+          </ScrollPane>
 
           <VBox styleClass="tabs-col" spacing="8.0" minWidth="288.0" prefWidth="288.0" maxWidth="288.0">
             <padding><Insets top="14.0" right="16.0" bottom="14.0" left="16.0"/></padding>

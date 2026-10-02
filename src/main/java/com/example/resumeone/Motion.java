@@ -1,6 +1,5 @@
 package com.example.resumeone;
 
-import javafx.animation.Animation;
 import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
@@ -52,8 +51,7 @@ final class Motion {
 
     /** Settings > How it moves, on by default and deliberately independent of Windows' own
         Animation effects switch. Off, nothing travels: arrivals keep a short fade, presses no
-        longer shrink, the live dot holds still and the checkpoint swaps without its ring and
-        bar. Stored with java.util.prefs, so projects.json stays projects only. */
+        longer shrink and the checkpoint swaps without its ring and bar. Stored with java.util.prefs, so projects.json stays projects only. */
     private static final Preferences PREFS = Preferences.userNodeForPackage(Motion.class);
     static boolean REDUCED = !PREFS.getBoolean("motion", true);
 
@@ -91,19 +89,6 @@ final class Motion {
         if (REDUCED && s != 1) return;
         new Timeline(new KeyFrame(INSTANT,
                 new KeyValue(n.scaleXProperty(), s, STANDARD), new KeyValue(n.scaleYProperty(), s, STANDARD))).play();
-    }
-
-    /** rwBreathe: the live dot, 2.4s, opacity 1 → .34 → 1. The only loop in the app. */
-    static void breathe(Node dot, boolean on) {
-        if (dot.getProperties().remove("breathe") instanceof Timeline t) t.stop();
-        dot.setOpacity(1);
-        if (!on || REDUCED) return;
-        Timeline t = new Timeline(new KeyFrame(Duration.millis(1200),
-                new KeyValue(dot.opacityProperty(), .34, Interpolator.EASE_BOTH)));
-        t.setAutoReverse(true);
-        t.setCycleCount(Animation.INDEFINITE);
-        dot.getProperties().put("breathe", t);
-        t.play();
     }
 
     /** Only what someone can see moves: nothing animates before the window is up. */

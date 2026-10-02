@@ -20,7 +20,8 @@ class HandoffCopyTest {
     void checkpointSubLineReadsAsTheHandoffWordsIt() {
         assertEquals("overwrite \u00b7 2h old",
                 HelloController.checkpointLine(Instant.now().minusSeconds(2 * 3600 + 60).toString()));
-        assertEquals("overwrite \u00b7 just now", HelloController.checkpointLine(Instant.now().toString()));
+        // shortened: the 296px block's column truncates "overwrite \u00b7 just now"
+        assertEquals("overwrite \u00b7 now", HelloController.checkpointLine(Instant.now().toString()));
         assertEquals("no checkpoint yet", HelloController.checkpointLine(null));
     }
 

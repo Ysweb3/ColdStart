@@ -75,13 +75,11 @@ final class Icons {
         CLOSE = new Glyph(new Part("M4.4 4.4 L19.6 19.6 M19.6 4.4 L4.4 19.6", "quarter"));
 
     // not on the slide: lucide 0.544 check / chevron-right / app-window, for the fold rows and
-    // buttons, plus the four the 5a handoff names on the HUD itself
+    // buttons, plus the handoff's bookmark-plus (New project dialog, empty state)
     static final Glyph
         CHECK = g("M20 6 L9 17 L4 12"),
         CHEVRON = g("M9 18 L15 12 L9 6"),
-        CHEVRON_DOWN = g("M6 9 L12 15 L18 9"),
         BOOKMARK_PLUS = g("M19 21 L12 17 L5 21 V5 A2 2 0 0 1 7 3 H17 A2 2 0 0 1 19 5 Z M12 7 V13 M15 10 H9"),
-        MORE = g(circ(12, 12, 1) + circ(19, 12, 1) + circ(5, 12, 1)),
         APP_WINDOW = g("M2 6 A2 2 0 0 1 4 4 H20 A2 2 0 0 1 22 6 V18 A2 2 0 0 1 20 20 H4 A2 2 0 0 1 2 18 Z M10 4 V8 M2 8 H22 M6 4 V8");
 
     /** Project.apps keys → slide glyph; anything unlisted is "Other", which the handoff draws as
