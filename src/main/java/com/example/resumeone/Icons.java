@@ -64,7 +64,7 @@ final class Icons {
                 new Part("M2 19.8 L5.2 11.6 H22 L18.8 19.8 Z", "lift")),
         RECAPTURE = new Glyph(new Part("M18.7 20 A10.4 10.4 0 1 1 21 6.8 M16.6 6.1 L21 6.8 L22 2.4", "spin")),
         SETTINGS = new Glyph(new Part("M2 7 H22 M2 17 H22"),
-                new Part(circ(8.6, 7, 2.8), "slideA", "#111315"), new Part(circ(15.4, 17, 2.8), "slideB", "#111315")),
+                new Part(circ(8.6, 7, 2.8), "slideA", "#0F1012"), new Part(circ(15.4, 17, 2.8), "slideB", "#0F1012")),
         FAILED = new Glyph(new Part(circ(12, 12, 10.4)), new Part("M12 6.4 V13 M12 17 V17.1", "shake")),
         TIMESTAMP = new Glyph(new Part(circ(12, 12, 10.4)), new Part("M12 5.8 V12 L16.6 14.6", "sweep")),
         CHECKBOX = new Glyph(new Part(rr(3, 3, 18, 18, 3.2)), new Part("M7.4 12.2 L10.8 15.6 L16.8 8.6", "draw")),
@@ -74,13 +74,18 @@ final class Icons {
                 new Part(rr(3, 7.6, 13.4, 13.4, 2.6), "lift")),
         CLOSE = new Glyph(new Part("M4.4 4.4 L19.6 19.6 M19.6 4.4 L4.4 19.6", "quarter"));
 
-    // not on the slide: lucide check / chevron-right / app-window, for the fold rows and buttons
+    // not on the slide: lucide 0.544 check / chevron-right / app-window, for the fold rows and
+    // buttons, plus the four the 5a handoff names on the HUD itself
     static final Glyph
         CHECK = g("M20 6 L9 17 L4 12"),
         CHEVRON = g("M9 18 L15 12 L9 6"),
+        CHEVRON_DOWN = g("M6 9 L12 15 L18 9"),
+        BOOKMARK_PLUS = g("M19 21 L12 17 L5 21 V5 A2 2 0 0 1 7 3 H17 A2 2 0 0 1 19 5 Z M12 7 V13 M15 10 H9"),
+        MORE = g(circ(12, 12, 1) + circ(19, 12, 1) + circ(5, 12, 1)),
         APP_WINDOW = g("M2 6 A2 2 0 0 1 4 4 H20 A2 2 0 0 1 22 6 V18 A2 2 0 0 1 20 20 H4 A2 2 0 0 1 2 18 Z M10 4 V8 M2 8 H22 M6 4 V8");
 
-    /** Project.apps keys → slide glyph; anything unlisted is "Other". */
+    /** Project.apps keys → slide glyph; anything unlisted is "Other", which the handoff draws as
+        app-window (the slide's OTHER folder reads as the project folder beside it). */
     static final Map<String, Glyph> CATEGORY = Map.ofEntries(
             Map.entry("IDE", IDE), Map.entry("AI", AI), Map.entry("Terminal", TERMINAL),
             Map.entry("Browser", BROWSER), Map.entry("VersionControl", VERSION), Map.entry("Database", DATABASE),
@@ -90,12 +95,17 @@ final class Icons {
     /** A size×size node. Parts carry the style class "ico" so CSS hover rules can recolour
         them (author CSS beats the colour set here, as it does everywhere in JavaFX). */
     static Pane node(Glyph glyph, double size, String color) {
+        return node(glyph, size, color, 1.75);
+    }
+
+    /** stroke is in the 24-unit box, as lucide's stroke-width is: the RESUME play is 2.4. */
+    static Pane node(Glyph glyph, double size, String color, double stroke) {
         Group g = new Group();
         for (Part part : glyph.parts()) {
             SVGPath p = new SVGPath();
             p.setContent(part.d());
             p.setStroke(Color.web(color));
-            p.setStrokeWidth(1.75);
+            p.setStrokeWidth(stroke);
             p.setStrokeLineCap(StrokeLineCap.ROUND);
             p.setStrokeLineJoin(StrokeLineJoin.ROUND);
             p.setFill(part.fill() == null ? Color.TRANSPARENT
@@ -115,12 +125,6 @@ final class Icons {
         box.setPrefSize(size, size);
         box.setMaxSize(size, size);
         return box;
-    }
-
-    /** Gives a hand-drawn SVGPath (the FXML verbs) one of the slide's animations. */
-    static void tag(SVGPath p, String anim) {
-        p.getStyleClass().add("ico");
-        p.getProperties().put("anim", anim);
     }
 
     /** Plays the glyph's animations once. */

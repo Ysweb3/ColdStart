@@ -5,7 +5,6 @@ import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
 import javafx.scene.layout.StackPane;
 import javafx.scene.Parent;
-import javafx.scene.layout.Region;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
@@ -56,7 +55,7 @@ public class HelloApplication extends Application {
         windowButton(root.lookup("#btnClose"), Icons.CLOSE, stage::close);
         // maximize shows restore while maximized, as the slide pairs them
         stage.maximizedProperty().addListener((o, was, is) ->
-                max.getChildren().setAll(Icons.node(is ? Icons.RESTORE : Icons.MAXIMIZE, 16, "#6F655C")));
+                max.getChildren().setAll(Icons.node(is ? Icons.RESTORE : Icons.MAXIMIZE, 14, GLYPH)));
 
         // ponytail: right/bottom/corner only. Add the other five edges if anyone
         // actually misses them.
@@ -78,27 +77,21 @@ public class HelloApplication extends Application {
             }
         });
 
-        // -fx-shape scales its path to the region, so a growing RESUME block would
-        // stretch the 18px notch into a long diagonal. Re-cut the path instead.
-        Region resume = (Region) root.lookup(".resume");
-        resume.widthProperty().addListener((o, old, w) -> {
-            double x = w.doubleValue();
-            resume.setStyle(String.format(
-                    "-fx-shape: \"M0 0 L%.1f 0 L%.1f 18 L%.1f 104 L18 104 L0 86 Z\";",
-                    x - 18, x, x));
-        });
-
         stage.setScene(scene);
         stage.show();
 
     }
 
-    /** The window buttons are StackPanes; this draws their glyph and puts them in the Tab
-        order and on Enter/Space. */
+    /** IconButton ghost ink (--text-secondary); hud.css takes it to ink on hover, brick on close. */
+    static final String GLYPH = "#A8A29E";
+
+    /** The window buttons are 26px StackPanes; this draws their 14px glyph and puts them in
+        the Tab order and on Enter/Space. */
     private static StackPane windowButton(Node node, Icons.Glyph glyph, Runnable action) {
         StackPane box = (StackPane) node;
-        box.getChildren().setAll(Icons.node(glyph, 16, "#6F655C"));
+        box.getChildren().setAll(Icons.node(glyph, 14, GLYPH));
         Icons.animate(box, box);   // the box, not the glyph: maximize swaps its child
+        Motion.pressable(box);
         node.setFocusTraversable(true);
         node.setOnMouseClicked(e -> action.run());
         node.setOnKeyPressed(e -> {
@@ -113,8 +106,8 @@ public class HelloApplication extends Application {
     /** JavaFX CSS silently ignores @font-face, so the bundled faces are registered here
         instead — without this every -fx-font-family falls back to the system font. */
     private static void loadFonts() throws IOException {
-        for (String name : new String[]{"Sora-Regular", "Sora-Bold", "Sora-ExtraBold",
-                                        "SpaceMono-Regular", "SpaceMono-Bold"}) {
+        for (String name : new String[]{"Sora-Regular", "Sora-Medium", "Sora-SemiBold", "Sora-Bold",
+                                        "Sora-ExtraBold", "SpaceMono-Regular", "SpaceMono-Bold"}) {
             try (InputStream in = HelloApplication.class.getResourceAsStream("fonts/" + name + ".ttf")) {
                 Font.loadFont(in, 12);
             }

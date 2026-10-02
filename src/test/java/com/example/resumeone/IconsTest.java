@@ -30,7 +30,9 @@ class IconsTest {
     @Test
     void everyGlyphParsesAndStaysInTheBox() throws Exception {
         List<Icons.Glyph> all = glyphs();
-        assertEquals(31, all.size());   // 13 categories + 15 actions + check / chevron / app-window
+        // 13 categories + 15 actions + check / chevron / app-window + the 5a handoff's
+        // chevron-down / bookmark-plus / more-horizontal
+        assertEquals(34, all.size());
         for (Icons.Glyph g : all) {
             for (Icons.Part p : g.parts()) {
                 String d = p.d().trim();

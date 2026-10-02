@@ -1,22 +1,23 @@
 package com.example.resumeone;
 
+import javafx.animation.Animation;
 import javafx.animation.Interpolator;
 import javafx.animation.KeyFrame;
 import javafx.animation.KeyValue;
 import javafx.animation.Timeline;
 import javafx.scene.Node;
+import javafx.scene.input.MouseEvent;
 import javafx.util.Duration;
 
 import java.util.prefs.Preferences;
 
-/** tokens/motion.css and the motion-* guidelines of the design system (4d7c4f7e), for JavaFX.
-    Quick for small feedback the pointer caused, unhurried for whole views arriving, slow only
-    for rebuilding an environment. The
-    checkpoint - save, button and dropdown - is deliberately still. */
+/** tokens/motion.css and the 5a handoff's animations, for JavaFX. Quick for small feedback the
+    pointer caused, unhurried for whole views arriving, slow only for rebuilding an environment.
+    One easing curve, STANDARD; the overshoot SNAP is only ever the checkpoint confirmation. */
 final class Motion {
     private Motion() {}
 
-    static final Duration FAST = Duration.millis(140), BASE = Duration.millis(220),
+    static final Duration INSTANT = Duration.millis(80), FAST = Duration.millis(140), BASE = Duration.millis(220),
             SLOW = Duration.millis(400), CAPTURE = Duration.millis(700);
 
     /** A whole view arriving (switching project, opening settings). BASE on STANDARD front-loads
@@ -26,12 +27,33 @@ final class Motion {
     static final Interpolator STANDARD = Interpolator.SPLINE(.2, .8, .3, 1),
             OUT = Interpolator.SPLINE(.16, 1, .3, 1),
             IN = Interpolator.SPLINE(.5, 0, .9, .4),
-            GLIDE = Interpolator.SPLINE(.25, .1, .2, 1);
+            GLIDE = Interpolator.SPLINE(.25, .1, .2, 1),
+            SNAP = bezier(.34, 1.4, .5, 1);
+
+    /** cubic-bezier(x1, y1, x2, y2) as CSS reads it. SPLINE rejects a y outside 0..1, so the
+        handoff's overshoot curve needs its own: solve x(t) by bisection, return y(t). */
+    static Interpolator bezier(double x1, double y1, double x2, double y2) {
+        return new Interpolator() {
+            @Override protected double curve(double x) {
+                double lo = 0, hi = 1, t = x;
+                for (int i = 0; i < 40 && Math.abs(cubic(t, x1, x2) - x) > 1e-6; i++) {
+                    if (cubic(t, x1, x2) < x) lo = t; else hi = t;
+                    t = (lo + hi) / 2;
+                }
+                return cubic(t, y1, y2);
+            }
+        };
+    }
+
+    private static double cubic(double t, double p1, double p2) {
+        double u = 1 - t;
+        return 3 * u * u * t * p1 + 3 * u * t * t * p2 + t * t * t;
+    }
 
     /** Settings > How it moves, on by default and deliberately independent of Windows' own
-        Animation effects switch. Off, nothing travels: arrivals keep a short fade, and icon
-        presses and the launch bloom stop. The checkpoint never moves. Stored with
-        java.util.prefs, so projects.json stays projects only. */
+        Animation effects switch. Off, nothing travels: arrivals keep a short fade, presses no
+        longer shrink, the live dot holds still and the checkpoint swaps without its ring and
+        bar. Stored with java.util.prefs, so projects.json stays projects only. */
     private static final Preferences PREFS = Preferences.userNodeForPackage(Motion.class);
     static boolean REDUCED = !PREFS.getBoolean("motion", true);
 
@@ -57,6 +79,31 @@ final class Motion {
                     new KeyValue(n.scaleXProperty(), 1, ease), new KeyValue(n.scaleYProperty(), 1, ease)));
         }
         run(n, t);
+    }
+
+    /** Press is scale(.985) for 80ms, system-wide. Hover only ever changes colour. */
+    static void pressable(Node n) {
+        n.addEventHandler(MouseEvent.MOUSE_PRESSED, e -> pressTo(n, .985));
+        n.addEventHandler(MouseEvent.MOUSE_RELEASED, e -> pressTo(n, 1));
+    }
+
+    private static void pressTo(Node n, double s) {
+        if (REDUCED && s != 1) return;
+        new Timeline(new KeyFrame(INSTANT,
+                new KeyValue(n.scaleXProperty(), s, STANDARD), new KeyValue(n.scaleYProperty(), s, STANDARD))).play();
+    }
+
+    /** rwBreathe: the live dot, 2.4s, opacity 1 → .34 → 1. The only loop in the app. */
+    static void breathe(Node dot, boolean on) {
+        if (dot.getProperties().remove("breathe") instanceof Timeline t) t.stop();
+        dot.setOpacity(1);
+        if (!on || REDUCED) return;
+        Timeline t = new Timeline(new KeyFrame(Duration.millis(1200),
+                new KeyValue(dot.opacityProperty(), .34, Interpolator.EASE_BOTH)));
+        t.setAutoReverse(true);
+        t.setCycleCount(Animation.INDEFINITE);
+        dot.getProperties().put("breathe", t);
+        t.play();
     }
 
     /** Only what someone can see moves: nothing animates before the window is up. */
