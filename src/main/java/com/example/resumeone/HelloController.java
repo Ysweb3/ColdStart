@@ -120,7 +120,7 @@ public class HelloController {
     private static final PseudoClass PC_FAILED    = PseudoClass.getPseudoClass("failed");
     /** the design's --ease-out */
     @FXML public TextField npName;
-    @FXML public Label npFolder;
+    @FXML public Label npFolder, npHint;
     @FXML public CheckBox npCapture;
     @FXML public Button btnNpBrowse, btnNpCancel, btnNpCreate;
     @FXML public ScrollPane settingsPane;
@@ -237,8 +237,15 @@ public class HelloController {
             String chosen = openFolder(e);          // returns the "NULL" sentinel on cancel
             if (!"NULL".equals(chosen)) npFolder.setText(chosen);
         });
+        // the name is the project's key: a second "atlas-api" would replace the first one's
+        // checkpoint, so a taken name cannot be created and the hint says why
         btnNpCreate.disableProperty().bind(Bindings.createBooleanBinding(
-                () -> npName.getText().trim().isEmpty(), npName.textProperty()));
+                () -> npName.getText().trim().isEmpty() || nameTaken(projects, npName.getText()), npName.textProperty()));
+        npName.textProperty().addListener((o, was, now) -> {
+            boolean taken = nameTaken(projects, now);
+            npHint.setText(taken ? "a project named " + now.trim() + " already exists" : "shown in the sidebar");
+            npHint.pseudoClassStateChanged(PC_FAILED, taken);
+        });
         btnNpCreate.setOnAction(e -> createFromDialog());
         btnResumeStop.setGraphic(Icons.node(Icons.CLOSE, 16, TX2));
         Icons.animate(btnResumeStop, btnResumeStop.getGraphic());
@@ -316,6 +323,7 @@ public class HelloController {
             legacyNewProjectDialog();
             return;
         }
+        if (resuming) return;   // a new project's capture would land in the middle of a launch
         npName.clear();
         npFolder.setText(NO_FOLDER);
         npCapture.setSelected(true);
@@ -326,15 +334,19 @@ public class HelloController {
     /** Create + checkpoint: same work the old dialog's OK branch did. */
     private void createFromDialog() {
         String name = npName.getText().trim();
-        if (name.isEmpty()) return;
+        if (name.isEmpty() || nameTaken(projects, name)) return;
         String folder = NO_FOLDER.equals(npFolder.getText()) ? null : npFolder.getText();
         Project projectObj = new Project(name, folder, new HashMap<>(), new ArrayList<>());
         if (!npCapture.isSelected()) projectObj.lastCheckpoint = null;   // "no checkpoint yet" is true
         // createProjectUI -> selectProject -> showBase() clears the overlay for us
         createProjectUI(projectObj, true);
-        if (npCapture.isSelected()) {
-            wsSessions.forEach(session -> session.send("capture"));
-        }
+        if (npCapture.isSelected()) askForTabs(projectObj);
+    }
+
+    /** Names are compared the way a person reads them: "Atlas-API" is "atlas-api" taken. */
+    static boolean nameTaken(List<Project> projects, String name) {
+        String n = name.trim();
+        return projects.stream().anyMatch(p -> p.projectName.equalsIgnoreCase(n));
     }
 
     /** Only reachable from the older hello-view.fxml, which has no scrim to show. */
@@ -387,9 +399,11 @@ public class HelloController {
     public void createProjectUI(Project projectObj, boolean isNew) {
 
         if (isNew) {
-            // initial capture when a new project is made; saveProject() upserts into projects
+            // initial capture when a new project is made; saveProject() upserts into projects.
+            // A null lastCheckpoint is the dialog's "Checkpoint immediately" left unticked.
+            activeProject = projectObj;
             try {
-                projectObj.apps = segregateApps(captureRunningApps());
+                if (projectObj.lastCheckpoint != null) projectObj.apps = segregateApps(captureRunningApps());
                 saveProject(projectObj);
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
@@ -523,6 +537,8 @@ public class HelloController {
                 () -> { if (!overlayOpen()) onCheckpoint(); });
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.N, KeyCombination.SHORTCUT_DOWN),
                 () -> { if (!overlayOpen()) onNewProjectClick(); });
+        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN),
+                () -> { if (!overlayOpen() && detailPane.isVisible()) undoCheckpoint(); });
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.B, KeyCombination.SHORTCUT_DOWN),
                 () -> setRailWide(!rail.getStyleClass().contains("rail-wide")));
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
@@ -1326,6 +1342,11 @@ public class HelloController {
             item.disableProperty().bind(btnCheckpoint.disabledProperty());
             menu.getItems().add(item);
         }
+        MenuItem undo = new MenuItem("Undo last checkpoint  ·  Ctrl+Z");
+        undo.setOnAction(e -> undoCheckpoint());
+        menu.getItems().addAll(new SeparatorMenuItem(), undo);
+        menu.setOnShowing(e -> undo.setDisable(activeProject == null
+                || !undoByProject.containsKey(activeProject.projectName)));
         // consume, or the whole-button click handler fires an overwrite underneath the menu
         btnCheckpointMenu.setOnMouseClicked(e -> { e.consume(); menu.show(btnCheckpointMenu, Side.BOTTOM, 0, 4); });
         Tooltip.install(btnCheckpointMenu, tip("Add what is missing"));
@@ -1333,32 +1354,80 @@ public class HelloController {
     }
 
     private void onCheckpoint() {
-        // the confirmation cannot be re-triggered while it runs
+        // the confirmation cannot be re-triggered while it runs. No "are you sure" for an old
+        // checkpoint any more: whatever this replaces is one Ctrl+Z away (undoCheckpoint).
         if (activeProject == null || System.nanoTime() < ckBusyUntil) return;
+        writeCheckpoint(activeProject, Checkpoint.OVERWRITE);
+    }
+
+    /** One level of undo per project: the project as it stood before its last checkpoint,
+        as projects.json would hold it. */
+    // ponytail: in memory, so a restart forgets it; write it beside projects.json if undo
+    // ever needs to survive a relaunch
+    private final Map<String, String> undoByProject = new HashMap<>();
+
+    /** The project a capture push asked tabs for, and until when (System.nanoTime) replies
+        belong to it rather than to whichever project is on screen by the time they land.
+        A null target inside the window drops the replies: the checkpoint was undone. */
+    private volatile Project tabTarget;
+    private volatile long tabTargetUntil;
+    static final long TAB_WINDOW_NANOS = 10_000_000_000L;
+
+    /** Where a POST /tabs lands: the project that asked, while its window is open; after
+        that (a manual send from the popup) the active one. Null means drop it. */
+    static Project tabsTarget(Project pending, long until, long now, Project active) {
+        return now < until ? pending : active;
+    }
+
+    private void askForTabs(Project projectObj) {
+        tabTarget = projectObj;
+        tabTargetUntil = System.nanoTime() + TAB_WINDOW_NANOS;
+        wsSessions.forEach(session -> session.send("capture"));
+    }
+
+    /** Puts back what a checkpoint changes (apps, tabs, its time) from a gson snapshot. */
+    void restore(Project projectObj, String snapshot) {
+        Project old = gson.fromJson(snapshot, Project.class);
+        projectObj.apps = old.apps;
+        projectObj.urlsByBrowser = old.urlsByBrowser;
+        projectObj.lastCheckpoint = old.lastCheckpoint;
+    }
+
+    private void dropIncomingTabs() {
+        tabTarget = null;
+        tabTargetUntil = System.nanoTime() + TAB_WINDOW_NANOS;
+    }
+
+    private void undoCheckpoint() {
+        if (activeProject == null || resuming) return;
+        String before = undoByProject.remove(activeProject.projectName);
+        if (before == null) return;
         Project projectObj = activeProject;
-        // A checkpoint from another day with something in it gets one beat before it is
-        // replaced; today's, or an empty one, just overwrites.
-        String age = ago(projectObj.lastCheckpoint);
-        int apps = countApps(projectObj), tabs = countTabs(projectObj);
-        java.time.Duration d = since(projectObj.lastCheckpoint);
-        boolean worthAsking = d != null && d.toHours() >= 24 && (apps > 0 || tabs > 0);
-        if (!worthAsking) {
-            writeCheckpoint(projectObj, Checkpoint.OVERWRITE);
-            return;
+        restore(projectObj, before);
+        // a tab reply still on its way belongs to the checkpoint just undone
+        dropIncomingTabs();
+        try {
+            saveProject(projectObj);
+        } catch (IOException ex) {
+            confirm("Undo not written", projectsFile().getPath(),
+                    "The card shows the earlier checkpoint, the disk does not. " + ex.getMessage(),
+                    "Retry", () -> { try { saveProject(projectObj); } catch (IOException ignored) { } });
         }
-        confirm("Checkpoint again?",
-                "checkpoint " + when(age) + " \u00b7 " + apps + " apps \u00b7 " + tabs + " tabs",
-                "What is open right now replaces the checkpoint from " + when(age)
-                        + ". Tabs from browsers that are not connected are kept.",
-                "Overwrite", () -> writeCheckpoint(projectObj, Checkpoint.OVERWRITE));
+        StackPane row = rowsByProject.get(projectObj.projectName);
+        if (row != null) railTip(row, projectObj);
+        renderDetail(projectObj);
     }
 
     private void writeCheckpoint(Project projectObj, Checkpoint mode) {
+        // a checkpoint mid-resume would record a half-launched desktop over the project
+        if (resuming) return;
+        String before = gson.toJson(projectObj);
         // No bucket is ever dropped here: a browser that answers the capture push overwrites its
         // own bucket in POST /tabs, and one that does not answer (asleep worker, dead socket,
         // closed) keeps what it had. Stale beats gone.
         tabMode = mode;
-        if (mode.tabs()) wsSessions.forEach(session -> session.send("capture"));
+        boolean tabsComing = mode.tabs() && !wsSessions.isEmpty();
+        if (mode.tabs()) askForTabs(projectObj);
         try {
             if (mode.apps()) {
                 HashMap<String, HashSet<String>> now = segregateApps(captureRunningApps());
@@ -1368,18 +1437,24 @@ public class HelloController {
             projectObj.lastCheckpoint = Instant.now().toString();
             saveProject(projectObj);
         } catch (IOException ex) {
-            // the card must not claim "saved" over a write that did not happen
+            // the card must not claim "saved" over a write that did not happen: memory goes back
+            // to what the disk still holds, and the tabs already asked for are turned away
+            restore(projectObj, before);
+            dropIncomingTabs();
+            renderDetail(projectObj);
             confirm("Checkpoint not written", projectsFile().getPath(),
                     "Nothing changed on disk. " + ex.getMessage(),
                     "Retry", () -> writeCheckpoint(projectObj, mode));
             return;
         }
+        undoByProject.put(projectObj.projectName, before);
         StackPane row = rowsByProject.get(projectObj.projectName);
         if (row != null) railTip(row, projectObj);
 
         renderDetail(projectObj);
-        // "just now" dropped: the block's column holds ~18 characters, and "Saved" already says it
-        checkpointSaved(countApps(projectObj) + " apps · " + countTabs(projectObj) + " tabs");
+        // "just now" dropped: the block's column holds ~18 characters, and "Saved" already says it.
+        // Tabs reply after this returns, so their count is "tabs…" until POST /tabs fills it in.
+        checkpointSaved(countApps(projectObj) + " apps · " + (tabsComing ? "tabs…" : countTabs(projectObj) + " tabs"));
     }
 
     /** Add mode: every exe open now joins its category; nothing saved is dropped. */
@@ -1622,11 +1697,11 @@ public class HelloController {
         }
         return OTHER;
     }
-    /** Makes the project active and writes it to projects.json (replacing any entry with the
-        same name). Both the in-memory list and the on-disk list are updated. */
+    /** Writes the project to projects.json (replacing any entry with the same name). Both the
+        in-memory list and the on-disk list are updated. It does not make the project active:
+        tabs can now land on a project that is not on screen. */
     public void saveProject(Project projectObj) throws IOException {
 
-        activeProject = projectObj;
         System.out.println("urls: "+projectObj.urls);
 
         upsertByName(projects, projectObj);
@@ -1662,6 +1737,8 @@ public class HelloController {
         if (activeProject != null && activeProject.projectName.equals(projectObj.projectName)) {
             activeProject = null;
         }
+        if (tabTarget != null && tabTarget.projectName.equals(projectObj.projectName)) dropIncomingTabs();
+        undoByProject.remove(projectObj.projectName);
         projectList.getChildren().remove(projectRow);
     }
 
@@ -2065,19 +2142,27 @@ public class HelloController {
             @SuppressWarnings("unchecked")
             List<String> incoming = (List<String>) data.get("urls");
             Object browser = data.get("browser");
-            if (activeProject != null && incoming != null) {
+            // the project whose checkpoint asked, even if another one is on screen by now
+            Project target = tabsTarget(tabTarget, tabTargetUntil, System.nanoTime(), activeProject);
+            if (target != null && incoming != null) {
                 // browser is absent when getBrowserFromBrands() recognises no brand
                 String key = browser != null ? browser.toString() : DEFAULT_BROWSER;
                 List<String> pages = incoming.stream().filter(HelloController::isPageUrl).toList();
-                activeProject.urlsByBrowser.put(key, tabMode.merge()
-                        ? mergeUrls(activeProject.urlsByBrowser.getOrDefault(key, new ArrayList<>()), pages)
+                target.urlsByBrowser.put(key, tabMode.merge()
+                        ? mergeUrls(target.urlsByBrowser.getOrDefault(key, new ArrayList<>()), pages)
                         : new ArrayList<>(pages));
-                saveProject(activeProject);
+                saveProject(target);
                 // tabs arrive after the checkpoint button has already returned, so the
-                // card has to be redrawn off the javalin thread
+                // card has to be redrawn off the javalin thread - and only if it is this card
                 if (isHud()) {
-                    Project posted = activeProject;
-                    Platform.runLater(() -> renderDetail(posted));
+                    Platform.runLater(() -> {
+                        if (target != activeProject) return;
+                        renderDetail(target);
+                        // the "Saved" line said "tabs…" until now
+                        if (System.nanoTime() < ckBusyUntil) {
+                            ckDoneSub.setText(countApps(target) + " apps · " + countTabs(target) + " tabs");
+                        }
+                    });
                 }
             }
         });

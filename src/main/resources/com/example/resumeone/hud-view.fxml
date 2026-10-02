@@ -398,7 +398,7 @@
           <VBox spacing="8.0">
             <Label styleClass="cat-foot" text="Project name"/>
             <TextField fx:id="npName" styleClass="input-name" promptText="ledger-api"/>
-            <Label styleClass="cat-foot" text="shown in the sidebar &#8212; used as the key in projects.json"/>
+            <Label fx:id="npHint" styleClass="cat-foot" text="shown in the sidebar"/>
           </VBox>
 
           <VBox spacing="8.0">
