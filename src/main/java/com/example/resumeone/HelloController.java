@@ -149,7 +149,7 @@ public class HelloController {
     @FXML public StackPane resumeGlyphBox, ckDoneGlyphBox, emptyGlyphBox,
             deleteFolderGlyph, npFolderGlyph;
     @FXML public Region statusDot;
-    @FXML public Label projectNameLabel, projectPathLabel, resumeSpec, checkpointSub, ckDoneSub, tabsCount, statusLabel;
+    @FXML public Label projectNameLabel, projectPathLabel, checkpointSub, ckDoneSub, tabsCount, statusLabel;
 
     /** Hover-only: names the browsers on the socket, so the dot itself stays uncluttered. */
     // built in initialize(), not here: a Tooltip needs the JavaFX toolkit, which the unit tests
@@ -758,7 +758,6 @@ public class HelloController {
         int apps = countApps(projectObj);
         int tabs = countTabs(projectObj);
 
-        resumeSpec.setText(resumeLine(apps, tabs, projectObj.folderPath != null));
         btnResume.setDisable(apps == 0 && tabs == 0);
         checkpointSub.setText(checkpointLine(projectObj.lastCheckpoint));
         tabsCount.setText(String.valueOf(tabs));
@@ -772,12 +771,6 @@ public class HelloController {
     private static final List<String> CATEGORY_ORDER = List.of(
             "IDE", "AI", "Terminal", "Browser", "Database", "API", "Containers",
             "VersionControl", "Design", "Communication", "Notes", "Music");
-
-    /** "10 APPS \u00b7 14 TABS \u00b7 1 FOLDER" under RESUME: what one press brings back. */
-    static String resumeLine(int apps, int tabs, boolean folder) {
-        return apps + (apps == 1 ? " APP" : " APPS") + " \u00b7 " + tabs + (tabs == 1 ? " TAB" : " TABS")
-                + " \u00b7 " + (folder ? "1 FOLDER" : "NO FOLDER");
-    }
 
     /** "overwrite \u00b7 2h old" under Checkpoint; "now", not "just now", because the 296px block's
         text column holds ~18 mono characters and "overwrite \u00b7 just now" is 20. */

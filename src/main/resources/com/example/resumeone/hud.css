@@ -224,8 +224,7 @@
 .resume { -fx-background-color: -rw-go; -fx-cursor: hand; }
 .resume:hover { -fx-background-color: -rw-go2; }
 .resume-word { -fx-font-size: 34px; -fx-font-family: "Sora ExtraBold"; -fx-text-fill: -rw-goi; }
-/* what a press rebuilds, and the shortcut that does the same: mono caps in the block's ink */
-.resume-spec { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-goi; -fx-opacity: 0.78; }
+/* the shortcut that does the same as a press: mono caps in the block's ink */
 .resume-hint { -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-goi; -fx-opacity: 0.85; }
 .resume-key {
     -fx-font-family: "Space Mono"; -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-goi;
@@ -237,8 +236,7 @@
 }
 /* nothing to resume: orange is the verb, and there is no verb here */
 .resume:disabled { -fx-background-color: -rw-g3; -fx-opacity: 0.6; -fx-cursor: default; }
-.resume:disabled .resume-word, .resume:disabled .resume-spec,
-.resume:disabled .resume-hint, .resume:disabled .resume-key { -fx-text-fill: -rw-tx3t; }
+.resume:disabled .resume-word, .resume:disabled .resume-hint, .resume:disabled .resume-key { -fx-text-fill: -rw-tx3t; }
 .resume:disabled .resume-key { -fx-border-color: -rw-ln2; -fx-background-color: transparent; }
 .resume:disabled .ico { -fx-stroke: -rw-tx3; }
 

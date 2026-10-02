@@ -113,11 +113,7 @@
           <HBox fx:id="btnResume" styleClass="resume" alignment="CENTER_LEFT" spacing="16.0" HBox.hgrow="ALWAYS">
             <padding><Insets left="22.0" right="22.0"/></padding>
             <StackPane fx:id="resumeGlyphBox"/>
-            <!-- minWidth 0: in a narrow window the spec line ellipsises before the keycap moves -->
-            <VBox spacing="7.0" alignment="CENTER_LEFT" minWidth="0.0">
-              <Label styleClass="resume-word" text="RESUME"/>
-              <Label fx:id="resumeSpec" styleClass="resume-spec" text="" minWidth="0.0"/>
-            </VBox>
+            <Label styleClass="resume-word" text="RESUME"/>
             <Region HBox.hgrow="ALWAYS" minWidth="0.0"/>
             <!-- the shortcut, stated: Ctrl+R resumes (installKeys) -->
             <VBox spacing="6.0" alignment="CENTER_RIGHT" minWidth="-Infinity">
