@@ -65,6 +65,8 @@ import java.awt.*;
 import java.io.File;
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.net.URISyntaxException;
 import java.util.*;
@@ -115,15 +117,18 @@ public class HelloController {
     @FXML public VBox resumingPane, restoredPane, resumingRows, restoredRows;
     @FXML public HBox titleState, restoredMeter, countdownTrack;
     @FXML public StackPane resumingMeter;
-    @FXML public Region titleStateDot, resumingFill, resumingSheen, restoredFill, restoredFailFill, countdownFill;
+    @FXML public Region titleStateDot, resumingFill, restoredFill, restoredFailFill, countdownFill;
     @FXML public Label titleStateVerb, titleStateName, resumingCount, resumingPct, resumingName,
-            resumingSkipped, restoredCount, restoredTook, restoredSpec, restoredNote, restoredName;
-    @FXML public Button btnResumeStop, btnStayHere, btnOpenProject;
+            resumingSkipped, restoredCount, restoredTook, restoredSpec, restoredNote, restoredName,
+            restoredWord;
+    @FXML public Button btnResumeStop, btnStayHere, btnOpenProject, btnResumeRest;
     private final DoubleProperty resumingFrac = new SimpleDoubleProperty();
     private final DoubleProperty restoredFrac = new SimpleDoubleProperty();
     private final DoubleProperty restoredFailFrac = new SimpleDoubleProperty();
     private final DoubleProperty countdownFrac = new SimpleDoubleProperty();
     private volatile boolean resuming, stopRequested;
+    /** The project whose checkpoint is capturing off the FX thread, or null when none is. */
+    private volatile Project checkpointing;
     private Timeline countdown;
     private static final PseudoClass PC_LAUNCHING = PseudoClass.getPseudoClass("launching");
     private static final PseudoClass PC_FAILED    = PseudoClass.getPseudoClass("failed");
@@ -219,17 +224,9 @@ public class HelloController {
         Tooltip.install(btnSettingsBack, tip("Esc"));
         for (Node b : List.of(btnNewProjectWide, btnNewProjectEmpty, btnSettingsBack, btnDeleteCancel, btnDeleteOk,
                 btnNpBrowse, btnNpCancel, btnNpCreate, btnConfirmCancel, btnConfirmOk,
-                btnResumeStop, btnStayHere, btnOpenProject)) {
+                btnResumeStop, btnStayHere, btnOpenProject, btnResumeRest)) {
             Motion.pressable(b);
         }
-        // rwSweep: a quarter-width sheen crossing the fill, clipped to the fill
-        resumingSheen.prefWidthProperty().bind(resumingMeter.widthProperty().multiply(.25));
-        javafx.scene.shape.Rectangle sheenClip = new javafx.scene.shape.Rectangle();
-        sheenClip.widthProperty().bind(resumingFill.widthProperty());
-        sheenClip.heightProperty().bind(resumingMeter.heightProperty());
-        resumingSheen.setClip(sheenClip);
-        resumingSheen.translateXProperty().bind(resumingSheen.prefWidthProperty().multiply(sweepPhase.multiply(4).subtract(1)));
-        sheenClip.xProperty().bind(resumingSheen.translateXProperty().negate());
         // what the app does, as plain check + label: these were disabled checkboxes, which read
         // as "locked" and rendered at 2:1. The copy states each behaviour as a fact.
         captureRows.getChildren().setAll(
@@ -284,6 +281,9 @@ public class HelloController {
         Icons.animate(btnResumeStop, btnResumeStop.getGraphic());
         btnResumeStop.setOnAction(e -> stopRequested = true);
         btnStayHere.setOnAction(e -> stopCountdown());
+        btnResumeRest.setGraphic(Icons.node(Icons.RESUME, 16, GO));
+        Icons.animate(btnResumeRest, btnResumeRest.getGraphic());
+        btnResumeRest.setOnAction(e -> { if (shownRun != null) resumeRest(shownRun); });
         btnOpenProject.setGraphic(Icons.node(Icons.CHEVRON, 16, TX));
         btnOpenProject.setOnAction(e -> { stopCountdown(); backToProjects(); });
         // meters are fractions bound to their track, so they are right before first layout
@@ -375,7 +375,8 @@ public class HelloController {
             legacyNewProjectDialog();
             return;
         }
-        if (resuming) return;   // a new project's capture would land in the middle of a launch
+        // a new project's capture would land in the middle of a launch, or race the one running
+        if (resuming || checkpointing != null) return;
         npName.clear();
         npFolder.setText(NO_FOLDER);
         npCapture.setSelected(true);
@@ -395,10 +396,13 @@ public class HelloController {
         if (name.isEmpty() || nameTaken(projects, name)) return;
         String folder = NO_FOLDER.equals(npFolder.getText()) ? null : npFolder.getText();
         Project projectObj = new Project(name, folder, new HashMap<>(), new ArrayList<>());
-        if (!npCapture.isSelected()) projectObj.lastCheckpoint = null;   // "no checkpoint yet" is true
+        // "no checkpoint yet" until one lands: a null lastCheckpoint also keeps createProjectUI
+        // from capturing on the FX thread
+        projectObj.lastCheckpoint = null;
         // createProjectUI -> selectProject -> showBase() clears the overlay for us
         createProjectUI(projectObj, true);
-        if (npCapture.isSelected()) askForTabs(projectObj);
+        // the same off-thread checkpoint as the block: "checkpointing…", then "Saved"
+        if (npCapture.isSelected()) writeCheckpoint(projectObj, Checkpoint.OVERWRITE);
     }
 
     /** Names are compared the way a person reads them: "Atlas-API" is "atlas-api" taken. */
@@ -530,7 +534,7 @@ public class HelloController {
         resumeGlyphBox.getChildren().add(play);
         Icons.animate(btnResume, play);
         // the checkpoint block keeps its earlier slate; its "Saved" check matches that sub-line
-        ckDoneGlyphBox.getChildren().add(Icons.node(Icons.CHECK, 22, "#7A94BC", 2.2));
+        ckDoneGlyphBox.getChildren().add(Icons.node(Icons.CHECK, 22, CKT, 2.2));
         emptyGlyphBox.getChildren().add(Icons.node(Icons.BOOKMARK_PLUS, 40, CK));
         deleteFolderGlyph.getChildren().add(Icons.node(Icons.OTHER, 16, TX3));
         npFolderGlyph.getChildren().add(Icons.node(Icons.OTHER, 16, TX3));
@@ -714,22 +718,6 @@ public class HelloController {
         showOverlay(null);
         if (target != resumingPane && target != restoredPane) titleState(null, null, false);
         if (target != settingsPane) btnSettings.getStyleClass().remove("rail-active");
-        sweep(target == resumingPane);
-    }
-
-    /** rwSweep: translateX(-100%) → (300%), 1400ms linear, while the launching strip is up.
-        A 0..1 phase rather than pixels, so it is right before the strip's first layout. */
-    private final DoubleProperty sweepPhase = new SimpleDoubleProperty();
-    private Timeline sweep;
-    private void sweep(boolean on) {
-        if (sweep != null) sweep.stop();
-        resumingSheen.setVisible(on && !Motion.REDUCED);
-        if (!resumingSheen.isVisible()) return;
-        sweep = new Timeline(
-                new KeyFrame(Duration.ZERO, new KeyValue(sweepPhase, 0)),
-                new KeyFrame(Duration.millis(1400), new KeyValue(sweepPhase, 1, Interpolator.LINEAR)));
-        sweep.setCycleCount(Timeline.INDEFINITE);
-        sweep.play();
     }
 
     /** "RESUMING atlas-api" in the title bar; null verb puts the port cluster back. */
@@ -781,7 +769,8 @@ public class HelloController {
     }
 
     private void showDeleteView() {
-        if (activeProject == null) return;
+        // the capture would write the project straight back after it was deleted
+        if (activeProject == null || checkpointing == activeProject) return;
         String age = ago(activeProject.lastCheckpoint);
         deleteSub.setText(countApps(activeProject) + " apps \u00b7 " + countTabs(activeProject) + " tabs \u00b7 "
                 + ("never".equals(age) ? "no checkpoint yet" : "checkpoint " + when(age)));
@@ -883,13 +872,15 @@ public class HelloController {
         projectPathLabel.setText(projectObj.folderPath == null ? "no folder" : "\u2026\\" + new File(projectObj.folderPath).getName());
         pathTip.setText(projectObj.folderPath == null ? "no folder chosen" : projectObj.folderPath);
 
-        int apps = countApps(projectObj);
+        int apps = launchableApps(projectObj);
         int tabs = countTabs(projectObj);
 
         btnResume.setDisable(apps == 0 && tabs == 0);
-        // the count is the proof: what one press brings back, on the button that does it
-        resumeCounts.setText(apps == 0 && tabs == 0 ? "NOTHING SAVED YET" : resumeCountLine(apps, tabs));
-        checkpointSub.setText(checkpointLine(projectObj.lastCheckpoint));
+        // the count is the proof: what one press brings back, on the button that does it - so it
+        // counts what Resume launches, not everything captured (Other and handled browsers are not)
+        resumeCounts.setText(apps > 0 || tabs > 0 ? resumeCountLine(apps, tabs)
+                : countApps(projectObj) > 0 ? "NOTHING TO RELAUNCH" : "NOTHING SAVED YET");
+        checkpointSub.setText(checkpointing == projectObj ? CHECKPOINTING : checkpointLine(projectObj.lastCheckpoint));
         tabsCount.setText(String.valueOf(tabs));
 
         renderCategories(projectObj);
@@ -1200,29 +1191,47 @@ public class HelloController {
     // == resume: 1e in progress -> 1l done ==================================
     //   onResume runs planResume() on a worker thread, one LaunchStep per LAUNCH_GAP_MS. Every
     //   state change re-renders resumingPane (1e). The run finishes into restoredPane (1l),
-    //   which keeps failures visible with a Retry and auto-returns to the project in 3s.
+    //   which keeps failures visible with a Retry and auto-returns to the project in 5s.
 
     // ponytail: 750ms between spawns is a first guess at what stops ten processes landing
     // on the machine at once; the design paces its prototype at 220ms for looks. Tune by feel.
     static final long LAUNCH_GAP_MS = 750;
 
     private void onResume() {
-        if (activeProject == null || resuming || btnResume.isDisabled()) return;
+        // a resume during a checkpoint's capture would be recorded into that checkpoint
+        if (activeProject == null || resuming || checkpointing != null || btnResume.isDisabled()) return;
+        startRun(new ResumeRun(activeProject), true);
+    }
+
+    /** "Resume the rest" on a stopped 1l: the same run, picking up at its first queued step. */
+    private void resumeRest(ResumeRun r) {
+        if (resuming || checkpointing != null) return;
+        stopCountdown();
+        startRun(r, false);
+    }
+
+    /** Shows 1e and walks the run's queued steps on a worker; plan=true captures and plans first. */
+    private void startRun(ResumeRun r, boolean plan) {
         resuming = true;
         stopRequested = false;
-        ResumeRun r = new ResumeRun(activeProject);
+        r.stopped = false;
+        r.error = null;
         lastLaunching = null;
         titleState("RESUMING", r.project.projectName, false);
         resumingName.setText(r.project.projectName);
         showBase(resumingPane);
         renderResuming(r);
 
+        long startNanos = System.nanoTime();
         Thread worker = new Thread(() -> {
             try {
-                // the PowerShell capture takes seconds: off the FX thread it no longer freezes the HUD
-                r.plan = planResume(r.project, captureRunningApps(), r.log);
-                Platform.runLater(() -> renderResuming(r));
+                if (plan) {
+                    // the PowerShell capture takes seconds: off the FX thread it no longer freezes the HUD
+                    r.plan = planResume(r.project, captureRunningApps(), r.log);
+                    Platform.runLater(() -> renderResuming(r));
+                }
                 for (LaunchStep step : r.plan.steps()) {
+                    if (step.state != LaunchStep.State.QUEUED) continue;   // ran before the stop
                     if (stopRequested) {
                         r.log.add("stopped by user");
                         break;
@@ -1237,11 +1246,15 @@ public class HelloController {
                     Thread.sleep(LAUNCH_GAP_MS);
                 }
             } catch (IOException ex) {
-                r.log.add("resume failed: " + ex.getMessage());
+                // without the list of open apps there is no telling what would open twice, so
+                // nothing is launched and 1l says so instead of "RESUMED"
+                r.error = ex.getMessage() == null ? "the open apps could not be listed" : ex.getMessage();
+                r.log.add("resume failed: " + r.error);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             } finally {
-                r.tookMs = (System.nanoTime() - r.startNanos) / 1_000_000;
+                r.tookMs += (System.nanoTime() - startNanos) / 1_000_000;
+                r.stopped = r.error == null && r.queued() > 0;
                 resuming = false;
                 Platform.runLater(() -> showRestored(r));
             }
@@ -1293,20 +1306,43 @@ public class HelloController {
         resumingSkipped.setText(skipped.isEmpty() ? "" : skipped.size() + " already open, left alone · " + names(skipped));
     }
 
-    /** 1l. Orange closes the verb. A clean run goes back to 1b in three seconds; a run with a
-        failure stays until it is retried or left, so the failure can be read. */
+    /** The run 1l is showing, for "Resume the rest". */
+    private ResumeRun shownRun;
+
+    /** How a run ended, as 1l's verb: only a run that got through its plan says RESUMED. */
+    static String outcome(ResumeRun r) {
+        return r.error != null ? "NOT RESUMED" : r.stopped ? "STOPPED" : "RESUMED";
+    }
+
+    /** 1l. Orange closes the verb. A clean run goes back to 1b after RETURN_SECONDS; a stopped run,
+        a failed capture or a failed launch stays until it is dealt with or left, so it can be read. */
     private void showRestored(ResumeRun r) {
-        titleState("RESUMED", r.project.projectName, true);
+        shownRun = r;
+        String verb = outcome(r);
+        boolean clean = r.error == null && !r.stopped && r.failed() == 0;
+        titleState(verb, r.project.projectName, clean);
+        restoredWord.setText(verb);
         restoredName.setText(r.project.projectName);
         logOpen = false;
         showBase(restoredPane);
         renderRestored(r);
-        long failed = r.failed();
-        if (failed == 0) {
+        // no countdown and no "Stay here" unless the run is finished and clean
+        btnStayHere.setVisible(clean);
+        btnStayHere.setManaged(clean);
+        btnResumeRest.setVisible(r.stopped);
+        btnResumeRest.setManaged(r.stopped);
+        if (clean) {
             startCountdown(r);
             btnStayHere.requestFocus();   // one keypress keeps the screen, Esc leaves it
+        } else if (r.stopped) {
+            // STOPPED and "3 / 10" are already on screen; the note adds only what is left
+            restoredNote.setText(r.queued() + " not launched \u00b7 Esc to go back");
+            btnResumeRest.requestFocus();
+        } else if (r.error != null) {
+            restoredNote.setText("Retry, or Esc to go back");
+            if (restoredRows.lookup(".fail-row .button") instanceof Button retry) retry.requestFocus();
         } else {
-            restoredNote.setText(failed + " failed \u00b7 Retry it, or Esc to go back");
+            restoredNote.setText(r.failed() + " failed \u00b7 Retry it, or Esc to go back");
             if (restoredRows.lookup(".fail-row .button") instanceof Button retry) retry.requestFocus();
         }
     }
@@ -1324,15 +1360,29 @@ public class HelloController {
         restoredSpec.setText(r.appsDone() + " apps · " + tabsSent + " tabs");
 
         restoredRows.getChildren().clear();
+        if (r.error != null) {
+            // nothing was planned, so the launched / sent rows below would only say zero twice
+            restoredSpec.setText("nothing launched");
+            // the cause is whatever the capture threw; it rides on the hover, not on a guess here
+            restoredRows.getChildren().add(failRow("open apps", "could not be listed", r.error, this::onResume));
+        }
         List<String> browsers = new ArrayList<>(), apps = new ArrayList<>();
         for (LaunchStep step : r.plan.steps()) {
             if (step.state == LaunchStep.State.FAILED) restoredRows.getChildren().add(failRow(r, step));
             if (step.state == LaunchStep.State.DONE) (step.browser ? browsers : apps).add(step.label);
         }
-        restoredRows.getChildren().add(foldRow(Icons.APP_WINDOW, apps.size() + " apps launched",
-                apps.isEmpty() ? "nothing new to open" : names(apps)));
-        restoredRows.getChildren().add(foldRow(Icons.BROWSER, tabsSent + " tabs sent",
-                browsers.isEmpty() ? "no browser opened" : String.join(" · ", browsers)));
+        if (r.error == null) {
+            restoredRows.getChildren().add(foldRow(Icons.APP_WINDOW, apps.size() + " apps launched",
+                    apps.isEmpty() ? "nothing new to open" : names(apps)));
+            restoredRows.getChildren().add(foldRow(Icons.BROWSER, tabsSent + " tabs sent",
+                    browsers.isEmpty() ? "no browser opened" : String.join(" · ", browsers)));
+        }
+        // the RESUME block counted these too; without this row "6 apps" would end as "4 apps"
+        // with nothing to say where the other two went
+        List<String> skipped = r.plan.skipped();
+        if (!skipped.isEmpty()) {
+            restoredRows.getChildren().add(foldRow(Icons.CHECK, skipped.size() + " already open, left alone", names(skipped)));
+        }
         HBox log = foldRow(Icons.TERMINAL, "Resume log", r.log.size() + " lines · " + (logOpen ? "hide" : "show"));
         clickable(log, logOpen ? "Hide the resume log" : "Show the resume log", () -> { logOpen = !logOpen; renderRestored(r); });
         restoredRows.getChildren().add(log);
@@ -1359,15 +1409,19 @@ public class HelloController {
         return n;
     }
 
+    /** How long a clean RESUMED stays up before going back to the project. */
+    static final int RETURN_SECONDS = 5;
+
     private void startCountdown(ResumeRun r) {
         String name = r.project.projectName;
         countdownFrac.set(0);
         countdown = new Timeline(
-                new KeyFrame(Duration.ZERO,       e -> restoredNote.setText("returning to " + name + " in 3s")),
-                new KeyFrame(Duration.seconds(1), e -> restoredNote.setText("returning to " + name + " in 2s")),
-                new KeyFrame(Duration.seconds(2), e -> restoredNote.setText("returning to " + name + " in 1s")),
-                new KeyFrame(Duration.seconds(3), e -> backToProjects(),
+                new KeyFrame(Duration.seconds(RETURN_SECONDS), e -> backToProjects(),
                         new KeyValue(countdownFrac, 1, Interpolator.LINEAR)));
+        for (int s = 0; s < RETURN_SECONDS; s++) {
+            String left = "returning to " + name + " in " + (RETURN_SECONDS - s) + "s";
+            countdown.getKeyFrames().add(new KeyFrame(Duration.seconds(s), e -> restoredNote.setText(left)));
+        }
         countdown.play();
     }
 
@@ -1468,19 +1522,25 @@ public class HelloController {
     }
 
     private HBox failRow(ResumeRun r, LaunchStep step) {
+        return failRow(step.label, failure(step), step.error, () -> retry(r, step));
+    }
+
+    /** A failure that stays on screen: what, why in the OS's words (full text on hover), Retry. */
+    private HBox failRow(String label, String whyText, String tipText, Runnable onRetry) {
         HBox row = rowShell("fail-row");
         row.setMinHeight(56);
         row.setPrefHeight(56);
-        Label why = styled(new Label(failure(step)), "fail-why");
+        Label why = styled(new Label(whyText), "fail-why");
         why.setMaxWidth(Double.MAX_VALUE);
-        if (step.error != null) Tooltip.install(why, tip(step.error));
+        if (tipText != null) Tooltip.install(why, tip(tipText));
         HBox.setHgrow(why, Priority.ALWAYS);
         Button retry = styled(new Button("Retry"), "btn-ghost");
         retry.setGraphic(Icons.node(Icons.RECAPTURE, 16, TX));
         Icons.animate(retry, retry.getGraphic());
         retry.setGraphicTextGap(8);
-        retry.setOnAction(e -> retry(r, step));
-        row.getChildren().addAll(Icons.node(Icons.FAILED, 14, BAD), styled(new Label(step.label), "step-label"), why, retry);
+        retry.setAccessibleText("Retry " + label);
+        retry.setOnAction(e -> onRetry.run());
+        row.getChildren().addAll(Icons.node(Icons.FAILED, 14, BAD), styled(new Label(label), "step-label"), why, retry);
         return row;
     }
 
@@ -1518,11 +1578,35 @@ public class HelloController {
     /** Glyph colours, set from code (hud.css still re-colours them on hover): the 5a tokens. */
     private static final String TX = "#E9E3DF", TX2 = "#A8A29E", TX3 = "#77726E",
             GO = "#FF6500", GOI = "#1A0A00", BAD = "#EB7C73", HUD = "#A8A29E",
-            CK = "#2A5688";
+            CK = "#2A5688", CKT = "#6E9BD1";
 
     static int countApps(Project projectObj) {
         if (projectObj == null || projectObj.apps == null) return 0;
         return projectObj.apps.values().stream().mapToInt(Set::size).sum();
+    }
+
+    /** What one press of Resume can launch, as planResume walks it: Other is never relaunched, a
+        browser whose tabs are saved comes back as its tabs, and a terminal that only hosts
+        claude opens with it. Apps already open at the time are left alone, and 1l says so. */
+    static int launchableApps(Project projectObj) {
+        if (projectObj == null || projectObj.apps == null) return 0;
+        Set<String> withTabs = new HashSet<>();
+        if (projectObj.urlsByBrowser != null) {
+            projectObj.urlsByBrowser.forEach((browser, urls) -> {
+                String exe = BROWSER_EXE.get(browser.toLowerCase());
+                if (exe != null && !urls.isEmpty()) withTabs.add(exe);
+            });
+        }
+        boolean claudeInTerminal = hasApp(projectObj, "claude.exe") && hasApp(projectObj, "WindowsTerminal.exe");
+        int n = 0;
+        for (String category : CATEGORY_ORDER) {
+            for (String app : projectObj.apps.getOrDefault(category, new HashSet<>())) {
+                if (withTabs.contains(app.toLowerCase())) continue;
+                if (claudeInTerminal && app.equalsIgnoreCase("WindowsTerminal.exe")) continue;
+                n++;
+            }
+        }
+        return n;
     }
 
     static int countTabs(Project projectObj) {
@@ -1630,7 +1714,7 @@ public class HelloController {
     }
 
     private void undoCheckpoint() {
-        if (activeProject == null || resuming) return;
+        if (activeProject == null || resuming || checkpointing != null) return;
         String before = undoByProject.remove(activeProject.projectName);
         if (before == null) return;
         Project projectObj = activeProject;
@@ -1650,8 +1734,10 @@ public class HelloController {
     }
 
     private void writeCheckpoint(Project projectObj, Checkpoint mode) {
-        // a checkpoint mid-resume would record a half-launched desktop over the project
-        if (resuming) return;
+        // a checkpoint mid-resume would record a half-launched desktop over the project, and a
+        // second press while one is capturing would only race it to the disk
+        if (resuming || checkpointing != null) return;
+        checkpointing = projectObj;
         String before = gson.toJson(projectObj);
         // No bucket is ever dropped here: a browser that answers the capture push overwrites its
         // own bucket in POST /tabs, and one that does not answer (asleep worker, dead socket,
@@ -1659,22 +1745,51 @@ public class HelloController {
         tabMode = mode;
         boolean tabsComing = mode.tabs() && !wsSessions.isEmpty();
         if (mode.tabs()) askForTabs(projectObj);
+        if (projectObj == activeProject) checkpointSub.setText(CHECKPOINTING);
+        // the PowerShell capture takes seconds: off the FX thread the HUD keeps drawing and
+        // the block can say what it is doing
+        Thread worker = new Thread(() -> {
+            HashMap<String, HashSet<String>> now = null;
+            IOException failed = null;
+            try {
+                if (mode.apps()) now = segregateApps(captureRunningApps());
+            } catch (IOException ex) {
+                failed = ex;
+            }
+            HashMap<String, HashSet<String>> captured = now;
+            IOException error = failed;
+            Platform.runLater(() -> finishCheckpoint(projectObj, mode, before, tabsComing, captured, error));
+        }, "checkpoint");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    static final String CHECKPOINTING = "checkpointing…";
+
+    /** The FX-thread half of writeCheckpoint, once the capture is back (or failed). */
+    private void finishCheckpoint(Project projectObj, Checkpoint mode, String before, boolean tabsComing,
+                                  HashMap<String, HashSet<String>> captured, IOException captureError) {
+        checkpointing = null;
+        boolean onScreen = projectObj == activeProject;
         try {
-            if (mode.apps()) {
-                HashMap<String, HashSet<String>> now = segregateApps(captureRunningApps());
-                if (mode.merge()) mergeApps(projectObj.apps, now);
-                else projectObj.apps = now;
+            if (captureError != null) throw captureError;
+            if (captured != null) {
+                if (mode.merge()) mergeApps(projectObj.apps, captured);
+                else projectObj.apps = captured;
             }
             projectObj.lastCheckpoint = Instant.now().toString();
             saveProject(projectObj);
         } catch (IOException ex) {
             // the card must not claim "saved" over a write that did not happen: memory goes back
-            // to what the disk still holds, and the tabs already asked for are turned away
+            // to what the disk held, and the tabs already asked for are turned away. A reply that
+            // landed during the capture was written by POST /tabs, so the old state is put back.
             restore(projectObj, before);
             dropIncomingTabs();
-            renderDetail(projectObj);
+            try { saveProject(projectObj); } catch (IOException ignored) { }
+            if (onScreen) renderDetail(projectObj);
             confirm("Checkpoint not written", projectsFile().getPath(),
-                    "Nothing changed on disk. " + ex.getMessage(),
+                    (captureError != null ? "The open apps could not be listed. " : "")
+                            + "Nothing changed on disk. " + ex.getMessage(),
                     "Retry", () -> writeCheckpoint(projectObj, mode));
             return;
         }
@@ -1683,6 +1798,8 @@ public class HelloController {
         }
         StackPane row = rowsByProject.get(projectObj.projectName);
         if (row != null) railTip(row, projectObj);
+        // switched away mid-capture: the save landed, the other card stays as it is
+        if (!onScreen) return;
 
         renderDetail(projectObj);
         // "just now" dropped: the block's column holds ~18 characters, and "Saved" already says it.
@@ -2130,9 +2247,27 @@ public class HelloController {
     // in HKCU, machine-wide ones in HKLM.
     String browserPath(String browser) throws IOException {
         String exe = browser == null ? null : BROWSER_EXE.get(browser.toLowerCase());
-        if (exe == null) {
-            return null;
+        return exe == null ? null : appPath(exe);
+    }
+
+    /** Is "name.exe" in one of the PATH directories - the first place `start name` looks.
+        NOFOLLOW_LINKS: Store apps live in WindowsApps as execution-alias reparse points, which
+        File.isFile and a following Files.exists both report as missing. */
+    static boolean onPath(String exe, String path) {
+        if (path == null) return false;
+        for (String dir : path.split(File.pathSeparator)) {
+            if (dir.isBlank()) continue;
+            try {
+                if (Files.exists(Path.of(dir.trim().replace("\"", ""), exe), LinkOption.NOFOLLOW_LINKS)) return true;
+            } catch (java.nio.file.InvalidPathException badEntry) {
+                // a malformed PATH entry is skipped, as cmd skips it
+            }
         }
+        return false;
+    }
+
+    /** The exe's App Paths registration (HKCU, then HKLM) - where `start` looks after PATH. */
+    static String appPath(String exe) throws IOException {
         for (String hive : List.of("HKCU", "HKLM")) {
             ProcessBuilder pb = new ProcessBuilder("reg", "query",
                     hive + "\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\" + exe, "/ve");
@@ -2231,10 +2366,13 @@ public class HelloController {
     /** Everything one press of Resume produced; 1e and 1l render from it. */
     static final class ResumeRun {
         final Project project;
-        final long startNanos = System.nanoTime();
         final List<String> log = new CopyOnWriteArrayList<>();
         volatile ResumePlan plan = new ResumePlan(List.of(), List.of());
         long tookMs;
+        /** Stop was pressed with steps still queued: 1l says STOPPED and offers the rest. */
+        volatile boolean stopped;
+        /** The capture before planning failed, so nothing was planned or launched. */
+        volatile String error;
 
         ResumeRun(Project project) { this.project = project; }
 
@@ -2242,6 +2380,7 @@ public class HelloController {
         long started()  { return plan.steps().stream().filter(s -> s.state != LaunchStep.State.QUEUED).count(); }
         long done()     { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.DONE).count(); }
         long failed()   { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.FAILED).count(); }
+        long queued()   { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.QUEUED).count(); }
         long appsDone() { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.DONE && !s.browser).count(); }
     }
 
@@ -2314,6 +2453,11 @@ public class HelloController {
             HashSet<String> bucket = projectObj.apps.get(category);
             if (bucket == null) continue;
             for (String app : new TreeSet<>(bucket)) {
+                // a browser handed its tabs above is coming back, not "already open"
+                if (handledBrowsers.contains(app.toLowerCase())) {
+                    log.add("skipping " + app + ": opens with its tabs");
+                    continue;
+                }
                 if (!shouldLaunch(app, running, handledBrowsers)) {
                     skipped.add(app);
                     log.add("skipping (already open or handled): " + app);
@@ -2333,10 +2477,12 @@ public class HelloController {
                             new ProcessBuilder(cmd).directory(folder == null ? null : new File(folder)).start()));
 
                 } else if (appName.equalsIgnoreCase("Code")) {
-                    if (folder == null) continue;
-                    // open VS Code in project folder
-                    steps.add(new LaunchStep(appName(app), "code " + folder, false, () ->
-                            new ProcessBuilder("cmd.exe", "/c", "code", folder).start()));
+                    // open VS Code in the project folder; with none it reopens its last
+                    // workspace rather than silently not coming back
+                    List<String> cmd = new ArrayList<>(List.of("cmd.exe", "/c", "code"));
+                    if (folder != null) cmd.add(folder);
+                    steps.add(new LaunchStep(appName(app), folder == null ? "code" : "code " + folder, false, () ->
+                            new ProcessBuilder(cmd).start()));
 
                 } else if (appName.equalsIgnoreCase("WindowsTerminal")) {
                     if (claudeInTerminal) {
@@ -2351,8 +2497,15 @@ public class HelloController {
                 } else {
                     // no folder needed: this used to sit under the folderPath guard too, so a
                     // project without a folder relaunched nothing at all
-                    steps.add(new LaunchStep(appName(app), "start " + appName, false, () ->
-                            new ProcessBuilder("cmd.exe", "/c", "start", appName).start()));
+                    // `start` reports nothing back when windows cannot find the exe - it shows its
+                    // own dialog and the step would read as launched - so look first, the way
+                    // start does: PATH, then the App Paths keys
+                    steps.add(new LaunchStep(appName(app), "start " + appName, false, () -> {
+                        if (!onPath(app, System.getenv("PATH")) && appPath(app) == null) {
+                            throw new IOException("cannot find " + app);
+                        }
+                        new ProcessBuilder("cmd.exe", "/c", "start", appName).start();
+                    }));
                 }
             }
         }

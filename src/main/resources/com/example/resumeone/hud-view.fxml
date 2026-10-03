@@ -61,7 +61,7 @@
     <HBox spacing="2.0" alignment="CENTER_LEFT">
       <StackPane fx:id="btnMin" styleClass="iconbtn" pickOnBounds="true"/>
       <StackPane fx:id="btnMax" styleClass="iconbtn" pickOnBounds="true"/>
-      <StackPane fx:id="btnClose" styleClass="iconbtn, danger" pickOnBounds="true"/>
+      <StackPane fx:id="btnClose" styleClass="iconbtn" pickOnBounds="true"/>
     </HBox>
   </HBox>
 
@@ -138,7 +138,7 @@
             <HBox fx:id="ckIdle" alignment="CENTER_LEFT" spacing="16.0" mouseTransparent="true">
               <padding><Insets left="23.0" right="81.0"/></padding>
               <SVGPath content="M4 2 H16 V21 L10 16 L4 21 Z M19 4 V10 M16 7 H22"
-                       fill="TRANSPARENT" stroke="#E8D8C9" strokeWidth="1.8"
+                       fill="TRANSPARENT" stroke="#E9E3DF" strokeWidth="1.8"
                        strokeLineCap="ROUND" strokeLineJoin="ROUND"/>
               <VBox spacing="8.0" alignment="CENTER_LEFT">
                 <Label styleClass="checkpoint-word" text="Checkpoint"/>
@@ -292,14 +292,11 @@
         <HBox styleClass="strip" alignment="CENTER_LEFT" spacing="16.0"
               minHeight="48.0" prefHeight="48.0" maxHeight="48.0">
           <padding><Insets left="22.0" right="22.0"/></padding>
-          <Label styleClass="strip-verb" text="LAUNCHING"/>
+          <!-- no verb here: the title bar and the hero below already say RESUMING -->
           <Label fx:id="resumingCount" styleClass="strip-count" text="0 / ?"/>
-          <!-- the fill carries the sheen while anything is launching -->
           <StackPane fx:id="resumingMeter" styleClass="meter-track" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS"
                      minHeight="6.0" prefHeight="6.0" maxHeight="6.0">
             <Region fx:id="resumingFill" styleClass="meter-fill" maxWidth="-Infinity"
-                    minHeight="6.0" prefHeight="6.0" maxHeight="6.0"/>
-            <Region fx:id="resumingSheen" styleClass="meter-sheen" mouseTransparent="true" maxWidth="-Infinity"
                     minHeight="6.0" prefHeight="6.0" maxHeight="6.0"/>
           </StackPane>
           <Label fx:id="resumingPct" styleClass="strip-pct" text="0%"/>
@@ -321,12 +318,11 @@
         </VBox>
       </VBox>
 
-      <!-- ══ resume done. Auto-returns to the project in 3s unless something failed. ══ -->
+      <!-- ══ resume done. Auto-returns to the project in 5s unless something failed. ══ -->
       <VBox fx:id="restoredPane" visible="false" managed="false">
         <HBox styleClass="strip" alignment="CENTER_LEFT" spacing="16.0"
               minHeight="48.0" prefHeight="48.0" maxHeight="48.0">
           <padding><Insets left="22.0" right="22.0"/></padding>
-          <Label styleClass="strip-verb" text="RESUMED"/>
           <Label fx:id="restoredCount" styleClass="strip-count" text="0 / 0"/>
           <HBox fx:id="restoredMeter" styleClass="meter-track" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS"
                 minHeight="6.0" prefHeight="6.0" maxHeight="6.0">
@@ -340,7 +336,8 @@
         <VBox spacing="24.0" VBox.vgrow="ALWAYS">
           <padding><Insets top="20.0" right="22.0" bottom="20.0" left="22.0"/></padding>
           <VBox spacing="0.0">
-            <Label styleClass="hero-word" text="RESUMED"/>
+            <!-- RESUMED, STOPPED or NOT RESUMED: showRestored() says how the run ended -->
+            <Label fx:id="restoredWord" styleClass="hero-word" text="RESUMED"/>
             <Label fx:id="restoredName" styleClass="hero-name" text=""/>
           </VBox>
           <Label fx:id="restoredSpec" styleClass="hero-spec" text=""/>
@@ -356,6 +353,9 @@
             <Region HBox.hgrow="ALWAYS"/>
             <Button fx:id="btnStayHere" styleClass="btn-ghost" text="Stay here"
                     prefHeight="34.0" minHeight="34.0"/>
+            <!-- only after Stop: launches what was still queued -->
+            <Button fx:id="btnResumeRest" styleClass="btn-secondary" text="Resume the rest" graphicTextGap="8.0"
+                    prefHeight="34.0" minHeight="34.0" visible="false" managed="false"/>
             <Button fx:id="btnOpenProject" styleClass="btn-secondary" text="Open project" graphicTextGap="8.0"
                     contentDisplay="RIGHT" prefHeight="34.0" minHeight="34.0"/>
           </HBox>
