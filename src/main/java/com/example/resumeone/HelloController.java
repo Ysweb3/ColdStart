@@ -71,6 +71,8 @@ import java.net.URISyntaxException;
 import java.util.*;
 import java.util.List; // explicit: java.awt.* also exports List
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -1683,11 +1685,20 @@ public class HelloController {
         return now < until ? pending : active;
     }
 
-    private void askForTabs(Project projectObj) {
+    private CountDownLatch askForTabs(Project projectObj) {
         tabTarget = projectObj;
         tabTargetUntil = System.nanoTime() + TAB_WINDOW_NANOS;
+        tabReplies = new CountDownLatch(wsSessions.size());
         wsSessions.forEach(session -> session.send("capture"));
+        return tabReplies;
     }
+
+    /** One count per browser asked by the last checkpoint; POST /tabs ticks it off. */
+    private volatile CountDownLatch tabReplies = new CountDownLatch(0);
+    /** How long "checkpointing…" waits, after the apps are listed, for browsers still to reply.
+        ponytail: fixed, a worker the browser has put to sleep needs its alarm (up to a minute)
+        and is not waited for; its saved tabs stay and a late reply still updates the card. */
+    static final long TAB_WAIT_MILLIS = 3_000;
 
     /** Puts back what a checkpoint changes (apps, tabs, its time) from a gson snapshot. */
     void restore(Project projectObj, String snapshot) {
@@ -1732,9 +1743,7 @@ public class HelloController {
         // own bucket in POST /tabs, and one that does not answer (asleep worker, dead socket,
         // closed) keeps what it had. Stale beats gone.
         tabMode = mode;
-        boolean tabsComing = mode.tabs() && !wsSessions.isEmpty();
-        tabsLanded = false;
-        if (mode.tabs()) askForTabs(projectObj);
+        CountDownLatch replies = mode.tabs() ? askForTabs(projectObj) : new CountDownLatch(0);
         if (projectObj == activeProject) checkpointSub.setText(CHECKPOINTING);
         // the PowerShell capture takes seconds: off the FX thread the HUD keeps drawing and
         // the block can say what it is doing
@@ -1743,12 +1752,16 @@ public class HelloController {
             IOException failed = null;
             try {
                 if (mode.apps()) now = segregateApps(captureRunningApps());
+                // still "checkpointing…": the browsers usually answered while PowerShell ran,
+                // so this rarely waits, and "Saved" can always give the tab count
+                replies.await(TAB_WAIT_MILLIS, TimeUnit.MILLISECONDS);
             } catch (IOException ex) {
                 failed = ex;
+            } catch (InterruptedException ignored) {
             }
             HashMap<String, HashSet<String>> captured = now;
             IOException error = failed;
-            Platform.runLater(() -> finishCheckpoint(projectObj, mode, before, tabsComing, captured, error));
+            Platform.runLater(() -> finishCheckpoint(projectObj, mode, before, captured, error));
         }, "checkpoint");
         worker.setDaemon(true);
         worker.start();
@@ -1756,11 +1769,8 @@ public class HelloController {
 
     static final String CHECKPOINTING = "checkpointing…";
 
-    /** A browser's tabs reached POST /tabs since the last checkpoint started. */
-    private volatile boolean tabsLanded;
-
     /** The FX-thread half of writeCheckpoint, once the capture is back (or failed). */
-    private void finishCheckpoint(Project projectObj, Checkpoint mode, String before, boolean tabsComing,
+    private void finishCheckpoint(Project projectObj, Checkpoint mode, String before,
                                   HashMap<String, HashSet<String>> captured, IOException captureError) {
         checkpointing = null;
         boolean onScreen = projectObj == activeProject;
@@ -1796,10 +1806,7 @@ public class HelloController {
 
         renderDetail(projectObj);
         // "just now" dropped: the block's column holds ~18 characters, and "Saved" already says it.
-        // Tabs usually reply while the apps are still being listed; only if none has yet is
-        // their count "tabs…" until POST /tabs fills it in.
-        checkpointSaved(countApps(projectObj) + " apps · "
-                + (tabsComing && !tabsLanded ? "tabs…" : countTabs(projectObj) + " tabs"));
+        checkpointSaved(countApps(projectObj) + " apps · " + countTabs(projectObj) + " tabs");
     }
 
     /** Add mode: every exe open now joins its category; nothing saved is dropped. */
@@ -2582,14 +2589,14 @@ public class HelloController {
                         ? mergeUrls(target.urlsByBrowser.getOrDefault(key, new ArrayList<>()), pages)
                         : new ArrayList<>(pages));
                 saveProject(target);
-                tabsLanded = true;
+                tabReplies.countDown();
                 // tabs arrive after the checkpoint button has already returned, so the
                 // card has to be redrawn off the javalin thread - and only if it is this card
                 if (isHud()) {
                     Platform.runLater(() -> {
                         if (target != activeProject) return;
                         renderDetail(target);
-                        // the "Saved" line said "tabs…" until now
+                        // a reply that missed the checkpoint's wait still corrects the "Saved" line
                         if (System.nanoTime() < ckBusyUntil) {
                             ckDoneSub.setText(countApps(target) + " apps · " + countTabs(target) + " tabs");
                         }
