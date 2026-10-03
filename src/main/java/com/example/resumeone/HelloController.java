@@ -882,7 +882,7 @@ public class HelloController {
 
         btnResume.setDisable(apps == 0 && tabs == 0);
         // the count is the proof: what one press brings back, on the button that does it - so it
-        // counts what Resume launches, not everything captured (Other and handled browsers are not)
+        // matches the chips on the card, not everything captured (Other is never relaunched)
         resumeCounts.setText(apps > 0 || tabs > 0 ? resumeCountLine(apps, tabs)
                 : countApps(projectObj) > 0 ? "NOTHING TO RELAUNCH" : "NOTHING SAVED YET");
         checkpointSub.setText(checkpointing == projectObj ? CHECKPOINTING : checkpointLine(projectObj.lastCheckpoint));
@@ -1590,28 +1590,12 @@ public class HelloController {
         return projectObj.apps.values().stream().mapToInt(Set::size).sum();
     }
 
-    /** What one press of Resume can launch, as planResume walks it: Other is never relaunched, a
-        browser whose tabs are saved comes back as its tabs, and a terminal that only hosts
-        claude opens with it. Apps already open at the time are left alone, and 1l says so. */
+    /** What one press of Resume brings back: every app chip on the card. A browser with saved
+        tabs comes back as its tabs and a terminal hosting claude opens with it, but both still
+        open, so both count; only Other, listed apart as "not relaunched", is left out. */
     static int launchableApps(Project projectObj) {
         if (projectObj == null || projectObj.apps == null) return 0;
-        Set<String> withTabs = new HashSet<>();
-        if (projectObj.urlsByBrowser != null) {
-            projectObj.urlsByBrowser.forEach((browser, urls) -> {
-                String exe = BROWSER_EXE.get(browser.toLowerCase());
-                if (exe != null && !urls.isEmpty()) withTabs.add(exe);
-            });
-        }
-        boolean claudeInTerminal = hasApp(projectObj, "claude.exe") && hasApp(projectObj, "WindowsTerminal.exe");
-        int n = 0;
-        for (String category : CATEGORY_ORDER) {
-            for (String app : projectObj.apps.getOrDefault(category, new HashSet<>())) {
-                if (withTabs.contains(app.toLowerCase())) continue;
-                if (claudeInTerminal && app.equalsIgnoreCase("WindowsTerminal.exe")) continue;
-                n++;
-            }
-        }
-        return n;
+        return CATEGORY_ORDER.stream().mapToInt(c -> projectObj.apps.getOrDefault(c, new HashSet<>()).size()).sum();
     }
 
     static int countTabs(Project projectObj) {
