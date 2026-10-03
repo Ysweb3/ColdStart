@@ -47,8 +47,7 @@ import javafx.css.PseudoClass;
 import javafx.animation.Animation;
 import javafx.animation.Interpolator;
 import javafx.animation.PauseTransition;
-import javafx.animation.RotateTransition;
-import javafx.scene.Group;
+import javafx.scene.transform.Rotate;
 import javafx.scene.shape.Arc;
 import javafx.scene.shape.ArcType;
 import javafx.scene.shape.Circle;
@@ -172,8 +171,8 @@ public class HelloController {
 
     /** "connecting…": a 10px ring whose arc turns in place of the dot while no extension holds
         the socket yet but one is expected - at startup, and after the last one leaves. */
-    private Group statusSpin;
-    private RotateTransition spin;
+    private Pane statusSpin;
+    private Timeline spin;
     /** Until when (System.nanoTime) "no extension" still reads as "connecting". */
     private volatile long connectingUntil;
     private PauseTransition connectingEnds;
@@ -293,22 +292,28 @@ public class HelloController {
         countdownFill.prefWidthProperty().bind(countdownTrack.widthProperty().multiply(countdownFrac));
         pathTip = tip("");
         Tooltip.install(projectPathLabel, pathTip);
-        Circle track = new Circle(5, Color.TRANSPARENT);
+        // A fixed 12x12 box with the ring at its exact centre, and only the arc turning, about
+        // that same point. Rotating the whole node pivoted on bounds JavaFX recomputed, so the
+        // ring wobbled as it spun.
+        Circle track = new Circle(6, 6, 5, Color.TRANSPARENT);
         track.setStroke(Color.web("#464A52"));
         track.setStrokeWidth(1.6);
-        Arc arc = new Arc(0, 0, 5, 5, 90, -110);
+        Arc arc = new Arc(6, 6, 5, 5, 90, -110);
         arc.setType(ArcType.OPEN);
         arc.setFill(null);
         arc.setStroke(Color.web(TX2));
         arc.setStrokeWidth(1.6);
         arc.setStrokeLineCap(StrokeLineCap.ROUND);
-        // a Group, so it turns about the ring's centre rather than the arc's own bounds
-        statusSpin = new Group(track, arc);
+        Rotate turn = new Rotate(0, 6, 6);
+        arc.getTransforms().add(turn);
+        statusSpin = new Pane(track, arc);
+        statusSpin.setMinSize(12, 12);
+        statusSpin.setPrefSize(12, 12);
+        statusSpin.setMaxSize(12, 12);
         statusBox.getChildren().add(0, statusSpin);
-        spin = new RotateTransition(Duration.millis(900), statusSpin);
-        spin.setByAngle(360);
+        spin = new Timeline(new KeyFrame(Duration.ZERO, new KeyValue(turn.angleProperty(), 0)),
+                new KeyFrame(Duration.millis(900), new KeyValue(turn.angleProperty(), 360, Interpolator.LINEAR)));
         spin.setCycleCount(Animation.INDEFINITE);
-        spin.setInterpolator(Interpolator.LINEAR);
         startConnecting();
         statusTip = new Tooltip();
         statusTip.setShowDelay(Duration.millis(150));
