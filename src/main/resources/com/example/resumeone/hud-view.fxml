@@ -318,7 +318,7 @@
         </VBox>
       </VBox>
 
-      <!-- ══ resume done. Auto-returns to the project in 3s unless something failed. ══ -->
+      <!-- ══ resume done. Auto-returns to the project in 5s unless something failed. ══ -->
       <VBox fx:id="restoredPane" visible="false" managed="false">
         <HBox styleClass="strip" alignment="CENTER_LEFT" spacing="16.0"
               minHeight="48.0" prefHeight="48.0" maxHeight="48.0">

@@ -1191,7 +1191,7 @@ public class HelloController {
     // == resume: 1e in progress -> 1l done ==================================
     //   onResume runs planResume() on a worker thread, one LaunchStep per LAUNCH_GAP_MS. Every
     //   state change re-renders resumingPane (1e). The run finishes into restoredPane (1l),
-    //   which keeps failures visible with a Retry and auto-returns to the project in 3s.
+    //   which keeps failures visible with a Retry and auto-returns to the project in 5s.
 
     // ponytail: 750ms between spawns is a first guess at what stops ten processes landing
     // on the machine at once; the design paces its prototype at 220ms for looks. Tune by feel.
@@ -1314,7 +1314,7 @@ public class HelloController {
         return r.error != null ? "NOT RESUMED" : r.stopped ? "STOPPED" : "RESUMED";
     }
 
-    /** 1l. Orange closes the verb. A clean run goes back to 1b in three seconds; a stopped run,
+    /** 1l. Orange closes the verb. A clean run goes back to 1b after RETURN_SECONDS; a stopped run,
         a failed capture or a failed launch stays until it is dealt with or left, so it can be read. */
     private void showRestored(ResumeRun r) {
         shownRun = r;
@@ -1409,15 +1409,19 @@ public class HelloController {
         return n;
     }
 
+    /** How long a clean RESUMED stays up before going back to the project. */
+    static final int RETURN_SECONDS = 5;
+
     private void startCountdown(ResumeRun r) {
         String name = r.project.projectName;
         countdownFrac.set(0);
         countdown = new Timeline(
-                new KeyFrame(Duration.ZERO,       e -> restoredNote.setText("returning to " + name + " in 3s")),
-                new KeyFrame(Duration.seconds(1), e -> restoredNote.setText("returning to " + name + " in 2s")),
-                new KeyFrame(Duration.seconds(2), e -> restoredNote.setText("returning to " + name + " in 1s")),
-                new KeyFrame(Duration.seconds(3), e -> backToProjects(),
+                new KeyFrame(Duration.seconds(RETURN_SECONDS), e -> backToProjects(),
                         new KeyValue(countdownFrac, 1, Interpolator.LINEAR)));
+        for (int s = 0; s < RETURN_SECONDS; s++) {
+            String left = "returning to " + name + " in " + (RETURN_SECONDS - s) + "s";
+            countdown.getKeyFrames().add(new KeyFrame(Duration.seconds(s), e -> restoredNote.setText(left)));
+        }
         countdown.play();
     }
 
