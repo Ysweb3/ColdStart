@@ -1733,6 +1733,7 @@ public class HelloController {
         // closed) keeps what it had. Stale beats gone.
         tabMode = mode;
         boolean tabsComing = mode.tabs() && !wsSessions.isEmpty();
+        tabsLanded = false;
         if (mode.tabs()) askForTabs(projectObj);
         if (projectObj == activeProject) checkpointSub.setText(CHECKPOINTING);
         // the PowerShell capture takes seconds: off the FX thread the HUD keeps drawing and
@@ -1754,6 +1755,9 @@ public class HelloController {
     }
 
     static final String CHECKPOINTING = "checkpointing…";
+
+    /** A browser's tabs reached POST /tabs since the last checkpoint started. */
+    private volatile boolean tabsLanded;
 
     /** The FX-thread half of writeCheckpoint, once the capture is back (or failed). */
     private void finishCheckpoint(Project projectObj, Checkpoint mode, String before, boolean tabsComing,
@@ -1792,8 +1796,10 @@ public class HelloController {
 
         renderDetail(projectObj);
         // "just now" dropped: the block's column holds ~18 characters, and "Saved" already says it.
-        // Tabs reply after this returns, so their count is "tabs…" until POST /tabs fills it in.
-        checkpointSaved(countApps(projectObj) + " apps · " + (tabsComing ? "tabs…" : countTabs(projectObj) + " tabs"));
+        // Tabs usually reply while the apps are still being listed; only if none has yet is
+        // their count "tabs…" until POST /tabs fills it in.
+        checkpointSaved(countApps(projectObj) + " apps · "
+                + (tabsComing && !tabsLanded ? "tabs…" : countTabs(projectObj) + " tabs"));
     }
 
     /** Add mode: every exe open now joins its category; nothing saved is dropped. */
@@ -2576,6 +2582,7 @@ public class HelloController {
                         ? mergeUrls(target.urlsByBrowser.getOrDefault(key, new ArrayList<>()), pages)
                         : new ArrayList<>(pages));
                 saveProject(target);
+                tabsLanded = true;
                 // tabs arrive after the checkpoint button has already returned, so the
                 // card has to be redrawn off the javalin thread - and only if it is this card
                 if (isHud()) {
