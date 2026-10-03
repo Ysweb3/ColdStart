@@ -887,7 +887,7 @@ public class HelloController {
         // matches the chips on the card, not everything captured (Other is never relaunched)
         resumeCounts.setText(apps > 0 || tabs > 0 ? resumeCountLine(apps, tabs)
                 : countApps(projectObj) > 0 ? "NOTHING TO RELAUNCH" : "NOTHING SAVED YET");
-        checkpointSub.setText(checkpointing == projectObj ? CHECKPOINTING : checkpointLine(projectObj.lastCheckpoint));
+        checkpointSub.setText(idleLine(projectObj));
         tabsCount.setText(String.valueOf(tabs));
 
         renderCategories(projectObj);
@@ -902,6 +902,10 @@ public class HelloController {
 
     /** "2h ago" under Checkpoint: when the last one was taken. It used to read "overwrite \u00b7
         2h old", a warning on every press; a checkpoint is now one Ctrl+Z from undone. */
+    private String idleLine(Project projectObj) {
+        return checkpointing == projectObj ? CHECKPOINTING : checkpointLine(projectObj.lastCheckpoint);
+    }
+
     static String checkpointLine(String lastCheckpoint) {
         String age = ago(lastCheckpoint);
         if ("never".equals(age)) return "no checkpoint yet";
@@ -1872,6 +1876,11 @@ public class HelloController {
                         new KeyFrame(Duration.millis(2600), kv(doneO, 0, in), kv(doneY, -5, in)),
                         new KeyFrame(Duration.millis(2660), kv(bar, 3, std)),
                         new KeyFrame(Duration.millis(2800), kv(idleO, 1, std), kv(idleY, 0, std)));
+        // renderDetail has already moved the idle line on to "just now", which flashed for the
+        // 160ms before it lifted away: it keeps "checkpointing…" and changes while hidden
+        checkpointSub.setText(CHECKPOINTING);
+        t.getKeyFrames().add(new KeyFrame(Duration.millis(2400),
+                e -> { if (activeProject != null) checkpointSub.setText(idleLine(activeProject)); }));
         Motion.stop(btnCheckpoint);
         Motion.run(btnCheckpoint, t);
     }
