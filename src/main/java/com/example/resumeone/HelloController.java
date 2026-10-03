@@ -65,6 +65,8 @@ import java.awt.*;
 import java.io.File;
 import java.io.*;
 import java.nio.file.Files;
+import java.nio.file.LinkOption;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.net.URISyntaxException;
 import java.util.*;
@@ -117,8 +119,9 @@ public class HelloController {
     @FXML public StackPane resumingMeter;
     @FXML public Region titleStateDot, resumingFill, resumingSheen, restoredFill, restoredFailFill, countdownFill;
     @FXML public Label titleStateVerb, titleStateName, resumingCount, resumingPct, resumingName,
-            resumingSkipped, restoredCount, restoredTook, restoredSpec, restoredNote, restoredName;
-    @FXML public Button btnResumeStop, btnStayHere, btnOpenProject;
+            resumingSkipped, restoredCount, restoredTook, restoredSpec, restoredNote, restoredName,
+            restoredVerb, restoredWord;
+    @FXML public Button btnResumeStop, btnStayHere, btnOpenProject, btnResumeRest;
     private final DoubleProperty resumingFrac = new SimpleDoubleProperty();
     private final DoubleProperty restoredFrac = new SimpleDoubleProperty();
     private final DoubleProperty restoredFailFrac = new SimpleDoubleProperty();
@@ -221,7 +224,7 @@ public class HelloController {
         Tooltip.install(btnSettingsBack, tip("Esc"));
         for (Node b : List.of(btnNewProjectWide, btnNewProjectEmpty, btnSettingsBack, btnDeleteCancel, btnDeleteOk,
                 btnNpBrowse, btnNpCancel, btnNpCreate, btnConfirmCancel, btnConfirmOk,
-                btnResumeStop, btnStayHere, btnOpenProject)) {
+                btnResumeStop, btnStayHere, btnOpenProject, btnResumeRest)) {
             Motion.pressable(b);
         }
         // rwSweep: a quarter-width sheen crossing the fill, clipped to the fill
@@ -286,6 +289,8 @@ public class HelloController {
         Icons.animate(btnResumeStop, btnResumeStop.getGraphic());
         btnResumeStop.setOnAction(e -> stopRequested = true);
         btnStayHere.setOnAction(e -> stopCountdown());
+        btnResumeRest.setGraphic(Icons.node(Icons.RESUME, 14, GO));
+        btnResumeRest.setOnAction(e -> { if (shownRun != null) resumeRest(shownRun); });
         btnOpenProject.setGraphic(Icons.node(Icons.CHEVRON, 16, TX));
         btnOpenProject.setOnAction(e -> { stopCountdown(); backToProjects(); });
         // meters are fractions bound to their track, so they are right before first layout
@@ -890,12 +895,14 @@ public class HelloController {
         projectPathLabel.setText(projectObj.folderPath == null ? "no folder" : "\u2026\\" + new File(projectObj.folderPath).getName());
         pathTip.setText(projectObj.folderPath == null ? "no folder chosen" : projectObj.folderPath);
 
-        int apps = countApps(projectObj);
+        int apps = launchableApps(projectObj);
         int tabs = countTabs(projectObj);
 
         btnResume.setDisable(apps == 0 && tabs == 0);
-        // the count is the proof: what one press brings back, on the button that does it
-        resumeCounts.setText(apps == 0 && tabs == 0 ? "NOTHING SAVED YET" : resumeCountLine(apps, tabs));
+        // the count is the proof: what one press brings back, on the button that does it - so it
+        // counts what Resume launches, not everything captured (Other and handled browsers are not)
+        resumeCounts.setText(apps > 0 || tabs > 0 ? resumeCountLine(apps, tabs)
+                : countApps(projectObj) > 0 ? "NOTHING TO RELAUNCH" : "NOTHING SAVED YET");
         checkpointSub.setText(checkpointing == projectObj ? CHECKPOINTING : checkpointLine(projectObj.lastCheckpoint));
         tabsCount.setText(String.valueOf(tabs));
 
@@ -1216,21 +1223,38 @@ public class HelloController {
     private void onResume() {
         // a resume during a checkpoint's capture would be recorded into that checkpoint
         if (activeProject == null || resuming || checkpointing != null || btnResume.isDisabled()) return;
+        startRun(new ResumeRun(activeProject), true);
+    }
+
+    /** "Resume the rest" on a stopped 1l: the same run, picking up at its first queued step. */
+    private void resumeRest(ResumeRun r) {
+        if (resuming || checkpointing != null) return;
+        stopCountdown();
+        startRun(r, false);
+    }
+
+    /** Shows 1e and walks the run's queued steps on a worker; plan=true captures and plans first. */
+    private void startRun(ResumeRun r, boolean plan) {
         resuming = true;
         stopRequested = false;
-        ResumeRun r = new ResumeRun(activeProject);
+        r.stopped = false;
+        r.error = null;
         lastLaunching = null;
         titleState("RESUMING", r.project.projectName, false);
         resumingName.setText(r.project.projectName);
         showBase(resumingPane);
         renderResuming(r);
 
+        long startNanos = System.nanoTime();
         Thread worker = new Thread(() -> {
             try {
-                // the PowerShell capture takes seconds: off the FX thread it no longer freezes the HUD
-                r.plan = planResume(r.project, captureRunningApps(), r.log);
-                Platform.runLater(() -> renderResuming(r));
+                if (plan) {
+                    // the PowerShell capture takes seconds: off the FX thread it no longer freezes the HUD
+                    r.plan = planResume(r.project, captureRunningApps(), r.log);
+                    Platform.runLater(() -> renderResuming(r));
+                }
                 for (LaunchStep step : r.plan.steps()) {
+                    if (step.state != LaunchStep.State.QUEUED) continue;   // ran before the stop
                     if (stopRequested) {
                         r.log.add("stopped by user");
                         break;
@@ -1245,11 +1269,15 @@ public class HelloController {
                     Thread.sleep(LAUNCH_GAP_MS);
                 }
             } catch (IOException ex) {
-                r.log.add("resume failed: " + ex.getMessage());
+                // without the list of open apps there is no telling what would open twice, so
+                // nothing is launched and 1l says so instead of "RESUMED"
+                r.error = ex.getMessage() == null ? "the open apps could not be listed" : ex.getMessage();
+                r.log.add("resume failed: " + r.error);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             } finally {
-                r.tookMs = (System.nanoTime() - r.startNanos) / 1_000_000;
+                r.tookMs += (System.nanoTime() - startNanos) / 1_000_000;
+                r.stopped = r.error == null && r.queued() > 0;
                 resuming = false;
                 Platform.runLater(() -> showRestored(r));
             }
@@ -1301,19 +1329,41 @@ public class HelloController {
         resumingSkipped.setText(skipped.isEmpty() ? "" : skipped.size() + " already open, left alone · " + names(skipped));
     }
 
-    /** 1l. Orange closes the verb. A clean run goes back to 1b in three seconds; a run with a
-        failure stays until it is retried or left, so the failure can be read. */
+    /** The run 1l is showing, for "Resume the rest". */
+    private ResumeRun shownRun;
+
+    /** How a run ended, as 1l's verb: only a run that got through its plan says RESUMED. */
+    static String outcome(ResumeRun r) {
+        return r.error != null ? "NOT RESUMED" : r.stopped ? "STOPPED" : "RESUMED";
+    }
+
+    /** 1l. Orange closes the verb. A clean run goes back to 1b in three seconds; a stopped run,
+        a failed capture or a failed launch stays until it is dealt with or left, so it can be read. */
     private void showRestored(ResumeRun r) {
-        titleState("RESUMED", r.project.projectName, true);
+        shownRun = r;
+        String verb = outcome(r);
+        boolean clean = r.error == null && !r.stopped && r.failed() == 0;
+        titleState(verb, r.project.projectName, clean);
+        restoredVerb.setText(verb);
+        restoredWord.setText(verb);
         restoredName.setText(r.project.projectName);
         logOpen = false;
         showBase(restoredPane);
         renderRestored(r);
-        long failed = r.failed();
-        if (failed == 0) {
+        // no countdown and no "Stay here" unless the run is finished and clean
+        btnStayHere.setVisible(clean);
+        btnStayHere.setManaged(clean);
+        btnResumeRest.setVisible(r.stopped);
+        btnResumeRest.setManaged(r.stopped);
+        if (clean) {
             startCountdown(r);
             btnStayHere.requestFocus();   // one keypress keeps the screen, Esc leaves it
+        } else if (r.stopped) {
+            restoredNote.setText("stopped at " + r.started() + " / " + r.total() + " \u00b7 "
+                    + r.queued() + " not launched \u00b7 Esc to go back");
+            btnResumeRest.requestFocus();
         } else {
+            long failed = r.error != null ? 1 : r.failed();
             restoredNote.setText(failed + " failed \u00b7 Retry it, or Esc to go back");
             if (restoredRows.lookup(".fail-row .button") instanceof Button retry) retry.requestFocus();
         }
@@ -1332,15 +1382,28 @@ public class HelloController {
         restoredSpec.setText(r.appsDone() + " apps · " + tabsSent + " tabs");
 
         restoredRows.getChildren().clear();
+        if (r.error != null) {
+            // nothing was planned, so the launched / sent rows below would only say zero twice
+            restoredSpec.setText("nothing launched");
+            restoredRows.getChildren().add(failRow("open apps", "could not be listed", r.error, this::onResume));
+        }
         List<String> browsers = new ArrayList<>(), apps = new ArrayList<>();
         for (LaunchStep step : r.plan.steps()) {
             if (step.state == LaunchStep.State.FAILED) restoredRows.getChildren().add(failRow(r, step));
             if (step.state == LaunchStep.State.DONE) (step.browser ? browsers : apps).add(step.label);
         }
-        restoredRows.getChildren().add(foldRow(Icons.APP_WINDOW, apps.size() + " apps launched",
-                apps.isEmpty() ? "nothing new to open" : names(apps)));
-        restoredRows.getChildren().add(foldRow(Icons.BROWSER, tabsSent + " tabs sent",
-                browsers.isEmpty() ? "no browser opened" : String.join(" · ", browsers)));
+        if (r.error == null) {
+            restoredRows.getChildren().add(foldRow(Icons.APP_WINDOW, apps.size() + " apps launched",
+                    apps.isEmpty() ? "nothing new to open" : names(apps)));
+            restoredRows.getChildren().add(foldRow(Icons.BROWSER, tabsSent + " tabs sent",
+                    browsers.isEmpty() ? "no browser opened" : String.join(" · ", browsers)));
+        }
+        // the RESUME block counted these too; without this row "6 apps" would end as "4 apps"
+        // with nothing to say where the other two went
+        List<String> skipped = r.plan.skipped();
+        if (!skipped.isEmpty()) {
+            restoredRows.getChildren().add(foldRow(Icons.CHECK, skipped.size() + " already open, left alone", names(skipped)));
+        }
         HBox log = foldRow(Icons.TERMINAL, "Resume log", r.log.size() + " lines · " + (logOpen ? "hide" : "show"));
         clickable(log, logOpen ? "Hide the resume log" : "Show the resume log", () -> { logOpen = !logOpen; renderRestored(r); });
         restoredRows.getChildren().add(log);
@@ -1476,19 +1539,25 @@ public class HelloController {
     }
 
     private HBox failRow(ResumeRun r, LaunchStep step) {
+        return failRow(step.label, failure(step), step.error, () -> retry(r, step));
+    }
+
+    /** A failure that stays on screen: what, why in the OS's words (full text on hover), Retry. */
+    private HBox failRow(String label, String whyText, String tipText, Runnable onRetry) {
         HBox row = rowShell("fail-row");
         row.setMinHeight(56);
         row.setPrefHeight(56);
-        Label why = styled(new Label(failure(step)), "fail-why");
+        Label why = styled(new Label(whyText), "fail-why");
         why.setMaxWidth(Double.MAX_VALUE);
-        if (step.error != null) Tooltip.install(why, tip(step.error));
+        if (tipText != null) Tooltip.install(why, tip(tipText));
         HBox.setHgrow(why, Priority.ALWAYS);
         Button retry = styled(new Button("Retry"), "btn-ghost");
         retry.setGraphic(Icons.node(Icons.RECAPTURE, 16, TX));
         Icons.animate(retry, retry.getGraphic());
         retry.setGraphicTextGap(8);
-        retry.setOnAction(e -> retry(r, step));
-        row.getChildren().addAll(Icons.node(Icons.FAILED, 14, BAD), styled(new Label(step.label), "step-label"), why, retry);
+        retry.setAccessibleText("Retry " + label);
+        retry.setOnAction(e -> onRetry.run());
+        row.getChildren().addAll(Icons.node(Icons.FAILED, 14, BAD), styled(new Label(label), "step-label"), why, retry);
         return row;
     }
 
@@ -1531,6 +1600,30 @@ public class HelloController {
     static int countApps(Project projectObj) {
         if (projectObj == null || projectObj.apps == null) return 0;
         return projectObj.apps.values().stream().mapToInt(Set::size).sum();
+    }
+
+    /** What one press of Resume can launch, as planResume walks it: Other is never relaunched, a
+        browser whose tabs are saved comes back as its tabs, and a terminal that only hosts
+        claude opens with it. Apps already open at the time are left alone, and 1l says so. */
+    static int launchableApps(Project projectObj) {
+        if (projectObj == null || projectObj.apps == null) return 0;
+        Set<String> withTabs = new HashSet<>();
+        if (projectObj.urlsByBrowser != null) {
+            projectObj.urlsByBrowser.forEach((browser, urls) -> {
+                String exe = BROWSER_EXE.get(browser.toLowerCase());
+                if (exe != null && !urls.isEmpty()) withTabs.add(exe);
+            });
+        }
+        boolean claudeInTerminal = hasApp(projectObj, "claude.exe") && hasApp(projectObj, "WindowsTerminal.exe");
+        int n = 0;
+        for (String category : CATEGORY_ORDER) {
+            for (String app : projectObj.apps.getOrDefault(category, new HashSet<>())) {
+                if (withTabs.contains(app.toLowerCase())) continue;
+                if (claudeInTerminal && app.equalsIgnoreCase("WindowsTerminal.exe")) continue;
+                n++;
+            }
+        }
+        return n;
     }
 
     static int countTabs(Project projectObj) {
@@ -2171,9 +2264,27 @@ public class HelloController {
     // in HKCU, machine-wide ones in HKLM.
     String browserPath(String browser) throws IOException {
         String exe = browser == null ? null : BROWSER_EXE.get(browser.toLowerCase());
-        if (exe == null) {
-            return null;
+        return exe == null ? null : appPath(exe);
+    }
+
+    /** Is "name.exe" in one of the PATH directories - the first place `start name` looks.
+        NOFOLLOW_LINKS: Store apps live in WindowsApps as execution-alias reparse points, which
+        File.isFile and a following Files.exists both report as missing. */
+    static boolean onPath(String exe, String path) {
+        if (path == null) return false;
+        for (String dir : path.split(File.pathSeparator)) {
+            if (dir.isBlank()) continue;
+            try {
+                if (Files.exists(Path.of(dir.trim().replace("\"", ""), exe), LinkOption.NOFOLLOW_LINKS)) return true;
+            } catch (java.nio.file.InvalidPathException badEntry) {
+                // a malformed PATH entry is skipped, as cmd skips it
+            }
         }
+        return false;
+    }
+
+    /** The exe's App Paths registration (HKCU, then HKLM) - where `start` looks after PATH. */
+    static String appPath(String exe) throws IOException {
         for (String hive : List.of("HKCU", "HKLM")) {
             ProcessBuilder pb = new ProcessBuilder("reg", "query",
                     hive + "\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\" + exe, "/ve");
@@ -2272,10 +2383,13 @@ public class HelloController {
     /** Everything one press of Resume produced; 1e and 1l render from it. */
     static final class ResumeRun {
         final Project project;
-        final long startNanos = System.nanoTime();
         final List<String> log = new CopyOnWriteArrayList<>();
         volatile ResumePlan plan = new ResumePlan(List.of(), List.of());
         long tookMs;
+        /** Stop was pressed with steps still queued: 1l says STOPPED and offers the rest. */
+        volatile boolean stopped;
+        /** The capture before planning failed, so nothing was planned or launched. */
+        volatile String error;
 
         ResumeRun(Project project) { this.project = project; }
 
@@ -2283,6 +2397,7 @@ public class HelloController {
         long started()  { return plan.steps().stream().filter(s -> s.state != LaunchStep.State.QUEUED).count(); }
         long done()     { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.DONE).count(); }
         long failed()   { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.FAILED).count(); }
+        long queued()   { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.QUEUED).count(); }
         long appsDone() { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.DONE && !s.browser).count(); }
     }
 
@@ -2355,6 +2470,11 @@ public class HelloController {
             HashSet<String> bucket = projectObj.apps.get(category);
             if (bucket == null) continue;
             for (String app : new TreeSet<>(bucket)) {
+                // a browser handed its tabs above is coming back, not "already open"
+                if (handledBrowsers.contains(app.toLowerCase())) {
+                    log.add("skipping " + app + ": opens with its tabs");
+                    continue;
+                }
                 if (!shouldLaunch(app, running, handledBrowsers)) {
                     skipped.add(app);
                     log.add("skipping (already open or handled): " + app);
@@ -2374,10 +2494,12 @@ public class HelloController {
                             new ProcessBuilder(cmd).directory(folder == null ? null : new File(folder)).start()));
 
                 } else if (appName.equalsIgnoreCase("Code")) {
-                    if (folder == null) continue;
-                    // open VS Code in project folder
-                    steps.add(new LaunchStep(appName(app), "code " + folder, false, () ->
-                            new ProcessBuilder("cmd.exe", "/c", "code", folder).start()));
+                    // open VS Code in the project folder; with none it reopens its last
+                    // workspace rather than silently not coming back
+                    List<String> cmd = new ArrayList<>(List.of("cmd.exe", "/c", "code"));
+                    if (folder != null) cmd.add(folder);
+                    steps.add(new LaunchStep(appName(app), folder == null ? "code" : "code " + folder, false, () ->
+                            new ProcessBuilder(cmd).start()));
 
                 } else if (appName.equalsIgnoreCase("WindowsTerminal")) {
                     if (claudeInTerminal) {
@@ -2392,8 +2514,15 @@ public class HelloController {
                 } else {
                     // no folder needed: this used to sit under the folderPath guard too, so a
                     // project without a folder relaunched nothing at all
-                    steps.add(new LaunchStep(appName(app), "start " + appName, false, () ->
-                            new ProcessBuilder("cmd.exe", "/c", "start", appName).start()));
+                    // `start` reports nothing back when windows cannot find the exe - it shows its
+                    // own dialog and the step would read as launched - so look first, the way
+                    // start does: PATH, then the App Paths keys
+                    steps.add(new LaunchStep(appName(app), "start " + appName, false, () -> {
+                        if (!onPath(app, System.getenv("PATH")) && appPath(app) == null) {
+                            throw new IOException("cannot find " + app);
+                        }
+                        new ProcessBuilder("cmd.exe", "/c", "start", appName).start();
+                    }));
                 }
             }
         }

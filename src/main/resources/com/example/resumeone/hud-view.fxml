@@ -326,7 +326,7 @@
         <HBox styleClass="strip" alignment="CENTER_LEFT" spacing="16.0"
               minHeight="48.0" prefHeight="48.0" maxHeight="48.0">
           <padding><Insets left="22.0" right="22.0"/></padding>
-          <Label styleClass="strip-verb" text="RESUMED"/>
+          <Label fx:id="restoredVerb" styleClass="strip-verb" text="RESUMED"/>
           <Label fx:id="restoredCount" styleClass="strip-count" text="0 / 0"/>
           <HBox fx:id="restoredMeter" styleClass="meter-track" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS"
                 minHeight="6.0" prefHeight="6.0" maxHeight="6.0">
@@ -340,7 +340,8 @@
         <VBox spacing="24.0" VBox.vgrow="ALWAYS">
           <padding><Insets top="20.0" right="22.0" bottom="20.0" left="22.0"/></padding>
           <VBox spacing="0.0">
-            <Label styleClass="hero-word" text="RESUMED"/>
+            <!-- RESUMED, STOPPED or NOT RESUMED: showRestored() says how the run ended -->
+            <Label fx:id="restoredWord" styleClass="hero-word" text="RESUMED"/>
             <Label fx:id="restoredName" styleClass="hero-name" text=""/>
           </VBox>
           <Label fx:id="restoredSpec" styleClass="hero-spec" text=""/>
@@ -356,6 +357,9 @@
             <Region HBox.hgrow="ALWAYS"/>
             <Button fx:id="btnStayHere" styleClass="btn-ghost" text="Stay here"
                     prefHeight="34.0" minHeight="34.0"/>
+            <!-- only after Stop: launches what was still queued -->
+            <Button fx:id="btnResumeRest" styleClass="btn-secondary" text="Resume the rest" graphicTextGap="8.0"
+                    prefHeight="34.0" minHeight="34.0" visible="false" managed="false"/>
             <Button fx:id="btnOpenProject" styleClass="btn-secondary" text="Open project" graphicTextGap="8.0"
                     contentDisplay="RIGHT" prefHeight="34.0" minHeight="34.0"/>
           </HBox>
