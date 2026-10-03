@@ -124,6 +124,8 @@ public class HelloController {
     private final DoubleProperty restoredFailFrac = new SimpleDoubleProperty();
     private final DoubleProperty countdownFrac = new SimpleDoubleProperty();
     private volatile boolean resuming, stopRequested;
+    /** The project whose checkpoint is capturing off the FX thread, or null when none is. */
+    private volatile Project checkpointing;
     private Timeline countdown;
     private static final PseudoClass PC_LAUNCHING = PseudoClass.getPseudoClass("launching");
     private static final PseudoClass PC_FAILED    = PseudoClass.getPseudoClass("failed");
@@ -375,7 +377,8 @@ public class HelloController {
             legacyNewProjectDialog();
             return;
         }
-        if (resuming) return;   // a new project's capture would land in the middle of a launch
+        // a new project's capture would land in the middle of a launch, or race the one running
+        if (resuming || checkpointing != null) return;
         npName.clear();
         npFolder.setText(NO_FOLDER);
         npCapture.setSelected(true);
@@ -395,10 +398,13 @@ public class HelloController {
         if (name.isEmpty() || nameTaken(projects, name)) return;
         String folder = NO_FOLDER.equals(npFolder.getText()) ? null : npFolder.getText();
         Project projectObj = new Project(name, folder, new HashMap<>(), new ArrayList<>());
-        if (!npCapture.isSelected()) projectObj.lastCheckpoint = null;   // "no checkpoint yet" is true
+        // "no checkpoint yet" until one lands: a null lastCheckpoint also keeps createProjectUI
+        // from capturing on the FX thread
+        projectObj.lastCheckpoint = null;
         // createProjectUI -> selectProject -> showBase() clears the overlay for us
         createProjectUI(projectObj, true);
-        if (npCapture.isSelected()) askForTabs(projectObj);
+        // the same off-thread checkpoint as the block: "checkpointing…", then "Saved"
+        if (npCapture.isSelected()) writeCheckpoint(projectObj, Checkpoint.OVERWRITE);
     }
 
     /** Names are compared the way a person reads them: "Atlas-API" is "atlas-api" taken. */
@@ -781,7 +787,8 @@ public class HelloController {
     }
 
     private void showDeleteView() {
-        if (activeProject == null) return;
+        // the capture would write the project straight back after it was deleted
+        if (activeProject == null || checkpointing == activeProject) return;
         String age = ago(activeProject.lastCheckpoint);
         deleteSub.setText(countApps(activeProject) + " apps \u00b7 " + countTabs(activeProject) + " tabs \u00b7 "
                 + ("never".equals(age) ? "no checkpoint yet" : "checkpoint " + when(age)));
@@ -889,7 +896,7 @@ public class HelloController {
         btnResume.setDisable(apps == 0 && tabs == 0);
         // the count is the proof: what one press brings back, on the button that does it
         resumeCounts.setText(apps == 0 && tabs == 0 ? "NOTHING SAVED YET" : resumeCountLine(apps, tabs));
-        checkpointSub.setText(checkpointLine(projectObj.lastCheckpoint));
+        checkpointSub.setText(checkpointing == projectObj ? CHECKPOINTING : checkpointLine(projectObj.lastCheckpoint));
         tabsCount.setText(String.valueOf(tabs));
 
         renderCategories(projectObj);
@@ -1207,7 +1214,8 @@ public class HelloController {
     static final long LAUNCH_GAP_MS = 750;
 
     private void onResume() {
-        if (activeProject == null || resuming || btnResume.isDisabled()) return;
+        // a resume during a checkpoint's capture would be recorded into that checkpoint
+        if (activeProject == null || resuming || checkpointing != null || btnResume.isDisabled()) return;
         resuming = true;
         stopRequested = false;
         ResumeRun r = new ResumeRun(activeProject);
@@ -1630,7 +1638,7 @@ public class HelloController {
     }
 
     private void undoCheckpoint() {
-        if (activeProject == null || resuming) return;
+        if (activeProject == null || resuming || checkpointing != null) return;
         String before = undoByProject.remove(activeProject.projectName);
         if (before == null) return;
         Project projectObj = activeProject;
@@ -1650,8 +1658,10 @@ public class HelloController {
     }
 
     private void writeCheckpoint(Project projectObj, Checkpoint mode) {
-        // a checkpoint mid-resume would record a half-launched desktop over the project
-        if (resuming) return;
+        // a checkpoint mid-resume would record a half-launched desktop over the project, and a
+        // second press while one is capturing would only race it to the disk
+        if (resuming || checkpointing != null) return;
+        checkpointing = projectObj;
         String before = gson.toJson(projectObj);
         // No bucket is ever dropped here: a browser that answers the capture push overwrites its
         // own bucket in POST /tabs, and one that does not answer (asleep worker, dead socket,
@@ -1659,22 +1669,51 @@ public class HelloController {
         tabMode = mode;
         boolean tabsComing = mode.tabs() && !wsSessions.isEmpty();
         if (mode.tabs()) askForTabs(projectObj);
+        if (projectObj == activeProject) checkpointSub.setText(CHECKPOINTING);
+        // the PowerShell capture takes seconds: off the FX thread the HUD keeps drawing and
+        // the block can say what it is doing
+        Thread worker = new Thread(() -> {
+            HashMap<String, HashSet<String>> now = null;
+            IOException failed = null;
+            try {
+                if (mode.apps()) now = segregateApps(captureRunningApps());
+            } catch (IOException ex) {
+                failed = ex;
+            }
+            HashMap<String, HashSet<String>> captured = now;
+            IOException error = failed;
+            Platform.runLater(() -> finishCheckpoint(projectObj, mode, before, tabsComing, captured, error));
+        }, "checkpoint");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    static final String CHECKPOINTING = "checkpointing…";
+
+    /** The FX-thread half of writeCheckpoint, once the capture is back (or failed). */
+    private void finishCheckpoint(Project projectObj, Checkpoint mode, String before, boolean tabsComing,
+                                  HashMap<String, HashSet<String>> captured, IOException captureError) {
+        checkpointing = null;
+        boolean onScreen = projectObj == activeProject;
         try {
-            if (mode.apps()) {
-                HashMap<String, HashSet<String>> now = segregateApps(captureRunningApps());
-                if (mode.merge()) mergeApps(projectObj.apps, now);
-                else projectObj.apps = now;
+            if (captureError != null) throw captureError;
+            if (captured != null) {
+                if (mode.merge()) mergeApps(projectObj.apps, captured);
+                else projectObj.apps = captured;
             }
             projectObj.lastCheckpoint = Instant.now().toString();
             saveProject(projectObj);
         } catch (IOException ex) {
             // the card must not claim "saved" over a write that did not happen: memory goes back
-            // to what the disk still holds, and the tabs already asked for are turned away
+            // to what the disk held, and the tabs already asked for are turned away. A reply that
+            // landed during the capture was written by POST /tabs, so the old state is put back.
             restore(projectObj, before);
             dropIncomingTabs();
-            renderDetail(projectObj);
+            try { saveProject(projectObj); } catch (IOException ignored) { }
+            if (onScreen) renderDetail(projectObj);
             confirm("Checkpoint not written", projectsFile().getPath(),
-                    "Nothing changed on disk. " + ex.getMessage(),
+                    (captureError != null ? "The open apps could not be listed. " : "")
+                            + "Nothing changed on disk. " + ex.getMessage(),
                     "Retry", () -> writeCheckpoint(projectObj, mode));
             return;
         }
@@ -1683,6 +1722,8 @@ public class HelloController {
         }
         StackPane row = rowsByProject.get(projectObj.projectName);
         if (row != null) railTip(row, projectObj);
+        // switched away mid-capture: the save landed, the other card stays as it is
+        if (!onScreen) return;
 
         renderDetail(projectObj);
         // "just now" dropped: the block's column holds ~18 characters, and "Saved" already says it.
