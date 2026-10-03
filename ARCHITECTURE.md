@@ -36,14 +36,18 @@ Build/run: `mvnw.cmd clean javafx:run` (needs `JAVA_HOME` → a JDK 24+). Tests:
 Triggered by **Checkpoint** on the card, or by **Create + checkpoint** for a new project.
 
 ```
-onCheckpoint()
- ├─ urlsByBrowser.clear()                     forget old tabs
+writeCheckpoint(project, mode)               FX thread; refused while resuming or already capturing
  ├─ wsSessions.forEach(send("capture"))       ask every connected browser for its tabs (async, see 3)
- ├─ captureRunningApps()                      PowerShell: every process with a visible window → {"Code.exe", "chrome.exe", ...}
- ├─ segregateApps(...)                        label them: {"IDE": [Code.exe], "Browser": [chrome.exe], "Other": [...]}
- ├─ saveProject(project)                      write projects.json
- └─ renderDetail(project)                     redraw the card
+ ├─ block sub-line → "checkpointing…"
+ └─ worker thread:
+      captureRunningApps()                    PowerShell: every process with a visible window → {"Code.exe", "chrome.exe", ...}
+      segregateApps(...)                      label them: {"IDE": [Code.exe], "Browser": [chrome.exe], "Other": [...]}
+      Platform.runLater → finishCheckpoint()  apply, saveProject(), redraw, play "Saved"
+                                              (on failure: put the old checkpoint back, say so, offer Retry)
 ```
+
+A browser that does not answer the capture push keeps its saved tabs; nothing is cleared up front.
+While a capture runs, Resume, undo, delete and New project wait for it.
 
 `captureRunningApps()` is the only place that decides *what counts as an app*: a process
 that owns a window (`MainWindowTitle != ''`), minus `IGNORED_WINDOWS` (shell junk), minus
@@ -63,16 +67,24 @@ resumeProject(project)
  ├─ for each browser in urlsByBrowser:
  │    browserPath(browser)                    App Paths registry lookup → C:\...\chrome.exe
  │    ProcessBuilder(exe, url1, url2, ...)    one window, all tabs; falls back to Desktop.browse()
- └─ for each app in project.apps:
+ └─ for each app in project.apps (named categories only, never Other):
       shouldLaunch(app, running, handled)?    skip if already open, skip browsers handled above
-      claude  → cmd /c start [wt -d folder] claude [--continue]   (claudeCommand())
-      Code    → cmd /c code <folder>
+      claude  → cmd /c start [wt -d folder] claude agents [--cwd folder]   (claudeCommand())
+      Code    → cmd /c code [folder]          (no folder: VS Code reopens its last workspace)
       wt      → cmd /c start wt              (skipped when claude launches inside it)
-      others  → cmd /c start <name>
+      others  → cmd /c start <name>          (only after onPath()/appPath() find the exe)
 ```
 
 Every launch is wrapped in its own try/catch and logged, so one missing exe never stops the
-rest. All of this is `cmd.exe`/`start`-based, i.e. Windows only.
+rest. `start` reports nothing back when Windows cannot find a program, so a plain app is looked
+up first (PATH, then the App Paths keys) and a miss is a failed row with Retry. All of this is
+`cmd.exe`/`start`-based, i.e. Windows only.
+
+The HUD runs this plan on a worker, one step per `LAUNCH_GAP_MS`, and the done screen names how
+it ended: **RESUMED**, **STOPPED** (Stop with steps still queued; "Resume the rest" continues
+from the first queued step) or **NOT RESUMED** (the capture failed, so nothing was launched).
+The RESUME block's count comes from `launchableApps()`, which mirrors this plan, and the done
+screen lists what was already open, so the two numbers reconcile.
 
 ### 3. Tabs come from the extension
 
