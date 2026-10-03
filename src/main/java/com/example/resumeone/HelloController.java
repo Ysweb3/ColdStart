@@ -281,7 +281,8 @@ public class HelloController {
         Icons.animate(btnResumeStop, btnResumeStop.getGraphic());
         btnResumeStop.setOnAction(e -> stopRequested = true);
         btnStayHere.setOnAction(e -> stopCountdown());
-        btnResumeRest.setGraphic(Icons.node(Icons.RESUME, 14, GO));
+        btnResumeRest.setGraphic(Icons.node(Icons.RESUME, 16, GO));
+        Icons.animate(btnResumeRest, btnResumeRest.getGraphic());
         btnResumeRest.setOnAction(e -> { if (shownRun != null) resumeRest(shownRun); });
         btnOpenProject.setGraphic(Icons.node(Icons.CHEVRON, 16, TX));
         btnOpenProject.setOnAction(e -> { stopCountdown(); backToProjects(); });
