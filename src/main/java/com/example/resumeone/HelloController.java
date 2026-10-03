@@ -117,7 +117,7 @@ public class HelloController {
     @FXML public VBox resumingPane, restoredPane, resumingRows, restoredRows;
     @FXML public HBox titleState, restoredMeter, countdownTrack;
     @FXML public StackPane resumingMeter;
-    @FXML public Region titleStateDot, resumingFill, resumingSheen, restoredFill, restoredFailFill, countdownFill;
+    @FXML public Region titleStateDot, resumingFill, restoredFill, restoredFailFill, countdownFill;
     @FXML public Label titleStateVerb, titleStateName, resumingCount, resumingPct, resumingName,
             resumingSkipped, restoredCount, restoredTook, restoredSpec, restoredNote, restoredName,
             restoredWord;
@@ -227,14 +227,6 @@ public class HelloController {
                 btnResumeStop, btnStayHere, btnOpenProject, btnResumeRest)) {
             Motion.pressable(b);
         }
-        // rwSweep: a quarter-width sheen crossing the fill, clipped to the fill
-        resumingSheen.prefWidthProperty().bind(resumingMeter.widthProperty().multiply(.25));
-        javafx.scene.shape.Rectangle sheenClip = new javafx.scene.shape.Rectangle();
-        sheenClip.widthProperty().bind(resumingFill.widthProperty());
-        sheenClip.heightProperty().bind(resumingMeter.heightProperty());
-        resumingSheen.setClip(sheenClip);
-        resumingSheen.translateXProperty().bind(resumingSheen.prefWidthProperty().multiply(sweepPhase.multiply(4).subtract(1)));
-        sheenClip.xProperty().bind(resumingSheen.translateXProperty().negate());
         // what the app does, as plain check + label: these were disabled checkboxes, which read
         // as "locked" and rendered at 2:1. The copy states each behaviour as a fact.
         captureRows.getChildren().setAll(
@@ -541,7 +533,7 @@ public class HelloController {
         resumeGlyphBox.getChildren().add(play);
         Icons.animate(btnResume, play);
         // the checkpoint block keeps its earlier slate; its "Saved" check matches that sub-line
-        ckDoneGlyphBox.getChildren().add(Icons.node(Icons.CHECK, 22, "#7A94BC", 2.2));
+        ckDoneGlyphBox.getChildren().add(Icons.node(Icons.CHECK, 22, CKT, 2.2));
         emptyGlyphBox.getChildren().add(Icons.node(Icons.BOOKMARK_PLUS, 40, CK));
         deleteFolderGlyph.getChildren().add(Icons.node(Icons.OTHER, 16, TX3));
         npFolderGlyph.getChildren().add(Icons.node(Icons.OTHER, 16, TX3));
@@ -725,22 +717,6 @@ public class HelloController {
         showOverlay(null);
         if (target != resumingPane && target != restoredPane) titleState(null, null, false);
         if (target != settingsPane) btnSettings.getStyleClass().remove("rail-active");
-        sweep(target == resumingPane);
-    }
-
-    /** rwSweep: translateX(-100%) → (300%), 1400ms linear, while the launching strip is up.
-        A 0..1 phase rather than pixels, so it is right before the strip's first layout. */
-    private final DoubleProperty sweepPhase = new SimpleDoubleProperty();
-    private Timeline sweep;
-    private void sweep(boolean on) {
-        if (sweep != null) sweep.stop();
-        resumingSheen.setVisible(on && !Motion.REDUCED);
-        if (!resumingSheen.isVisible()) return;
-        sweep = new Timeline(
-                new KeyFrame(Duration.ZERO, new KeyValue(sweepPhase, 0)),
-                new KeyFrame(Duration.millis(1400), new KeyValue(sweepPhase, 1, Interpolator.LINEAR)));
-        sweep.setCycleCount(Timeline.INDEFINITE);
-        sweep.play();
     }
 
     /** "RESUMING atlas-api" in the title bar; null verb puts the port cluster back. */
@@ -1597,7 +1573,7 @@ public class HelloController {
     /** Glyph colours, set from code (hud.css still re-colours them on hover): the 5a tokens. */
     private static final String TX = "#E9E3DF", TX2 = "#A8A29E", TX3 = "#77726E",
             GO = "#FF6500", GOI = "#1A0A00", BAD = "#EB7C73", HUD = "#A8A29E",
-            CK = "#2A5688";
+            CK = "#2A5688", CKT = "#6E9BD1";
 
     static int countApps(Project projectObj) {
         if (projectObj == null || projectObj.apps == null) return 0;

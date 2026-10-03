@@ -33,7 +33,7 @@
     -rw-live-tx: #8ACB9D;   /* live green for words: "Brave connected" in the title bar */
     -rw-act:    #8E939C;   /* neutral active: focus, checkboxes */
     -rw-bad:    #EB7C73;   /* danger text and glyphs */
-    -rw-brick:  #E0594F;   /* danger fill: meters, the window's close */
+    -rw-brick:  #E0594F;   /* danger fill: the failed tail of a meter */
     -rw-brick-btn:   #B53A31;   /* the Delete button: #FFF1F0 on it is 5.3:1 (#E0594F was 3.3) */
     -rw-brick-btn-h: #A9352D;   /* ...and darker, not lighter, under the pointer: 5.9:1 */
     -rw-bad-tint: #2A1412;
@@ -70,11 +70,8 @@
 }
 .iconbtn:hover { -fx-background-color: -rw-raised; }
 .iconbtn:hover .ico { -fx-stroke: -rw-tx; }
-/* variant="danger": brick on its tint, solid brick under the pointer */
-.iconbtn.danger { -fx-background-color: -rw-bad-tint; }
-.iconbtn.danger .ico { -fx-stroke: -rw-bad; }
-.iconbtn.danger:hover { -fx-background-color: -rw-brick; }
-.iconbtn.danger:hover .ico { -fx-stroke: #FFF2EF; }
+/* The window's close is a plain ghost like its neighbours: brick is only ever delete or
+   failed, and closing the window deletes nothing. */
 /* the project's delete stays a quiet ghost until it is meant */
 .iconbtn.delete:hover { -fx-background-color: -rw-bad-tint; }
 .iconbtn.delete:hover .ico { -fx-stroke: -rw-bad; }
@@ -118,7 +115,8 @@
 }
 .rail-label { -fx-font-size: 12px; -fx-text-fill: -rw-hud; }
 .rail-count { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3t; }
-/* the narrow rail: a 32x32 numbered button; the active project carries the orange ring */
+/* the narrow rail: a 32x32 numbered button; the active project carries an ink ring, the
+   same ink as the wide rail's edge - orange is only ever Resume, and selecting is not resuming */
 .rail-btn {
     -fx-min-width: 32; -fx-pref-width: 32; -fx-max-width: 32;
     -fx-min-height: 32; -fx-pref-height: 32; -fx-max-height: 32;
@@ -131,7 +129,7 @@
 .rail-btn > .label { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx2; }
 .rail-btn:hover { -fx-background-color: -rw-ln2, -rw-raised; }
 .rail-btn:hover > .label { -fx-text-fill: -rw-tx; }
-.rail-active { -fx-background-color: -rw-go, -rw-g1; }
+.rail-active { -fx-background-color: -rw-tx, -rw-g1; }
 .rail-active > .label { -fx-text-fill: -rw-tx; }
 .rail-btn:hover .ico { -fx-stroke: -rw-tx; }
 .rail-spine { -fx-border-color: transparent transparent transparent -rw-ln; -fx-border-width: 0 0 0 1; -fx-border-style: dotted; }
@@ -244,40 +242,34 @@
 .resume:disabled .resume-key { -fx-border-color: -rw-ln2; -fx-background-color: transparent; }
 .resume:disabled .ico { -fx-stroke: -rw-tx3; }
 
-/* The checkpoint block keeps its own, earlier look - the slate theme it was drawn in - and only
-   borrows the handoff's confirmation. A fixed 296 x 104, so -fx-shape lands exactly and the
-   1px slate edge follows the notch; the controller's clip keeps the ring inside it too. */
+/* The checkpoint block, in the same 5a blue as every other checkpoint surface: -rw-ck for the
+   edge and the confirmation bar, -rw-ckt for the sub-line, "Saved" and the ring (6.2:1 on
+   -rw-g2). A fixed 296 x 104, so -fx-shape lands exactly and the 1px edge follows the notch;
+   the controller's clip keeps the ring inside it too. */
 .checkpoint {
-    -ck-slate:   #4B607F;   /* edge, and the confirmation bar */
-    -ck-text:    #7A94BC;   /* the sub-line, "Saved", the ring */
-    -ck-ground:  #171A1D;
-    -ck-tint:    #171C23;   /* hover ground */
-    -ck-line:    #333A40;   /* the neutral divider */
-    -ck-hover:   #212529;   /* the chevron segment under the pointer */
-    -ck-ink:     #E8D8C9;
-    -fx-background-color: -ck-slate, -ck-ground;
+    -fx-background-color: -rw-ck, -rw-g2;
     -fx-background-insets: 0, 1;
     -fx-shape: "M0 0 L282 0 L296 14 L296 104 L14 104 L0 90 Z";
     -fx-padding: 1;
     -fx-cursor: hand;
 }
-.checkpoint:hover { -fx-background-color: -ck-slate, -ck-tint; }
-.checkpoint-word { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -ck-ink; }
-.checkpoint-sub  { -fx-font-size: 12px; -fx-text-fill: -ck-text; }
-.ck-done-word    { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -ck-text; }
+.checkpoint:hover { -fx-background-color: -rw-ck, -rw-g3; }
+.checkpoint-word { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.checkpoint-sub  { -fx-font-size: 12px; -fx-text-fill: -rw-ckt; }
+.ck-done-word    { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-ckt; }
 /* the confirmation's two moving layers */
-.ck-ring { -fx-border-color: -ck-text; -fx-border-width: 2; -fx-border-radius: 999; }
-.ck-bar  { -fx-background-color: -ck-slate; }
+.ck-ring { -fx-border-color: -rw-ckt; -fx-border-width: 2; -fx-border-radius: 999; }
+.ck-bar  { -fx-background-color: -rw-ck; }
 /* split segment: the block's right 64px. Same notch as the block (its last 14px are the cut),
    so the hover fill never pokes outside the shape; the divider is its own 1px region. */
-.ck-divider { -fx-background-color: -ck-line; }
+.ck-divider { -fx-background-color: -rw-ln; }
 .ck-menu {
     -fx-cursor: hand;
     -fx-background-color: transparent;
     -fx-shape: "M0 0 L50 0 L64 14 L64 102 L0 102 Z";
 }
-.ck-menu:hover { -fx-background-color: -ck-hover; }
-.ck-glyph { -fx-stroke: -ck-ink; }
+.ck-menu:hover { -fx-background-color: -rw-ckh; }
+.ck-glyph { -fx-stroke: -rw-tx; }
 
 .context-menu {
     -fx-background-color: -rw-ln, -rw-g2;
@@ -451,15 +443,14 @@
     -fx-border-width: 0 0 1 0;
 }
 .strip-count { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx; }
-.strip-pct   { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-go; }
+/* muted: the meter's fill already says how far in orange; the figure only reads it out */
+.strip-pct   { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 .strip-took  { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 .meter-track { -fx-background-color: -rw-raised; -fx-background-radius: 3; }
 .meter-fill  { -fx-background-color: -rw-go; -fx-background-radius: 3 0 0 3; }
 .meter-fail  { -fx-background-color: -rw-brick; -fx-background-radius: 0 3 3 0; }
-/* rwSweep: a sheen crossing the track while anything launches */
-.meter-sheen {
-    -fx-background-color: linear-gradient(to right, transparent, rgba(255,255,255,0.35), transparent);
-}
+/* no sheen: the meter moves when a process starts, and that movement is the only motion it
+   needs. An animated gradient across it was the one decoration DESIGN.md rules out. */
 
 .hero-word { -fx-font-family: "Sora ExtraBold"; -fx-font-size: 44px; -fx-text-fill: -rw-tx; }
 .hero-name { -fx-font-family: "Sora ExtraBold"; -fx-font-size: 44px; -fx-text-fill: -rw-go; }
@@ -518,8 +509,8 @@
     -fx-background-insets: 0, 4, 6;
 }
 .resume:hover:focus-visible { -fx-background-color: -rw-go2, -rw-goi, -rw-go2; }
-.checkpoint:focus-visible { -fx-background-color: -rw-act, -ck-ground; -fx-background-insets: 0, 2; }
-.ck-menu:focus-visible { -fx-background-color: -rw-act, -ck-hover; -fx-background-insets: 0, 2; }
+.checkpoint:focus-visible { -fx-background-color: -rw-act, -rw-g2; -fx-background-insets: 0, 2; }
+.ck-menu:focus-visible { -fx-background-color: -rw-act, -rw-ckh; -fx-background-insets: 0, 2; }
 /* the remove x shows itself when Tab reaches it, not only under the pointer */
 .rm:focus-visible { -fx-opacity: 1; }
 .rm:focus-visible .ico { -fx-stroke: -rw-tx; }
