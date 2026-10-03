@@ -270,7 +270,7 @@ public class HelloController {
         for (Label hint : List.of(npHint, npCaptureHint)) hint.managedProperty().bind(hint.visibleProperty());
         npHint.pseudoClassStateChanged(PC_FAILED, true);
         npName.textProperty().addListener((o, was, now) -> {
-            npHint.setText("a project named " + now.trim() + " already exists");
+            npHint.setText(now.trim() + " already exists");
             npHint.setVisible(nameTaken(projects, now));
         });
         btnNpCreate.setOnAction(e -> createFromDialog());
