@@ -450,7 +450,6 @@
     -fx-border-color: transparent transparent -rw-ln transparent;
     -fx-border-width: 0 0 1 0;
 }
-.strip-verb  { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-go; }
 .strip-count { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx; }
 .strip-pct   { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-go; }
 .strip-took  { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }

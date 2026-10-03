@@ -120,7 +120,7 @@ public class HelloController {
     @FXML public Region titleStateDot, resumingFill, resumingSheen, restoredFill, restoredFailFill, countdownFill;
     @FXML public Label titleStateVerb, titleStateName, resumingCount, resumingPct, resumingName,
             resumingSkipped, restoredCount, restoredTook, restoredSpec, restoredNote, restoredName,
-            restoredVerb, restoredWord;
+            restoredWord;
     @FXML public Button btnResumeStop, btnStayHere, btnOpenProject, btnResumeRest;
     private final DoubleProperty resumingFrac = new SimpleDoubleProperty();
     private final DoubleProperty restoredFrac = new SimpleDoubleProperty();
@@ -1344,7 +1344,6 @@ public class HelloController {
         String verb = outcome(r);
         boolean clean = r.error == null && !r.stopped && r.failed() == 0;
         titleState(verb, r.project.projectName, clean);
-        restoredVerb.setText(verb);
         restoredWord.setText(verb);
         restoredName.setText(r.project.projectName);
         logOpen = false;
@@ -1359,12 +1358,14 @@ public class HelloController {
             startCountdown(r);
             btnStayHere.requestFocus();   // one keypress keeps the screen, Esc leaves it
         } else if (r.stopped) {
-            restoredNote.setText("stopped at " + r.started() + " / " + r.total() + " \u00b7 "
-                    + r.queued() + " not launched \u00b7 Esc to go back");
+            // STOPPED and "3 / 10" are already on screen; the note adds only what is left
+            restoredNote.setText(r.queued() + " not launched \u00b7 Esc to go back");
             btnResumeRest.requestFocus();
+        } else if (r.error != null) {
+            restoredNote.setText("Retry, or Esc to go back");
+            if (restoredRows.lookup(".fail-row .button") instanceof Button retry) retry.requestFocus();
         } else {
-            long failed = r.error != null ? 1 : r.failed();
-            restoredNote.setText(failed + " failed \u00b7 Retry it, or Esc to go back");
+            restoredNote.setText(r.failed() + " failed \u00b7 Retry it, or Esc to go back");
             if (restoredRows.lookup(".fail-row .button") instanceof Button retry) retry.requestFocus();
         }
     }
@@ -1385,6 +1386,7 @@ public class HelloController {
         if (r.error != null) {
             // nothing was planned, so the launched / sent rows below would only say zero twice
             restoredSpec.setText("nothing launched");
+            // the cause is whatever the capture threw; it rides on the hover, not on a guess here
             restoredRows.getChildren().add(failRow("open apps", "could not be listed", r.error, this::onResume));
         }
         List<String> browsers = new ArrayList<>(), apps = new ArrayList<>();

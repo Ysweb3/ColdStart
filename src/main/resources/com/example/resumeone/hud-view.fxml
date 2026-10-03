@@ -292,7 +292,7 @@
         <HBox styleClass="strip" alignment="CENTER_LEFT" spacing="16.0"
               minHeight="48.0" prefHeight="48.0" maxHeight="48.0">
           <padding><Insets left="22.0" right="22.0"/></padding>
-          <Label styleClass="strip-verb" text="LAUNCHING"/>
+          <!-- no verb here: the title bar and the hero below already say RESUMING -->
           <Label fx:id="resumingCount" styleClass="strip-count" text="0 / ?"/>
           <!-- the fill carries the sheen while anything is launching -->
           <StackPane fx:id="resumingMeter" styleClass="meter-track" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS"
@@ -326,7 +326,6 @@
         <HBox styleClass="strip" alignment="CENTER_LEFT" spacing="16.0"
               minHeight="48.0" prefHeight="48.0" maxHeight="48.0">
           <padding><Insets left="22.0" right="22.0"/></padding>
-          <Label fx:id="restoredVerb" styleClass="strip-verb" text="RESUMED"/>
           <Label fx:id="restoredCount" styleClass="strip-count" text="0 / 0"/>
           <HBox fx:id="restoredMeter" styleClass="meter-track" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS"
                 minHeight="6.0" prefHeight="6.0" maxHeight="6.0">
