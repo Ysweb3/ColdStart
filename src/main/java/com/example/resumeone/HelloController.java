@@ -266,10 +266,12 @@ public class HelloController {
         // checkpoint, so a taken name cannot be created and the hint says why
         btnNpCreate.disableProperty().bind(Bindings.createBooleanBinding(
                 () -> npName.getText().trim().isEmpty() || nameTaken(projects, npName.getText()), npName.textProperty()));
+        // both hints take no room until they have something to say
+        for (Label hint : List.of(npHint, npCaptureHint)) hint.managedProperty().bind(hint.visibleProperty());
+        npHint.pseudoClassStateChanged(PC_FAILED, true);
         npName.textProperty().addListener((o, was, now) -> {
-            boolean taken = nameTaken(projects, now);
-            npHint.setText(taken ? "a project named " + now.trim() + " already exists" : "shown in the sidebar");
-            npHint.pseudoClassStateChanged(PC_FAILED, taken);
+            npHint.setText("a project named " + now.trim() + " already exists");
+            npHint.setVisible(nameTaken(projects, now));
         });
         btnNpCreate.setOnAction(e -> createFromDialog());
         npName.setOnAction(e -> { if (!btnNpCreate.isDisabled()) createFromDialog(); });   // Enter creates
@@ -381,11 +383,9 @@ public class HelloController {
         npFolder.setText(NO_FOLDER);
         npCapture.setSelected(true);
         // said before Create, not discovered afterwards as an empty TABS column
-        npCaptureHint.setText(wsSessions.isEmpty()
-                ? "records the apps open now · no browser extension is connected, so no tabs"
-                : "records the apps open now, plus tabs from " + wsSessions.stream()
-                        .map(s -> browserLabel(wsBrowser(s))).distinct().sorted()
-                        .collect(java.util.stream.Collectors.joining(" and ")));
+        boolean noTabs = wsSessions.isEmpty();
+        npCaptureHint.visibleProperty().bind(Bindings.createBooleanBinding(
+                () -> noTabs && npCapture.isSelected(), npCapture.selectedProperty()));
         showOverlay(newProjectPane);
         npName.requestFocus();
     }

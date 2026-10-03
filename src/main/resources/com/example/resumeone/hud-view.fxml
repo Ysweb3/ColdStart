@@ -389,19 +389,16 @@
         <VBox styleClass="dialog" spacing="16.0" maxWidth="480.0" maxHeight="400.0">
           <padding><Insets top="24.0" right="24.0" bottom="16.0" left="24.0"/></padding>
 
-          <VBox spacing="8.0">
-            <Label styleClass="dialog-title" text="New project"/>
-            <Label styleClass="dialog-sub" text="captures the apps and tabs open right now"/>
-          </VBox>
+          <Label styleClass="dialog-title" text="New project"/>
 
           <VBox spacing="8.0">
-            <Label styleClass="cat-foot" text="Project name"/>
+            <Label styleClass="cat-foot" text="Name"/>
             <TextField fx:id="npName" styleClass="input-name" promptText="ledger-api"/>
-            <Label fx:id="npHint" styleClass="cat-foot" text="shown in the sidebar"/>
+            <Label fx:id="npHint" styleClass="cat-foot" visible="false"/>
           </VBox>
 
           <VBox spacing="8.0">
-            <Label styleClass="cat-foot" text="Project folder"/>
+            <Label styleClass="cat-foot" text="Folder"/>
             <HBox styleClass="inset-row" alignment="CENTER_LEFT" spacing="8.0">
               <padding><Insets top="8.0" right="8.0" bottom="8.0" left="8.0"/></padding>
               <StackPane fx:id="npFolderGlyph"/>
@@ -414,8 +411,9 @@
 
           <VBox styleClass="divider-top" spacing="8.0">
             <padding><Insets top="16.0"/></padding>
-            <CheckBox fx:id="npCapture" selected="true" text="Checkpoint immediately"/>
-            <Label fx:id="npCaptureHint" styleClass="cat-foot" wrapText="true" maxWidth="420.0" text=""/>
+            <CheckBox fx:id="npCapture" selected="true" text="Checkpoint now"/>
+            <Label fx:id="npCaptureHint" styleClass="cat-foot" wrapText="true" maxWidth="420.0"
+                   text="no browser extension is connected, so no tabs"/>
           </VBox>
 
           <HBox alignment="CENTER_RIGHT" spacing="8.0">
