@@ -925,7 +925,7 @@ public class HelloController {
     }
 
     private void installNote() {
-        noteGlyphBox.getChildren().add(Icons.node(Icons.EDIT, 16, TX2));
+        noteGlyphBox.getChildren().add(Icons.node(Icons.EDIT, 14, TX2));
         Pane x = Icons.node(Icons.CLOSE, 14, TX2);
         btnNoteClose.getChildren().add(x);
         Icons.animate(btnNoteClose, x);
