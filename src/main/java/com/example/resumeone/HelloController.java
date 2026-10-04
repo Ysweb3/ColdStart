@@ -163,6 +163,8 @@ public class HelloController {
             deleteFolderGlyph, npFolderGlyph, noteGlyphBox;
     /** The NEXT line under the buttons: the project's "where was I" note. */
     @FXML public TextField noteField;
+    @FXML public HBox noteStrip;
+    @FXML public Button btnAddNote;
     /** The project the note field was filled from. Typing edits this one, not whichever is
         active when focus leaves the field: a click on another row switches project first. */
     private Project noteOwner;
@@ -922,9 +924,27 @@ public class HelloController {
             noteOwner.note = note;
             noteDirty = true;
         });
-        // Enter is "done": save and let go of the field
-        noteField.setOnAction(e -> { saveNote(); detailPane.requestFocus(); });
-        noteField.focusedProperty().addListener((o, was, focused) -> { if (!focused) saveNote(); });
+        graphic(btnAddNote, Icons.EDIT, TX2);
+        btnAddNote.setOnAction(e -> { showNoteStrip(true); noteField.requestFocus(); });
+        // Enter and Esc are both "done": let go of the field, which saves it
+        noteField.setOnAction(e -> detailPane.requestFocus());
+        noteField.addEventHandler(KeyEvent.KEY_PRESSED, e -> {
+            if (e.getCode() == KeyCode.ESCAPE) { detailPane.requestFocus(); e.consume(); }
+        });
+        noteField.focusedProperty().addListener((o, was, focused) -> {
+            if (focused) return;
+            saveNote();
+            // a strip left empty folds back into the button
+            if (noteOwner == null || noteOwner.note == null) showNoteStrip(false);
+        });
+    }
+
+    /** The NEXT strip while there is a note (or one being typed), else "Add a note". */
+    private void showNoteStrip(boolean open) {
+        noteStrip.setVisible(open);
+        noteStrip.setManaged(open);
+        btnAddNote.setVisible(!open);
+        btnAddNote.setManaged(!open);
     }
 
     /** What the field holds, as stored: trimmed, and null rather than blank. */
@@ -940,6 +960,7 @@ public class HelloController {
         noteOwner = projectObj;   // first, so the listener sees the note as unchanged
         noteField.setText(projectObj.note == null ? "" : projectObj.note);
         noteDirty = false;
+        showNoteStrip(projectObj.note != null);
     }
 
     private void saveNote() {
