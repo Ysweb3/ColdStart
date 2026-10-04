@@ -20,7 +20,8 @@ import java.util.HashSet;
  *   "folderPath":    "C:\...\ResumeOne",           // null when no folder was chosen
  *   "apps":          {"IDE": ["Code.exe"], "AI": ["claude.exe"], ...},   // category -> exe names
  *   "urls":          [],                            // legacy, see below
- *   "urlsByBrowser": {"Chrome": ["https://..."], "brave": [...]}       // extension brand -> tabs
+ *   "urlsByBrowser": {"Chrome": ["https://..."], "brave": [...]},      // extension brand -> tabs
+ *   "note":          "fix the export bug next"      // "where was I", shown on resume; absent = none
  * }
  * </pre>
  */
@@ -35,6 +36,9 @@ public class Project {
     public ArrayList<String> urls;
 
     public HashMap<String, ArrayList<String>> urlsByBrowser = new HashMap<>();
+
+    // one line typed under the buttons; a checkpoint and its undo leave it alone
+    public String note;
 
 
 public Project(String projectName,String folderPath, HashMap<String, HashSet<String>> apps,ArrayList<String> urls){

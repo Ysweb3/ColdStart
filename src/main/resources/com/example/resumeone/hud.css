@@ -297,6 +297,49 @@
     -fx-border-color: -rw-ln;
     -fx-border-radius: 13;
 }
+/* the NEXT note: the card's ground, one line; the field inside is borderless, the strip
+   takes the focus ring. The note is prose, so Sora like .input-name, not the mono field default */
+/* the card's ground, so it reads as part of the card above it; a step brighter border than
+   the card's so it is not lost under it. Neutral: orange is only RESUME, blue only CHECKPOINT */
+.note-strip {
+    -fx-background-color: -rw-g1;
+    -fx-background-radius: 13;
+    -fx-border-color: -rw-ln2;
+    -fx-border-radius: 13;
+}
+.note-strip:focus-within { -fx-border-color: -rw-act; }
+/* "Add a note": the strip's box with its words in tx2. 14px left, as the strip's padding,
+   so the pencil does not move when it opens */
+.button.note-add {
+    -fx-background-color: -rw-g1;
+    -fx-background-radius: 13;
+    -fx-border-color: -rw-ln2;
+    -fx-border-radius: 13;
+    -fx-text-fill: -rw-tx2;
+    -fx-font-family: "Sora";
+    -fx-font-size: 14px;
+    -fx-padding: 0 14 0 14;
+    -fx-alignment: center-left;
+}
+.button.note-add:hover { -fx-background-color: -rw-g2; -fx-text-fill: -rw-tx; }
+/* a TextArea so long notes wrap and grow; every layer modena paints (the box, the focus
+   glow, the content's gradient) goes transparent so only the strip's border shows */
+.text-area.note-input, .text-area.note-input:focused,
+.text-area.note-input .content, .text-area.note-input:focused .content,
+.text-area.note-input .scroll-pane, .text-area.note-input .viewport {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-insets: 0;
+}
+.text-area.note-input {
+    -fx-font-family: "Sora";
+    -fx-font-size: 14px;
+    -fx-text-fill: -rw-tx;
+    -fx-highlight-fill: -rw-ck;
+    -fx-padding: 0;
+}
+.text-area.note-input .content { -fx-padding: 0 8 0 0; }
+.text-area.note-input .scroll-pane { -fx-hbar-policy: never; -fx-padding: 0; }
 .cat-label { -fx-font-size: 12px; -fx-text-fill: -rw-hud; }
 /* green is only ever "live"; what resume will pass an app is plain secondary text */
 .cat-arg   { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
@@ -455,6 +498,14 @@
 .hero-word { -fx-font-family: "Sora ExtraBold"; -fx-font-size: 44px; -fx-text-fill: -rw-tx; }
 .hero-name { -fx-font-family: "Sora ExtraBold"; -fx-font-size: 44px; -fx-text-fill: -rw-go; }
 .hero-spec { -fx-font-family: "Space Mono"; -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+/* the note is prose, so Sora; the rule on its left marks it as the user's words, not ours */
+.hero-note {
+    -fx-font-size: 18px;
+    -fx-text-fill: -rw-tx;
+    -fx-border-color: transparent transparent transparent -rw-ln2;
+    -fx-border-width: 0 0 0 3;
+    -fx-padding: 2 0 2 14;
+}
 
 /* one launch per row; the row's border carries its state */
 .step-row {

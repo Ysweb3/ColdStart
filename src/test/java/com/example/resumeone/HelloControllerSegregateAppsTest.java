@@ -21,7 +21,7 @@ class HelloControllerSegregateAppsTest {
         HashMap<String, HashSet<String>> result = controller.segregateApps(new HashSet<>());
 
         assertEquals(java.util.Set.of("IDE", "Browser", "Music", "Communication", "Notes", "Terminal",
-                "AI", "Database", "API", "Containers", "VersionControl", "Design", "Other"), result.keySet());
+                "AI", "Database", "API", "Containers", "VersionControl", "Design", "Video", "Other"), result.keySet());
         result.values().forEach(bucket -> assertTrue(bucket.isEmpty()));
     }
 
@@ -182,6 +182,18 @@ class HelloControllerSegregateAppsTest {
 
         assertEquals(java.util.Set.of("Docker Desktop.exe"), result.get("Containers"));
         assertEquals(java.util.Set.of("LM Studio.exe"), result.get("AI"));
+    }
+
+    @Test
+    void videoEditorsAreAVideoCategoryNotOther() {
+        // Other is never relaunched, so an editor's main app used to stay shut on resume
+        var result = controller.segregateApps(new HashSet<>(java.util.List.of(
+                "Adobe Premiere Pro.exe", "AfterFX.exe", "Resolve.exe")));
+        assertEquals(java.util.Set.of("Adobe Premiere Pro.exe", "AfterFX.exe", "Resolve.exe"), result.get("Video"));
+        assertTrue(result.get("Other").isEmpty());
+        assertEquals("After Effects", HelloController.appName("AfterFX.exe"));
+        assertEquals("DaVinci Resolve", HelloController.appName("Resolve.exe"));
+        assertEquals("Adobe Premiere Pro", HelloController.appName("Adobe Premiere Pro.exe"));
     }
 
     @Test

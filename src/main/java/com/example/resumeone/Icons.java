@@ -48,6 +48,7 @@ final class Icons {
         CONTAINERS = g(rr(2, 4, 20, 16, 2.6) + " M8.7 4 V20 M15.3 4 V20"),
         DESIGN = new Glyph(new Part("M14.6 20.8 A9 9 0 1 1 20.4 15.2 C19.6 13.2 17.4 13 16 14.2 C14.4 15.6 15.4 18 14.6 20.8 Z"),
                 dot(8.2, 8.4, 1.05), dot(12.5, 6.7, 1.05), dot(6.9, 13, 1.05)),
+        VIDEO = g(rr(2, 6, 14, 12, 2.4) + " M16 10.4 L22 7 V17 L16 13.6"),
         COMMS = g("M3 16.4 V5.4 A2.4 2.4 0 0 1 5.4 3 H18.6 A2.4 2.4 0 0 1 21 5.4 V14 A2.4 2.4 0 0 1 18.6 16.4 H9.4 L5.2 21 V16.4 Z"),
         NOTES = g(rr(4, 2, 16, 20, 2.6) + " M8 8.6 H16 M8 13.2 H16"),
         MUSIC = g(circ(7.4, 18.6, 3.4) + " M10.8 18.6 V2 M10.8 2 L20 4.8 V9.2 L10.8 6.4 Z"),
@@ -88,7 +89,7 @@ final class Icons {
             Map.entry("IDE", IDE), Map.entry("AI", AI), Map.entry("Terminal", TERMINAL),
             Map.entry("Browser", BROWSER), Map.entry("VersionControl", VERSION), Map.entry("Database", DATABASE),
             Map.entry("API", API), Map.entry("Containers", CONTAINERS), Map.entry("Design", DESIGN),
-            Map.entry("Communication", COMMS), Map.entry("Notes", NOTES), Map.entry("Music", MUSIC));
+            Map.entry("Video", VIDEO), Map.entry("Communication", COMMS), Map.entry("Notes", NOTES), Map.entry("Music", MUSIC));
 
     /** A size×size node. Parts carry the style class "ico" so CSS hover rules can recolour
         them (author CSS beats the colour set here, as it does everywhere in JavaFX). */
