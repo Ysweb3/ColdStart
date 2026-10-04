@@ -929,10 +929,7 @@ public class HelloController {
         Pane x = Icons.node(Icons.CLOSE, 14, TX2);
         btnNoteClose.getChildren().add(x);
         Icons.animate(btnNoteClose, x);
-        Tooltip.install(btnNoteClose, tip("Remove note"));
-        // a just-opened strip is only the pencil and an empty line; the x comes with the words
-        btnNoteClose.visibleProperty().bind(noteField.textProperty().isNotEmpty());
-        // the field writes the cleared note back and saves it; the strip then folds away
+        Tooltip.install(btnNoteClose, tip("Remove note"));        // the field writes the cleared note back and saves it; the strip then folds away
         clickable(btnNoteClose, "Remove note", () -> {
             noteField.clear();
             saveNote();
