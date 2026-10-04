@@ -550,7 +550,7 @@ public class HelloController {
         Icons.animate(btnDelete, trash);
         btnDelete.getStyleClass().add("delete");
         for (var e : Map.of(btnNewProjectRail, Icons.NEW, btnSettings, Icons.SETTINGS).entrySet()) {
-            Pane g = Icons.node(e.getValue(), 16, TX3);
+            Pane g = Icons.node(e.getValue(), 16, TX2);
             e.getKey().getChildren().add(g);
             Icons.animate(e.getKey(), g);
         }
@@ -1304,7 +1304,7 @@ public class HelloController {
     }
 
     private static Pane categoryIcon(String category) {
-        return Icons.node(Icons.CATEGORY.getOrDefault(category, Icons.APP_WINDOW), 12, HUD);
+        return Icons.node(Icons.CATEGORY.getOrDefault(category, Icons.APP_WINDOW), 14, TX2);
     }
 
     private static Tooltip tip(String text) {
