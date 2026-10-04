@@ -144,7 +144,7 @@
 .side-face { visibility: hidden; -fx-padding: 0 10 0 10; -fx-spacing: 12; }
 .folder-open, .rail-active .folder-shut { visibility: hidden; }
 .rail-active .folder-open { visibility: visible; }
-.side-name  { -fx-font-family: "Sora"; -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+.side-name  { -fx-font-family: "Sora"; -fx-font-size: 14px; -fx-text-fill: -rw-tx2; }
 .side-count { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 
 .rail-wide .rail-head { -fx-padding: 14 12 8 12; }
@@ -165,7 +165,7 @@
     -fx-background-insets: 0, 0 0 0 2;
     -fx-background-radius: 7, 0 7 7 0;
 }
-.rail-wide .rail-active .side-name { -fx-font-family: "Sora Medium"; -fx-text-fill: -rw-tx; }
+.rail-wide .rail-active .side-name { -fx-font-family: "Sora SemiBold"; -fx-text-fill: -rw-tx; }
 .rail-wide .rail-spine { -fx-border-color: transparent; }
 .rail-foot { -fx-padding: 0; }
 .rail-wide .rail-foot {
@@ -219,7 +219,7 @@
 
 /* ── main column ───────────────────────────────────────────────────── */
 .project-name { -fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.project-path { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
+.project-path { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 
 /* The two verbs. Their notches are clips cut in the controller (JavaFX has no clip-path),
    so a clipped edge is simply cut, borders included, as the handoff draws it. */
@@ -279,7 +279,7 @@
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.55), 16, 0.2, 0, 6);
 }
 .menu-item { -fx-padding: 6 12 6 12; -fx-background-radius: 5; }
-.menu-item .label { -fx-font-size: 13px; -fx-text-fill: -rw-tx; }
+.menu-item .label { -fx-font-size: 14px; -fx-text-fill: -rw-tx; }
 .menu-item:focused, .menu-item:hover { -fx-background-color: -rw-raised; }
 .menu-item:focused .label, .menu-item:hover .label { -fx-text-fill: -rw-tx; }
 .menu-item:disabled .label { -fx-text-fill: -rw-tx3t; }
@@ -287,7 +287,7 @@
    Disabled only to stay out of hover and focus, so it opts back out of Modena's fade. */
 .menu-item.menu-head:disabled { -fx-opacity: 1; -fx-padding: 6 12 2 12; }
 .menu-item.menu-head:focused, .menu-item.menu-head:hover { -fx-background-color: transparent; }
-.menu-head .label { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3t; }
+.menu-head .label { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .menu .arrow { -fx-background-color: -rw-tx2; }
 
 /* ── what gets saved ───────────────────────────────────────────────── */
@@ -297,7 +297,7 @@
     -fx-border-color: -rw-ln;
     -fx-border-radius: 13;
 }
-.cat-label { -fx-font-size: 12px; -fx-text-fill: -rw-hud; }
+.cat-label { -fx-font-size: 13px; -fx-text-fill: -rw-tx; }
 /* green is only ever "live"; what resume will pass an app is plain secondary text */
 .cat-arg   { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 .cat-foot  { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
@@ -332,8 +332,8 @@
 }
 .tabs-scroll, .tabs-scroll > .viewport { -fx-background-color: transparent; -fx-padding: 0; }
 /* blue is only ever Checkpoint, so a browser's name is ink */
-.browser-name { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.tab-title    { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
+.browser-name { -fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.tab-title    { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
 
 /* the stage is undecorated, so the app draws its own outer edge */
 .shell { -fx-border-color: -rw-ln; -fx-border-width: 1; }
