@@ -30,8 +30,8 @@ class IconsTest {
     @Test
     void everyGlyphParsesAndStaysInTheBox() throws Exception {
         List<Icons.Glyph> all = glyphs();
-        // 13 categories + 15 actions + check / chevron / app-window + bookmark-plus
-        assertEquals(32, all.size());
+        // 14 categories + 15 actions + check / chevron / app-window + bookmark-plus
+        assertEquals(33, all.size());
         for (Icons.Glyph g : all) {
             for (Icons.Part p : g.parts()) {
                 String d = p.d().trim();
@@ -44,7 +44,7 @@ class IconsTest {
                 if (p.anim() != null) assertTrue(ANIMS.contains(p.anim()), "unknown anim " + p.anim());
             }
         }
-        assertEquals(12, Icons.CATEGORY.size());
+        assertEquals(13, Icons.CATEGORY.size());
     }
 
     @Test

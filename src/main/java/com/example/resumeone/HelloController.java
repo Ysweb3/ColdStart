@@ -896,7 +896,7 @@ public class HelloController {
     // built, so every non-empty category is listed rather than hidden behind a dead link
     private static final List<String> CATEGORY_ORDER = List.of(
             "IDE", "AI", "Terminal", "Browser", "Database", "API", "Containers",
-            "VersionControl", "Design", "Communication", "Notes", "Music");
+            "VersionControl", "Design", "Video", "Communication", "Notes", "Music");
 
     /** "2h ago" under Checkpoint: when the last one was taken. It used to read "overwrite \u00b7
         2h old", a warning on every press; a checkpoint is now one Ctrl+Z from undone. */
@@ -995,7 +995,9 @@ public class HelloController {
             Map.entry("sourcetree", "Sourcetree"), Map.entry("gitkraken", "GitKraken"), Map.entry("ms-teams", "Teams"),
             Map.entry("ssms", "SSMS"), Map.entry("pgadmin4", "pgAdmin"), Map.entry("mysqlworkbench", "MySQL Workbench"),
             Map.entry("mongodbcompass", "MongoDB Compass"), Map.entry("dbeaver", "DBeaver"),
-            Map.entry("heidisql", "HeidiSQL"), Map.entry("tableplus", "TablePlus"), Map.entry("chatgpt", "ChatGPT"));
+            Map.entry("heidisql", "HeidiSQL"), Map.entry("tableplus", "TablePlus"), Map.entry("chatgpt", "ChatGPT"),
+            Map.entry("afterfx", "After Effects"), Map.entry("resolve", "DaVinci Resolve"),
+            Map.entry("capcut", "CapCut"), Map.entry("indesign", "InDesign"));
 
     /** "idea64.exe" -> "IntelliJ IDEA", "WindowsTerminal.exe" -> "Windows Terminal",
         "obsidian.exe" -> "Obsidian": what a person calls the app, not what Windows does. */
@@ -2058,7 +2060,9 @@ public class HelloController {
             Map.entry("VersionControl", List.of("GitHubDesktop.exe", "SourceTree.exe", "gitkraken.exe",
                     "Fork.exe", "smartgit.exe", "sublime_merge.exe")),
             Map.entry("Design", List.of("Figma.exe", "Photoshop.exe", "Illustrator.exe", "blender.exe",
-                    "inkscape.exe", "krita.exe", "Canva.exe")),
+                    "inkscape.exe", "krita.exe", "Canva.exe", "InDesign.exe", "Lightroom.exe")),
+            Map.entry("Video", List.of("Adobe Premiere Pro.exe", "AfterFX.exe", "Resolve.exe", "CapCut.exe",
+                    "Adobe Media Encoder.exe", "shotcut.exe", "kdenlive.exe")),
             Map.entry("Communication", List.of("discord.exe", "slack.exe", "teams.exe", "ms-teams.exe",
                     "Zoom.exe", "Telegram.exe", "WhatsApp.exe", "Signal.exe", "Skype.exe", "Element.exe")),
             Map.entry("Notes", List.of("notion.exe", "obsidian.exe", "onenote.exe", "Logseq.exe",
@@ -2509,7 +2513,10 @@ public class HelloController {
                         if (!onPath(app, System.getenv("PATH")) && appPath(app) == null) {
                             throw new IOException("cannot find " + app);
                         }
-                        new ProcessBuilder("cmd.exe", "/c", "start", appName).start();
+                        // the "" is start's window title: without it, a name with a space
+                        // ("Adobe Premiere Pro") arrives quoted and start takes it as the title,
+                        // opening an empty console instead of the app
+                        new ProcessBuilder("cmd.exe", "/c", "start", "", appName).start();
                     }));
                 }
             }
