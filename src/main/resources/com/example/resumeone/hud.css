@@ -322,13 +322,24 @@
     -fx-alignment: center-left;
 }
 .button.note-add:hover { -fx-background-color: -rw-g2; -fx-text-fill: -rw-tx; }
-.text-field.note-input, .text-field.note-input:focused {
+/* a TextArea so long notes wrap and grow; every layer modena paints (the box, the focus
+   glow, the content's gradient) goes transparent so only the strip's border shows */
+.text-area.note-input, .text-area.note-input:focused,
+.text-area.note-input .content, .text-area.note-input:focused .content,
+.text-area.note-input .scroll-pane, .text-area.note-input .viewport {
     -fx-background-color: transparent;
     -fx-border-color: transparent;
+    -fx-background-insets: 0;
+}
+.text-area.note-input {
     -fx-font-family: "Sora";
     -fx-font-size: 14px;
-    -fx-padding: 0 8 0 0;
+    -fx-text-fill: -rw-tx;
+    -fx-highlight-fill: -rw-ck;
+    -fx-padding: 0;
 }
+.text-area.note-input .content { -fx-padding: 0 8 0 0; }
+.text-area.note-input .scroll-pane { -fx-hbar-policy: never; -fx-padding: 0; }
 .cat-label { -fx-font-size: 12px; -fx-text-fill: -rw-hud; }
 /* green is only ever "live"; what resume will pass an app is plain secondary text */
 .cat-arg   { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }

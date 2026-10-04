@@ -11,6 +11,7 @@
 <?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.TextArea?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Pane?>
@@ -199,11 +200,14 @@
              swaps one for the other without anything moving -->
         <Button fx:id="btnAddNote" styleClass="note-add" text="Add a note" graphicTextGap="12.0"
                 maxWidth="Infinity" minHeight="40.0" prefHeight="40.0" maxHeight="40.0"/>
+        <!-- 40 for one line; grows with the wrapped note (the field's prefHeight, set in
+             installNote) and the pencil and x stay centred on it -->
         <HBox fx:id="noteStrip" styleClass="note-strip" alignment="CENTER_LEFT" spacing="12.0"
-              minHeight="40.0" prefHeight="40.0" maxHeight="40.0" visible="false" managed="false">
-          <padding><Insets left="14.0" right="4.0"/></padding>
+              minHeight="40.0" maxHeight="-Infinity" visible="false" managed="false">
+          <padding><Insets top="10.0" left="14.0" bottom="10.0" right="4.0"/></padding>
           <StackPane fx:id="noteGlyphBox"/>
-          <TextField fx:id="noteField" styleClass="note-input" HBox.hgrow="ALWAYS"/>
+          <TextArea fx:id="noteField" styleClass="note-input" wrapText="true" HBox.hgrow="ALWAYS"
+                    minHeight="20.0" prefHeight="20.0"/>
           <StackPane fx:id="btnNoteClose" styleClass="iconbtn" pickOnBounds="true"/>
         </HBox>
       </VBox>

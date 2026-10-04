@@ -10,6 +10,7 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane; // explicit: java.awt.* also exports ScrollPane
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextArea; // explicit: java.awt.* also exports TextArea
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -163,7 +164,9 @@ public class HelloController {
     @FXML public StackPane resumeGlyphBox, ckDoneGlyphBox, emptyGlyphBox,
             deleteFolderGlyph, npFolderGlyph, noteGlyphBox;
     /** The NEXT line under the buttons: the project's "where was I" note. */
-    @FXML public TextField noteField;
+    @FXML public TextArea noteField;
+    /** About six wrapped lines of the note's 14px Sora; past this the field scrolls. */
+    static final double NOTE_MAX = 112;
     @FXML public HBox noteStrip;
     @FXML public Button btnAddNote;
     @FXML public StackPane btnNoteClose;
@@ -929,7 +932,8 @@ public class HelloController {
         Pane x = Icons.node(Icons.CLOSE, 14, TX2);
         btnNoteClose.getChildren().add(x);
         Icons.animate(btnNoteClose, x);
-        Tooltip.install(btnNoteClose, tip("Remove note"));        // the field writes the cleared note back and saves it; the strip then folds away
+        Tooltip.install(btnNoteClose, tip("Remove note"));
+        // the field writes the cleared note back and saves it; the strip then folds away
         clickable(btnNoteClose, "Remove note", () -> {
             noteField.clear();
             saveNote();
@@ -946,17 +950,37 @@ public class HelloController {
         // the strip's own pencil, size and all, so nothing shifts when the button opens it
         btnAddNote.setGraphic(Icons.node(Icons.EDIT, 14, TX2));
         btnAddNote.setOnAction(e -> { showNoteStrip(true); noteField.requestFocus(); });
-        // Enter and Esc are both "done": let go of the field, which saves it
-        noteField.setOnAction(e -> detailPane.requestFocus());
-        noteField.addEventHandler(KeyEvent.KEY_PRESSED, e -> {
-            if (e.getCode() == KeyCode.ESCAPE) { detailPane.requestFocus(); e.consume(); }
+        // Enter, Esc and Tab are all "done": let go of the field, which saves it. A filter, so
+        // the TextArea never gets to insert the newline or tab: the note wraps, it has no lines
+        noteField.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            KeyCode k = e.getCode();
+            if (k == KeyCode.ENTER || k == KeyCode.ESCAPE || k == KeyCode.TAB) {
+                detailPane.requestFocus();
+                e.consume();
+            }
         });
+        // grow with the wrapped text, one line to NOTE_MAX, then scroll
+        for (var p : List.of(noteField.textProperty(), noteField.widthProperty(), noteField.fontProperty())) {
+            p.addListener(o -> fitNote());
+        }
         noteField.focusedProperty().addListener((o, was, focused) -> {
             if (focused) return;
             saveNote();
             // a strip left empty folds back into the button
             if (noteOwner == null || noteOwner.note == null) showNoteStrip(false);
         });
+    }
+
+    /** Off-screen twin of the note's text: same font, same wrap width, so its height is the
+        height the wrapped note needs. The TextArea itself only ever reports its pref rows. */
+    private final javafx.scene.text.Text noteMeasure = new javafx.scene.text.Text();
+
+    private void fitNote() {
+        noteMeasure.setFont(noteField.getFont());
+        // the content's 8px right padding, and room for the scrollbar that appears past NOTE_MAX
+        noteMeasure.setWrappingWidth(Math.max(1, noteField.getWidth() - 18));
+        noteMeasure.setText(noteField.getText().isEmpty() ? " " : noteField.getText());
+        noteField.setPrefHeight(Math.min(noteMeasure.getLayoutBounds().getHeight(), NOTE_MAX) + 4);
     }
 
     /** The NEXT strip while there is a note (or one being typed), else "Add a note". */
