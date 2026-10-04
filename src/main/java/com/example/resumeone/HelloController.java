@@ -973,10 +973,7 @@ public class HelloController {
         height the wrapped note needs. The TextArea itself only ever reports its pref rows. */
     private final javafx.scene.text.Text noteMeasure = new javafx.scene.text.Text();
 
-    /** 1 or 2: the note's rows on screen. Past two it scrolls. */
-    private int noteRows;
-
-    /** Snaps the field to whole rows and only when the count changes: sizing it to the
+    /** Snaps the field to one or two whole rows (past two it scrolls): sizing it to the
         measured pixels on every keystroke made it wobble as the text reflowed and the
         TextArea scrolled to keep the caret in view. */
     private void fitNote() {
@@ -986,16 +983,24 @@ public class HelloController {
         double line = noteMeasure.getLayoutBounds().getHeight();
         noteMeasure.setText("X\nX");
         double twoLines = noteMeasure.getLayoutBounds().getHeight();
-        // the content's 8px right padding; the scrollbar only shows past two rows, so it
-        // never decides between one and two
-        noteMeasure.setWrappingWidth(Math.max(1, noteField.getWidth() - 8));
+        // the content's 8px right padding and the 10px scrollbar, always: a line that only just
+        // fit without the bar overflowed, the bar appeared, the line wrapped under it and the
+        // field stayed one row with its second line hidden. Erring narrow costs at worst an
+        // early second row
+        noteMeasure.setWrappingWidth(Math.max(1, noteField.getWidth() - 18));
         noteMeasure.setText(noteField.getText().isEmpty() ? " " : noteField.getText());
         int rows = noteMeasure.getLayoutBounds().getHeight() > line * 1.5 ? 2 : 1;
-        if (rows == noteRows) return;
-        noteRows = rows;
         // the measured block, not rows * line: a second line also brings the gap above it.
         // 8 of slack, or the TextArea clipped the last row's descenders
-        noteField.setPrefHeight((rows == 1 ? line : twoLines) + 8);
+        double target = (rows == 1 ? line : twoLines) + 8;
+        // compared on height, not rows: the first fit can run before CSS sets Sora 14, and a
+        // row count that did not change then kept the default font's shorter rows
+        if (target == noteField.getPrefHeight()) return;
+        noteField.setPrefHeight(target);
+        // a VBox short of room shrinks EVERY child toward its min, not just the card that
+        // grows, so with a long tab list the strip sat at its 40 and hid the second row.
+        // Its min is its full height (the field, plus the strip's 6 + 6 padding)
+        noteStrip.setMinHeight(Math.max(40, target + 12));
     }
 
     /** The NEXT strip while there is a note (or one being typed), else "Add a note". */
