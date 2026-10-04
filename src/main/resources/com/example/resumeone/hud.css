@@ -173,6 +173,15 @@
     -fx-border-width: 1 0 0 0;
     -fx-padding: 10 12 12 12;
 }
+/* the gear wears New project's 40px raised face beside it, but stays a square, icon-only button */
+.rail-wide .rail-foot .rail-btn {
+    -fx-min-width: 40; -fx-pref-width: 40; -fx-max-width: 40;
+    -fx-min-height: 40; -fx-pref-height: 40; -fx-max-height: 40;
+    -fx-background-color: -rw-ln, -rw-raised;
+}
+.rail-wide .rail-foot .rail-btn:hover { -fx-background-color: -rw-ln, -rw-hover; }
+.rail-wide .rail-foot .rail-active { -fx-background-color: -rw-tx, -rw-raised; }
+.rail-wide .rail-foot .rail-btn:focus-visible { -fx-background-color: -rw-act, -rw-raised; }
 
 /* ── buttons (Button.jsx): Sora 600 13px, 34 tall, radius 7 ───────── */
 .button {
