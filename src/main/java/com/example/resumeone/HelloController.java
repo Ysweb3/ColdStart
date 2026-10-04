@@ -930,6 +930,8 @@ public class HelloController {
         btnNoteClose.getChildren().add(x);
         Icons.animate(btnNoteClose, x);
         Tooltip.install(btnNoteClose, tip("Remove note"));
+        // a just-opened strip is only the pencil and an empty line; the x comes with the words
+        btnNoteClose.visibleProperty().bind(noteField.textProperty().isNotEmpty());
         // the field writes the cleared note back and saves it; the strip then folds away
         clickable(btnNoteClose, "Remove note", () -> {
             noteField.clear();
@@ -944,7 +946,8 @@ public class HelloController {
             noteOwner.note = note;
             noteDirty = true;
         });
-        graphic(btnAddNote, Icons.EDIT, TX2);
+        // the strip's own pencil, size and all, so nothing shifts when the button opens it
+        btnAddNote.setGraphic(Icons.node(Icons.EDIT, 14, TX2));
         btnAddNote.setOnAction(e -> { showNoteStrip(true); noteField.requestFocus(); });
         // Enter and Esc are both "done": let go of the field, which saves it
         noteField.setOnAction(e -> detailPane.requestFocus());

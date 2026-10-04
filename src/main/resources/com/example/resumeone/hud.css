@@ -308,6 +308,20 @@
     -fx-border-radius: 13;
 }
 .note-strip:focus-within { -fx-border-color: -rw-act; }
+/* "Add a note": the strip's box with its words in tx2. 14px left, as the strip's padding,
+   so the pencil does not move when it opens */
+.button.note-add {
+    -fx-background-color: -rw-g1;
+    -fx-background-radius: 13;
+    -fx-border-color: -rw-ln2;
+    -fx-border-radius: 13;
+    -fx-text-fill: -rw-tx2;
+    -fx-font-family: "Sora";
+    -fx-font-size: 14px;
+    -fx-padding: 0 14 0 14;
+    -fx-alignment: center-left;
+}
+.button.note-add:hover { -fx-background-color: -rw-g2; -fx-text-fill: -rw-tx; }
 .text-field.note-input, .text-field.note-input:focused {
     -fx-background-color: transparent;
     -fx-border-color: transparent;
