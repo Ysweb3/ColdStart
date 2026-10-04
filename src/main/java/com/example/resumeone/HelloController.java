@@ -2722,6 +2722,11 @@ public class HelloController {
                         + " (" + wsSessions.size() + " connected)");
                 refreshStatusDot();
                 });
+            // echo the heartbeat: it is the extension's only way to tell a hung app from a
+            // quiet one, and it redials a socket that stops echoing
+            ws.onMessage(ctx -> {
+                if ("Heartbeat".equals(ctx.message())) ctx.send("Heartbeat");
+            });
             ws.onClose(ctx -> {
                 wsSessions.remove(ctx);
                 // the last one gone is usually a worker suspending or a browser restarting:
