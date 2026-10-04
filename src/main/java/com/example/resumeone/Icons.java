@@ -51,6 +51,9 @@ final class Icons {
         VIDEO = g(rr(2, 6, 14, 12, 2.4) + " M16 10.4 L22 7 V17 L16 13.6"),
         COMMS = g("M3 16.4 V5.4 A2.4 2.4 0 0 1 5.4 3 H18.6 A2.4 2.4 0 0 1 21 5.4 V14 A2.4 2.4 0 0 1 18.6 16.4 H9.4 L5.2 21 V16.4 Z"),
         NOTES = g(rr(4, 2, 16, 20, 2.6) + " M8 8.6 H16 M8 13.2 H16"),
+        // not on the slide: lucide's file-text, so Office reads as a document beside Notes' pad
+        OFFICE = g("M14.6 2 H6.4 A2.4 2.4 0 0 0 4 4.4 V19.6 A2.4 2.4 0 0 0 6.4 22 H17.6 A2.4 2.4 0 0 0 20 19.6 V7.4 Z "
+             + "M14.6 2 V7.4 H20 M8 13 H16 M8 17 H13"),
         MUSIC = g(circ(7.4, 18.6, 3.4) + " M10.8 18.6 V2 M10.8 2 L20 4.8 V9.2 L10.8 6.4 Z"),
         OTHER = g("M2 18.6 V5.4 A1.4 1.4 0 0 1 3.4 4 H8.8 L11.4 7 H20.6 A1.4 1.4 0 0 1 22 8.4 V18.6 A1.4 1.4 0 0 1 20.6 20 H3.4 A1.4 1.4 0 0 1 2 18.6 Z");
 
@@ -89,7 +92,8 @@ final class Icons {
             Map.entry("IDE", IDE), Map.entry("AI", AI), Map.entry("Terminal", TERMINAL),
             Map.entry("Browser", BROWSER), Map.entry("VersionControl", VERSION), Map.entry("Database", DATABASE),
             Map.entry("API", API), Map.entry("Containers", CONTAINERS), Map.entry("Design", DESIGN),
-            Map.entry("Video", VIDEO), Map.entry("Communication", COMMS), Map.entry("Notes", NOTES), Map.entry("Music", MUSIC));
+            Map.entry("Video", VIDEO), Map.entry("Office", OFFICE), Map.entry("Communication", COMMS),
+            Map.entry("Notes", NOTES), Map.entry("Music", MUSIC));
 
     /** A size×size node. Parts carry the style class "ico" so CSS hover rules can recolour
         them (author CSS beats the colour set here, as it does everywhere in JavaFX). */
