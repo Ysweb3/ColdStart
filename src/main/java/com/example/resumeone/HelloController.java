@@ -119,7 +119,7 @@ public class HelloController {
     @FXML public Region titleStateDot, resumingFill, restoredFill, restoredFailFill, countdownFill;
     @FXML public Label titleStateVerb, titleStateName, resumingCount, resumingPct, resumingName,
             resumingSkipped, restoredCount, restoredTook, restoredSpec, restoredNote, restoredName,
-            restoredWord;
+            restoredWord, restoredNext;
     @FXML public Button btnResumeStop, btnStayHere, btnOpenProject, btnResumeRest;
     private final DoubleProperty resumingFrac = new SimpleDoubleProperty();
     private final DoubleProperty restoredFrac = new SimpleDoubleProperty();
@@ -160,7 +160,13 @@ public class HelloController {
     @FXML public StackPane btnDelete;
     // empty slots in the fxml that Icons draws into
     @FXML public StackPane resumeGlyphBox, ckDoneGlyphBox, emptyGlyphBox,
-            deleteFolderGlyph, npFolderGlyph;
+            deleteFolderGlyph, npFolderGlyph, noteGlyphBox;
+    /** The NEXT line under the buttons: the project's "where was I" note. */
+    @FXML public TextField noteField;
+    /** The project the note field was filled from. Typing edits this one, not whichever is
+        active when focus leaves the field: a click on another row switches project first. */
+    private Project noteOwner;
+    private boolean noteDirty;
     @FXML public Region statusDot;
     @FXML public Label projectNameLabel, projectPathLabel, checkpointSub, ckDoneSub, tabsCount, statusLabel, resumeCounts;
     /** The full folder path, one hover away from the "…\\atlas-api" the header shows. */
@@ -214,6 +220,7 @@ public class HelloController {
         clickable(btnResume, "Resume", this::onResume);
         clickable(btnCheckpoint, "Checkpoint", this::onCheckpoint);
         installCheckpointMenu();
+        installNote();
         notch(btnResume, 18);
         // the block's -fx-shape draws it; this clip keeps the confirmation ring inside it too
         notch(btnCheckpoint, 14);
@@ -250,6 +257,12 @@ public class HelloController {
             if (scene != null && was == null) {
                 installKeys(scene);
                 trapFocus(scene);
+                // a shown window focuses its first text field, which lit the NEXT strip on every
+                // launch as if mid-typing; nothing is focused until the user clicks into it
+                scene.windowProperty().addListener((o2, none, window) -> {
+                    if (window != null) window.addEventHandler(javafx.stage.WindowEvent.WINDOW_SHOWN,
+                            e -> detailPane.requestFocus());
+                });
             }
         });
         btnDeleteCancel.setOnAction(e -> backToProjects());
@@ -614,8 +627,15 @@ public class HelloController {
             scene.getAccelerators().put(new KeyCodeCombination(KeyCode.valueOf("DIGIT" + i), KeyCombination.SHORTCUT_DOWN), jump);
             scene.getAccelerators().put(new KeyCodeCombination(KeyCode.valueOf("NUMPAD" + i), KeyCombination.SHORTCUT_DOWN), jump);
         }
-        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN),
-                () -> { if (!overlayOpen() && detailPane.isVisible()) undoCheckpoint(); });
+        // a handler, not an accelerator: accelerators run before the focused control, so Ctrl+Z
+        // in the note field would undo the checkpoint instead of the typing. The field consumes
+        // its own Ctrl+Z, so this only hears it from outside a text field.
+        KeyCombination undo = new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN);
+        scene.addEventHandler(KeyEvent.KEY_PRESSED, e -> {
+            if (!undo.match(e) || overlayOpen() || !detailPane.isVisible()) return;
+            undoCheckpoint();
+            e.consume();
+        });
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.B, KeyCombination.SHORTCUT_DOWN),
                 () -> { if (!overlayOpen()) setRailWide(!rail.getStyleClass().contains("rail-wide")); });
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
@@ -890,6 +910,49 @@ public class HelloController {
 
         renderCategories(projectObj);
         renderTabs(projectObj);
+        fillNote(projectObj);
+    }
+
+    private void installNote() {
+        noteGlyphBox.getChildren().add(Icons.node(Icons.EDIT, 14, TX3));
+        noteField.textProperty().addListener((o, was, now) -> {
+            if (noteOwner == null) return;
+            String note = noteOf(now);
+            if (Objects.equals(note, noteOwner.note)) return;
+            noteOwner.note = note;
+            noteDirty = true;
+        });
+        // Enter is "done": save and let go of the field
+        noteField.setOnAction(e -> { saveNote(); detailPane.requestFocus(); });
+        noteField.focusedProperty().addListener((o, was, focused) -> { if (!focused) saveNote(); });
+    }
+
+    /** What the field holds, as stored: trimmed, and null rather than blank. */
+    static String noteOf(String text) {
+        return text == null || text.isBlank() ? null : text.strip();
+    }
+
+    /** renderDetail re-runs on every checkpoint and tab reply; only a change of project
+        refills the field, or a re-render mid-typing would trim the text and move the caret. */
+    private void fillNote(Project projectObj) {
+        if (noteOwner == projectObj) return;
+        saveNote();   // the project being left, if its note was edited and not yet written
+        noteOwner = projectObj;   // first, so the listener sees the note as unchanged
+        noteField.setText(projectObj.note == null ? "" : projectObj.note);
+        noteDirty = false;
+    }
+
+    private void saveNote() {
+        if (noteOwner == null || !noteDirty) return;
+        noteDirty = false;
+        Project projectObj = noteOwner;
+        try {
+            saveProject(projectObj);
+        } catch (IOException ex) {
+            confirm("Note not written", projectsFile().getPath(),
+                    "The card shows the note, the disk does not. " + ex.getMessage(),
+                    "Retry", () -> { try { saveProject(projectObj); } catch (IOException ignored) { } });
+        }
     }
 
     // the design folds at four categories and links to an inspector; that artboard is not
@@ -1330,6 +1393,10 @@ public class HelloController {
         titleState(verb, r.project.projectName, clean);
         restoredWord.setText(verb);
         restoredName.setText(r.project.projectName);
+        boolean hasNote = r.project.note != null;
+        restoredNext.setText(hasNote ? r.project.note : "");
+        restoredNext.setVisible(hasNote);
+        restoredNext.setManaged(hasNote);
         logOpen = false;
         showBase(restoredPane);
         renderRestored(r);
@@ -2133,6 +2200,8 @@ public class HelloController {
 
     public void deleteProject(Project projectObj, Node projectRow) throws IOException {
         removeByName(projects, projectObj.projectName);
+        // an unsaved note edit would otherwise write the deleted project back
+        if (noteOwner == projectObj) noteOwner = null;
 
         ArrayList<Project> onDisk = getProjectsJson();
         removeByName(onDisk, projectObj.projectName);

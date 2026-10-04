@@ -166,6 +166,16 @@
           </StackPane>
         </HBox>
 
+        <!-- "where was I": one line, saved on Enter or when focus leaves; the resume screen shows it -->
+        <HBox styleClass="note-strip" alignment="CENTER_LEFT" spacing="12.0"
+              minHeight="44.0" prefHeight="44.0" maxHeight="44.0">
+          <padding><Insets left="16.0" right="8.0"/></padding>
+          <StackPane fx:id="noteGlyphBox"/>
+          <Label styleClass="rail-label" text="NEXT"/>
+          <TextField fx:id="noteField" styleClass="note-input" HBox.hgrow="ALWAYS"
+                     promptText="What's next? Shown when you resume"/>
+        </HBox>
+
         <!-- what gets saved: apps by category on the left, tabs by browser in the 288px column -->
         <!-- minHeight 0: the card always fits the window and its columns scroll instead -->
         <HBox styleClass="card" VBox.vgrow="ALWAYS" minHeight="0.0">
@@ -340,6 +350,9 @@
             <Label fx:id="restoredWord" styleClass="hero-word" text="RESUMED"/>
             <Label fx:id="restoredName" styleClass="hero-name" text=""/>
           </VBox>
+          <!-- the project's note, back in front of you; hidden when there is none -->
+          <Label fx:id="restoredNext" styleClass="hero-note" wrapText="true" maxWidth="720.0"
+                 visible="false" managed="false"/>
           <Label fx:id="restoredSpec" styleClass="hero-spec" text=""/>
           <VBox fx:id="restoredRows" spacing="8.0" maxWidth="720.0"/>
           <Region VBox.vgrow="ALWAYS"/>
