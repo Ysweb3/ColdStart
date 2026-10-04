@@ -165,8 +165,6 @@ public class HelloController {
             deleteFolderGlyph, npFolderGlyph, noteGlyphBox;
     /** The NEXT line under the buttons: the project's "where was I" note. */
     @FXML public TextArea noteField;
-    /** About six wrapped lines of the note's 14px Sora; past this the field scrolls. */
-    static final double NOTE_MAX = 112;
     @FXML public HBox noteStrip;
     @FXML public Button btnAddNote;
     @FXML public StackPane btnNoteClose;
@@ -959,7 +957,7 @@ public class HelloController {
                 e.consume();
             }
         });
-        // grow with the wrapped text, one line to NOTE_MAX, then scroll
+        // grow with the wrapped text, one line to two, then scroll
         for (var p : List.of(noteField.textProperty(), noteField.widthProperty(), noteField.fontProperty())) {
             p.addListener(o -> fitNote());
         }
@@ -975,12 +973,29 @@ public class HelloController {
         height the wrapped note needs. The TextArea itself only ever reports its pref rows. */
     private final javafx.scene.text.Text noteMeasure = new javafx.scene.text.Text();
 
+    /** 1 or 2: the note's rows on screen. Past two it scrolls. */
+    private int noteRows;
+
+    /** Snaps the field to whole rows and only when the count changes: sizing it to the
+        measured pixels on every keystroke made it wobble as the text reflowed and the
+        TextArea scrolled to keep the caret in view. */
     private void fitNote() {
         noteMeasure.setFont(noteField.getFont());
-        // the content's 8px right padding, and room for the scrollbar that appears past NOTE_MAX
-        noteMeasure.setWrappingWidth(Math.max(1, noteField.getWidth() - 18));
+        noteMeasure.setWrappingWidth(0);
+        noteMeasure.setText("X");
+        double line = noteMeasure.getLayoutBounds().getHeight();
+        noteMeasure.setText("X\nX");
+        double twoLines = noteMeasure.getLayoutBounds().getHeight();
+        // the content's 8px right padding; the scrollbar only shows past two rows, so it
+        // never decides between one and two
+        noteMeasure.setWrappingWidth(Math.max(1, noteField.getWidth() - 8));
         noteMeasure.setText(noteField.getText().isEmpty() ? " " : noteField.getText());
-        noteField.setPrefHeight(Math.min(noteMeasure.getLayoutBounds().getHeight(), NOTE_MAX) + 4);
+        int rows = noteMeasure.getLayoutBounds().getHeight() > line * 1.5 ? 2 : 1;
+        if (rows == noteRows) return;
+        noteRows = rows;
+        // the measured block, not rows * line: a second line also brings the gap above it.
+        // 8 of slack, or the TextArea clipped the last row's descenders
+        noteField.setPrefHeight((rows == 1 ? line : twoLines) + 8);
     }
 
     /** The NEXT strip while there is a note (or one being typed), else "Add a note". */
