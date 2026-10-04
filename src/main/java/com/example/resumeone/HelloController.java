@@ -43,6 +43,7 @@ import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.css.PseudoClass;
 import javafx.animation.Animation;
 import javafx.animation.Interpolator;
@@ -165,6 +166,7 @@ public class HelloController {
     @FXML public TextField noteField;
     @FXML public HBox noteStrip;
     @FXML public Button btnAddNote;
+    @FXML public StackPane btnNoteClose;
     /** The project the note field was filled from. Typing edits this one, not whichever is
         active when focus leaves the field: a click on another row switches project first. */
     private Project noteOwner;
@@ -261,6 +263,13 @@ public class HelloController {
                 trapFocus(scene);
                 // a shown window focuses its first text field, which lit the NEXT strip on every
                 // launch as if mid-typing; nothing is focused until the user clicks into it
+                // a click on a pane (the header, the gaps) takes no focus, so the note field kept
+                // it and never saved or folded; any press outside the strip lets go of it
+                scene.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
+                    if (noteField.isFocused() && !(e.getTarget() instanceof Node n && inside(n, noteStrip))) {
+                        detailPane.requestFocus();
+                    }
+                });
                 scene.windowProperty().addListener((o2, none, window) -> {
                     if (window != null) window.addEventHandler(javafx.stage.WindowEvent.WINDOW_SHOWN,
                             e -> detailPane.requestFocus());
@@ -916,7 +925,18 @@ public class HelloController {
     }
 
     private void installNote() {
-        noteGlyphBox.getChildren().add(Icons.node(Icons.EDIT, 14, TX3));
+        noteGlyphBox.getChildren().add(Icons.node(Icons.EDIT, 16, TX2));
+        Pane x = Icons.node(Icons.CLOSE, 14, TX2);
+        btnNoteClose.getChildren().add(x);
+        Icons.animate(btnNoteClose, x);
+        Tooltip.install(btnNoteClose, tip("Remove note"));
+        // the field writes the cleared note back and saves it; the strip then folds away
+        clickable(btnNoteClose, "Remove note", () -> {
+            noteField.clear();
+            saveNote();
+            showNoteStrip(false);
+            detailPane.requestFocus();
+        });
         noteField.textProperty().addListener((o, was, now) -> {
             if (noteOwner == null) return;
             String note = noteOf(now);

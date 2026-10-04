@@ -299,20 +299,24 @@
 }
 /* the NEXT note: the card's ground, one line; the field inside is borderless, the strip
    takes the focus ring. The note is prose, so Sora like .input-name, not the mono field default */
+/* raised, not the card's ground: it sits above the verbs and has to be read before them.
+   Neutral on purpose - orange is only RESUME, blue only CHECKPOINT */
 .note-strip {
-    -fx-background-color: -rw-g1;
+    -fx-background-color: -rw-raised;
     -fx-background-radius: 13;
-    -fx-border-color: -rw-ln;
+    -fx-border-color: -rw-ln2;
     -fx-border-radius: 13;
 }
 .note-strip:focus-within { -fx-border-color: -rw-act; }
+.note-label { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx2; }
 .text-field.note-input, .text-field.note-input:focused {
     -fx-background-color: transparent;
     -fx-border-color: transparent;
     -fx-font-family: "Sora";
-    -fx-font-size: 13px;
+    -fx-font-size: 15px;
     -fx-padding: 0 8 0 0;
 }
+.note-strip .iconbtn:hover { -fx-background-color: -rw-hover; }
 .cat-label { -fx-font-size: 12px; -fx-text-fill: -rw-hud; }
 /* green is only ever "live"; what resume will pass an app is plain secondary text */
 .cat-arg   { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
