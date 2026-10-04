@@ -1304,7 +1304,7 @@ public class HelloController {
     }
 
     private static Pane categoryIcon(String category) {
-        return Icons.node(Icons.CATEGORY.getOrDefault(category, Icons.APP_WINDOW), 13, TX2);
+        return Icons.node(Icons.CATEGORY.getOrDefault(category, Icons.APP_WINDOW), 14, TX2);
     }
 
     private static Tooltip tip(String text) {

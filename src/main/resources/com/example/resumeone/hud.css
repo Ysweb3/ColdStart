@@ -144,7 +144,7 @@
 .side-face { visibility: hidden; -fx-padding: 0 10 0 10; -fx-spacing: 12; }
 .folder-open, .rail-active .folder-shut { visibility: hidden; }
 .rail-active .folder-open { visibility: visible; }
-.side-name  { -fx-font-family: "Sora"; -fx-font-size: 14px; -fx-text-fill: -rw-tx2; }
+.side-name  { -fx-font-family: "Sora"; -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 .side-count { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 
 .rail-wide .rail-head { -fx-padding: 14 12 8 12; }
@@ -279,7 +279,7 @@
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.55), 16, 0.2, 0, 6);
 }
 .menu-item { -fx-padding: 6 12 6 12; -fx-background-radius: 5; }
-.menu-item .label { -fx-font-size: 14px; -fx-text-fill: -rw-tx; }
+.menu-item .label { -fx-font-size: 12px; -fx-text-fill: -rw-tx; }
 .menu-item:focused, .menu-item:hover { -fx-background-color: -rw-raised; }
 .menu-item:focused .label, .menu-item:hover .label { -fx-text-fill: -rw-tx; }
 .menu-item:disabled .label { -fx-text-fill: -rw-tx3t; }
@@ -375,7 +375,7 @@
 }
 .tabs-scroll, .tabs-scroll > .viewport { -fx-background-color: transparent; -fx-padding: 0; }
 /* blue is only ever Checkpoint, so a browser's name is ink */
-.browser-name { -fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.browser-name { -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .tab-title    { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
 
 /* the stage is undecorated, so the app draws its own outer edge */
