@@ -384,6 +384,7 @@ public class HelloController {
             }
             for (Project p : loaded) {
                 migrateLegacyUrls(p);
+                recategorizeOther(p);
             }
             return loaded;
         } catch (IOException e) {
@@ -1044,7 +1045,7 @@ public class HelloController {
     // built, so every non-empty category is listed rather than hidden behind a dead link
     private static final List<String> CATEGORY_ORDER = List.of(
             "IDE", "AI", "Terminal", "Browser", "Database", "API", "Containers",
-            "VersionControl", "Design", "Video", "Communication", "Notes", "Music");
+            "VersionControl", "Design", "Video", "Office", "Communication", "Notes", "Music");
 
     /** "2h ago" under Checkpoint: when the last one was taken. It used to read "overwrite \u00b7
         2h old", a warning on every press; a checkpoint is now one Ctrl+Z from undone. */
@@ -1145,7 +1146,16 @@ public class HelloController {
             Map.entry("mongodbcompass", "MongoDB Compass"), Map.entry("dbeaver", "DBeaver"),
             Map.entry("heidisql", "HeidiSQL"), Map.entry("tableplus", "TablePlus"), Map.entry("chatgpt", "ChatGPT"),
             Map.entry("afterfx", "After Effects"), Map.entry("resolve", "DaVinci Resolve"),
-            Map.entry("capcut", "CapCut"), Map.entry("indesign", "InDesign"));
+            Map.entry("capcut", "CapCut"), Map.entry("indesign", "InDesign"),
+            Map.entry("mspaint", "Paint"), Map.entry("paintdotnet", "Paint.NET"), Map.entry("winword", "Word"),
+            Map.entry("excel", "Excel"), Map.entry("powerpnt", "PowerPoint"), Map.entry("msaccess", "Access"),
+            Map.entry("visio", "Visio"), Map.entry("mspub", "Publisher"), Map.entry("winproj", "Project"),
+            Map.entry("acrord32", "Acrobat Reader"), Map.entry("foxitpdfreader", "Foxit PDF Reader"),
+            Map.entry("wps", "WPS Writer"), Map.entry("et", "WPS Spreadsheets"), Map.entry("wpp", "WPS Presentation"),
+            Map.entry("outlook", "Outlook"), Map.entry("olk", "Outlook"), Map.entry("onenote", "OneNote"),
+            Map.entry("obs", "OBS Studio"), Map.entry("camtasiastudio", "Camtasia"), Map.entry("fl", "FL Studio"),
+            Map.entry("itunes", "iTunes"), Map.entry("azuredatastudio", "Azure Data Studio"),
+            Map.entry("xournalpp", "Xournal++"), Map.entry("aimp", "AIMP"), Map.entry("xd", "Adobe XD"));
 
     /** "idea64.exe" -> "IntelliJ IDEA", "WindowsTerminal.exe" -> "Windows Terminal",
         "obsidian.exe" -> "Obsidian": what a person calls the app, not what Windows does. */
@@ -2198,29 +2208,46 @@ public class HelloController {
                     "zed.exe", "trae.exe", "fleet.exe", "idea64.exe", "devenv.exe", "eclipse.exe",
                     "sublime_text.exe", "notepad++.exe", "pycharm64.exe", "webstorm64.exe",
                     "phpstorm64.exe", "clion64.exe", "rider64.exe", "goland64.exe", "rubymine64.exe",
-                    "studio64.exe", "netbeans64.exe", "qtcreator.exe", "gvim.exe", "emacs.exe")),
+                    "studio64.exe", "netbeans64.exe", "qtcreator.exe", "gvim.exe", "emacs.exe",
+                    "Kiro.exe", "Antigravity.exe", "Positron.exe", "dataspell64.exe", "neovide.exe",
+                    "rstudio.exe", "MATLAB.exe", "Arduino IDE.exe", "Unity.exe", "Unity Hub.exe",
+                    "UnrealEditor.exe")),
+            // powershell/cmd stay Other on purpose: with claude in a conhost window they'd come
+            // back as an empty shell beside claude, the case the wt special-case already avoids
             Map.entry("Terminal", List.of("WindowsTerminal.exe", "alacritty.exe", "wezterm-gui.exe",
                     "Hyper.exe", "ConEmu64.exe", "mintty.exe", "Tabby.exe", "warp.exe")),
             Map.entry("AI", List.of("claude.exe", "ChatGPT.exe", "Perplexity.exe", "LM Studio.exe",
-                    "ollama app.exe", "Copilot.exe")),
+                    "ollama app.exe", "Copilot.exe", "Msty.exe", "Jan.exe", "AnythingLLM.exe",
+                    "Cherry Studio.exe")),
             Map.entry("Database", List.of("dbeaver.exe", "datagrip64.exe", "pgAdmin4.exe", "Ssms.exe",
                     "MySQLWorkbench.exe", "TablePlus.exe", "MongoDBCompass.exe", "redisinsight.exe",
-                    "HeidiSQL.exe")),
-            Map.entry("API", List.of("Postman.exe", "Insomnia.exe", "Bruno.exe", "Hoppscotch.exe")),
+                    "HeidiSQL.exe", "azuredatastudio.exe", "Beekeeper Studio.exe", "SQLiteStudio.exe",
+                    "DB Browser for SQLite.exe", "navicat.exe")),
+            Map.entry("API", List.of("Postman.exe", "Insomnia.exe", "Bruno.exe", "Hoppscotch.exe",
+                    "Yaak.exe", "Fiddler Everywhere.exe", "Wireshark.exe")),
             Map.entry("Containers", List.of("Docker Desktop.exe", "Rancher Desktop.exe",
-                    "podman-desktop.exe", "VirtualBox.exe", "vmware.exe")),
+                    "podman-desktop.exe", "VirtualBox.exe", "vmware.exe", "Lens.exe", "OpenLens.exe")),
             Map.entry("VersionControl", List.of("GitHubDesktop.exe", "SourceTree.exe", "gitkraken.exe",
-                    "Fork.exe", "smartgit.exe", "sublime_merge.exe")),
+                    "Fork.exe", "smartgit.exe", "sublime_merge.exe", "GitExtensions.exe")),
             Map.entry("Design", List.of("Figma.exe", "Photoshop.exe", "Illustrator.exe", "blender.exe",
-                    "inkscape.exe", "krita.exe", "Canva.exe", "InDesign.exe", "Lightroom.exe")),
+                    "inkscape.exe", "krita.exe", "Canva.exe", "InDesign.exe", "Lightroom.exe",
+                    "mspaint.exe", "PaintDotNet.exe", "XD.exe", "draw.io.exe", "Lunacy.exe", "Affinity.exe")),
             Map.entry("Video", List.of("Adobe Premiere Pro.exe", "AfterFX.exe", "Resolve.exe", "CapCut.exe",
-                    "Adobe Media Encoder.exe", "shotcut.exe", "kdenlive.exe")),
+                    "Adobe Media Encoder.exe", "shotcut.exe", "kdenlive.exe", "obs64.exe",
+                    "CamtasiaStudio.exe", "HandBrake.exe", "Descript.exe")),
+            Map.entry("Office", List.of("WINWORD.exe", "EXCEL.exe", "POWERPNT.exe", "MSACCESS.exe",
+                    "VISIO.exe", "MSPUB.exe", "WINPROJ.exe", "Acrobat.exe", "AcroRd32.exe",
+                    "SumatraPDF.exe", "FoxitPDFReader.exe", "wps.exe", "et.exe", "wpp.exe")),
             Map.entry("Communication", List.of("discord.exe", "slack.exe", "teams.exe", "ms-teams.exe",
-                    "Zoom.exe", "Telegram.exe", "WhatsApp.exe", "Signal.exe", "Skype.exe", "Element.exe")),
+                    "Zoom.exe", "Telegram.exe", "WhatsApp.exe", "Signal.exe", "Skype.exe", "Element.exe",
+                    "OUTLOOK.exe", "olk.exe", "thunderbird.exe", "Mailspring.exe", "Mattermost.exe",
+                    "Viber.exe", "Messenger.exe", "Zulip.exe", "Beeper.exe")),
             Map.entry("Notes", List.of("notion.exe", "obsidian.exe", "onenote.exe", "Logseq.exe",
-                    "Typora.exe", "Joplin.exe", "anytype.exe", "notepad.exe")),
+                    "Typora.exe", "Joplin.exe", "anytype.exe", "notepad.exe", "Evernote.exe",
+                    "Zettlr.exe", "Todoist.exe", "AFFiNE.exe", "xournalpp.exe")),
             Map.entry("Music", List.of("spotify.exe", "amazonmusic.exe", "AppleMusic.exe", "Tidal.exe",
-                    "MusicBee.exe", "foobar2000.exe", "vlc.exe"))
+                    "MusicBee.exe", "foobar2000.exe", "vlc.exe", "iTunes.exe", "Deezer.exe", "AIMP.exe",
+                    "Audacity.exe", "reaper.exe", "FL64.exe"))
     );
 
     /** Buckets captured exe names by category: {"IDE": [Code.exe], "Browser": [chrome.exe], ...}.
@@ -2241,6 +2268,19 @@ public class HelloController {
             System.out.println(item + " -> " + result.get(item));
         }
         return result;
+    }
+
+    /** Apps saved under Other before KNOWN_APPS learned them (mspaint, Word, ...) move to their
+        category, or they'd never relaunch and an add-mode checkpoint would list them twice. */
+    static void recategorizeOther(Project projectObj) {
+        HashSet<String> other = projectObj.apps == null ? null : projectObj.apps.get(OTHER);
+        if (other == null) return;
+        other.removeIf(app -> {
+            String category = categoryOf(app);
+            if (category.equals(OTHER)) return false;
+            projectObj.apps.computeIfAbsent(category, k -> new HashSet<>()).add(app);
+            return true;
+        });
     }
 
     // windows reports real executable casing (WindowsTerminal.exe, Spotify.exe), so match lowercased
