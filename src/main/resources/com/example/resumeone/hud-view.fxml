@@ -11,6 +11,7 @@
 <?import javafx.scene.control.CheckBox?>
 <?import javafx.scene.control.ScrollPane?>
 <?import javafx.scene.control.TextField?>
+<?import javafx.scene.control.TextArea?>
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.Pane?>
@@ -191,6 +192,24 @@
             </ScrollPane>
           </VBox>
         </HBox>
+
+        <!-- "where was I", under everything. Saved on Enter, Esc or any click outside it; the
+             resume screen shows it. Folded into "Add a note" while the project has none; the x
+             removes it (showNoteStrip). -->
+        <!-- the button is the strip's twin (same box, pencil and text start) so opening it
+             swaps one for the other without anything moving -->
+        <Button fx:id="btnAddNote" styleClass="note-add" text="Add a note" graphicTextGap="12.0"
+                maxWidth="Infinity" minHeight="40.0" prefHeight="40.0" maxHeight="40.0"/>
+        <!-- 40 for one line, a line taller for two (the field's prefHeight, set in fitNote);
+             the pencil and x stay centred on it -->
+        <HBox fx:id="noteStrip" styleClass="note-strip" alignment="CENTER_LEFT" spacing="12.0"
+              minHeight="40.0" maxHeight="-Infinity" visible="false" managed="false">
+          <padding><Insets top="6.0" left="14.0" bottom="6.0" right="4.0"/></padding>
+          <StackPane fx:id="noteGlyphBox"/>
+          <TextArea fx:id="noteField" styleClass="note-input" wrapText="true" HBox.hgrow="ALWAYS"
+                    minHeight="20.0" prefHeight="20.0"/>
+          <StackPane fx:id="btnNoteClose" styleClass="iconbtn" pickOnBounds="true"/>
+        </HBox>
       </VBox>
 
       <!-- ══ nothing saved yet ═════════════════════════════════════════════ -->
@@ -340,6 +359,9 @@
             <Label fx:id="restoredWord" styleClass="hero-word" text="RESUMED"/>
             <Label fx:id="restoredName" styleClass="hero-name" text=""/>
           </VBox>
+          <!-- the project's note, back in front of you; hidden when there is none -->
+          <Label fx:id="restoredNext" styleClass="hero-note" wrapText="true" maxWidth="720.0"
+                 visible="false" managed="false"/>
           <Label fx:id="restoredSpec" styleClass="hero-spec" text=""/>
           <VBox fx:id="restoredRows" spacing="8.0" maxWidth="720.0"/>
           <Region VBox.vgrow="ALWAYS"/>
