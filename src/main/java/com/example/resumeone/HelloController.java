@@ -73,6 +73,8 @@ import java.net.URISyntaxException;
 import java.util.*;
 import java.util.List; // explicit: java.awt.* also exports List
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -915,10 +917,10 @@ public class HelloController {
 
         btnResume.setDisable(apps == 0 && tabs == 0);
         // the count is the proof: what one press brings back, on the button that does it - so it
-        // counts what Resume launches, not everything captured (Other and handled browsers are not)
+        // matches the chips on the card, not everything captured (Other is never relaunched)
         resumeCounts.setText(apps > 0 || tabs > 0 ? resumeCountLine(apps, tabs)
                 : countApps(projectObj) > 0 ? "NOTHING TO RELAUNCH" : "NOTHING SAVED YET");
-        checkpointSub.setText(checkpointing == projectObj ? CHECKPOINTING : checkpointLine(projectObj.lastCheckpoint));
+        checkpointSub.setText(idleLine(projectObj));
         tabsCount.setText(String.valueOf(tabs));
 
         renderCategories(projectObj);
@@ -1049,6 +1051,10 @@ public class HelloController {
 
     /** "2h ago" under Checkpoint: when the last one was taken. It used to read "overwrite \u00b7
         2h old", a warning on every press; a checkpoint is now one Ctrl+Z from undone. */
+    private String idleLine(Project projectObj) {
+        return checkpointing == projectObj ? CHECKPOINTING : checkpointLine(projectObj.lastCheckpoint);
+    }
+
     static String checkpointLine(String lastCheckpoint) {
         String age = ago(lastCheckpoint);
         if ("never".equals(age)) return "no checkpoint yet";
@@ -1754,28 +1760,12 @@ public class HelloController {
         return projectObj.apps.values().stream().mapToInt(Set::size).sum();
     }
 
-    /** What one press of Resume can launch, as planResume walks it: Other is never relaunched, a
-        browser whose tabs are saved comes back as its tabs, and a terminal that only hosts
-        claude opens with it. Apps already open at the time are left alone, and 1l says so. */
+    /** What one press of Resume brings back: every app chip on the card. A browser with saved
+        tabs comes back as its tabs and a terminal hosting claude opens with it, but both still
+        open, so both count; only Other, listed apart as "not relaunched", is left out. */
     static int launchableApps(Project projectObj) {
         if (projectObj == null || projectObj.apps == null) return 0;
-        Set<String> withTabs = new HashSet<>();
-        if (projectObj.urlsByBrowser != null) {
-            projectObj.urlsByBrowser.forEach((browser, urls) -> {
-                String exe = BROWSER_EXE.get(browser.toLowerCase());
-                if (exe != null && !urls.isEmpty()) withTabs.add(exe);
-            });
-        }
-        boolean claudeInTerminal = hasApp(projectObj, "claude.exe") && hasApp(projectObj, "WindowsTerminal.exe");
-        int n = 0;
-        for (String category : CATEGORY_ORDER) {
-            for (String app : projectObj.apps.getOrDefault(category, new HashSet<>())) {
-                if (withTabs.contains(app.toLowerCase())) continue;
-                if (claudeInTerminal && app.equalsIgnoreCase("WindowsTerminal.exe")) continue;
-                n++;
-            }
-        }
-        return n;
+        return CATEGORY_ORDER.stream().mapToInt(c -> projectObj.apps.getOrDefault(c, new HashSet<>()).size()).sum();
     }
 
     static int countTabs(Project projectObj) {
@@ -1863,11 +1853,20 @@ public class HelloController {
         return now < until ? pending : active;
     }
 
-    private void askForTabs(Project projectObj) {
+    private CountDownLatch askForTabs(Project projectObj) {
         tabTarget = projectObj;
         tabTargetUntil = System.nanoTime() + TAB_WINDOW_NANOS;
+        tabReplies = new CountDownLatch(wsSessions.size());
         wsSessions.forEach(session -> session.send("capture"));
+        return tabReplies;
     }
+
+    /** One count per browser asked by the last checkpoint; POST /tabs ticks it off. */
+    private volatile CountDownLatch tabReplies = new CountDownLatch(0);
+    /** How long "checkpointing…" waits, after the apps are listed, for browsers still to reply.
+        ponytail: fixed, a worker the browser has put to sleep needs its alarm (up to a minute)
+        and is not waited for; its saved tabs stay and a late reply still updates the card. */
+    static final long TAB_WAIT_MILLIS = 3_000;
 
     /** Puts back what a checkpoint changes (apps, tabs, its time) from a gson snapshot. */
     void restore(Project projectObj, String snapshot) {
@@ -1912,8 +1911,7 @@ public class HelloController {
         // own bucket in POST /tabs, and one that does not answer (asleep worker, dead socket,
         // closed) keeps what it had. Stale beats gone.
         tabMode = mode;
-        boolean tabsComing = mode.tabs() && !wsSessions.isEmpty();
-        if (mode.tabs()) askForTabs(projectObj);
+        CountDownLatch replies = mode.tabs() ? askForTabs(projectObj) : new CountDownLatch(0);
         if (projectObj == activeProject) checkpointSub.setText(CHECKPOINTING);
         // the PowerShell capture takes seconds: off the FX thread the HUD keeps drawing and
         // the block can say what it is doing
@@ -1922,12 +1920,16 @@ public class HelloController {
             IOException failed = null;
             try {
                 if (mode.apps()) now = segregateApps(captureRunningApps());
+                // still "checkpointing…": the browsers usually answered while PowerShell ran,
+                // so this rarely waits, and "Saved" can always give the tab count
+                replies.await(TAB_WAIT_MILLIS, TimeUnit.MILLISECONDS);
             } catch (IOException ex) {
                 failed = ex;
+            } catch (InterruptedException ignored) {
             }
             HashMap<String, HashSet<String>> captured = now;
             IOException error = failed;
-            Platform.runLater(() -> finishCheckpoint(projectObj, mode, before, tabsComing, captured, error));
+            Platform.runLater(() -> finishCheckpoint(projectObj, mode, before, captured, error));
         }, "checkpoint");
         worker.setDaemon(true);
         worker.start();
@@ -1936,7 +1938,7 @@ public class HelloController {
     static final String CHECKPOINTING = "checkpointing…";
 
     /** The FX-thread half of writeCheckpoint, once the capture is back (or failed). */
-    private void finishCheckpoint(Project projectObj, Checkpoint mode, String before, boolean tabsComing,
+    private void finishCheckpoint(Project projectObj, Checkpoint mode, String before,
                                   HashMap<String, HashSet<String>> captured, IOException captureError) {
         checkpointing = null;
         boolean onScreen = projectObj == activeProject;
@@ -1972,8 +1974,7 @@ public class HelloController {
 
         renderDetail(projectObj);
         // "just now" dropped: the block's column holds ~18 characters, and "Saved" already says it.
-        // Tabs reply after this returns, so their count is "tabs…" until POST /tabs fills it in.
-        checkpointSaved(countApps(projectObj) + " apps · " + (tabsComing ? "tabs…" : countTabs(projectObj) + " tabs"));
+        checkpointSaved(countApps(projectObj) + " apps · " + countTabs(projectObj) + " tabs");
     }
 
     /** Add mode: every exe open now joins its category; nothing saved is dropped. */
@@ -2039,6 +2040,11 @@ public class HelloController {
                         new KeyFrame(Duration.millis(2600), kv(doneO, 0, in), kv(doneY, -5, in)),
                         new KeyFrame(Duration.millis(2660), kv(bar, 3, std)),
                         new KeyFrame(Duration.millis(2800), kv(idleO, 1, std), kv(idleY, 0, std)));
+        // renderDetail has already moved the idle line on to "just now", which flashed for the
+        // 160ms before it lifted away: it keeps "checkpointing…" and changes while hidden
+        checkpointSub.setText(CHECKPOINTING);
+        t.getKeyFrames().add(new KeyFrame(Duration.millis(2400),
+                e -> { if (activeProject != null) checkpointSub.setText(idleLine(activeProject)); }));
         Motion.stop(btnCheckpoint);
         Motion.run(btnCheckpoint, t);
     }
@@ -2793,13 +2799,14 @@ public class HelloController {
                         ? mergeUrls(target.urlsByBrowser.getOrDefault(key, new ArrayList<>()), pages)
                         : new ArrayList<>(pages));
                 saveProject(target);
+                tabReplies.countDown();
                 // tabs arrive after the checkpoint button has already returned, so the
                 // card has to be redrawn off the javalin thread - and only if it is this card
                 if (isHud()) {
                     Platform.runLater(() -> {
                         if (target != activeProject) return;
                         renderDetail(target);
-                        // the "Saved" line said "tabs…" until now
+                        // a reply that missed the checkpoint's wait still corrects the "Saved" line
                         if (System.nanoTime() < ckBusyUntil) {
                             ckDoneSub.setText(countApps(target) + " apps · " + countTabs(target) + " tabs");
                         }

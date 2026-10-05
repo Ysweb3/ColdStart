@@ -30,8 +30,9 @@ class ResumeOutcomeTest {
         Project p = new Project("atlas", null, apps, new ArrayList<>());
         p.urlsByBrowser.put("brave", new ArrayList<>(List.of("https://a.com/")));  // brave returns as tabs
 
-        // Code, claude, and Edge (no saved tabs, so it launches as an app)
-        assertEquals(3, HelloController.launchableApps(p));
+        // every chip on the card: Brave returns as its tabs and the terminal with claude, but
+        // both still open; only Other is left out
+        assertEquals(5, HelloController.launchableApps(p));
         assertEquals(6, HelloController.countApps(p));
     }
 
