@@ -45,6 +45,16 @@ class DataSafetyTest {
     }
 
     @Test
+    void onlyTheExtensionGetsPastTheServerGate() {
+        assertTrue(HelloController.fromExtension("chrome-extension://kgmhnaigjjoknmiipbhokbkpieaclmpg"));
+        assertTrue(HelloController.fromExtension(null));
+        assertFalse(HelloController.fromExtension("https://evil.example"));
+        assertFalse(HelloController.fromExtension("http://localhost:3000"));
+        // a sandboxed iframe or a file:// page
+        assertFalse(HelloController.fromExtension("null"));
+    }
+
+    @Test
     void aQuickSecondSaveKeepsTheFirstOnesUndo() {
         // "Saved" still up (now < savedUntil) and an undo exists: keep it, so Ctrl+Z reaches
         // back past a double click

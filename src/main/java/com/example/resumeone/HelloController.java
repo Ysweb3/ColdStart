@@ -3,6 +3,7 @@ package com.example.resumeone;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import io.javalin.Javalin;
+import io.javalin.http.ForbiddenResponse;
 import io.javalin.websocket.WsContext;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -2763,6 +2764,15 @@ public class HelloController {
     //   POST /tabs          {browser, urls[]} -> stored on the active project and saved
     //   Port 8765, CORS open, because the extension's fetch comes from a chrome-extension:// origin.
 
+    /** Whether a request may reach the server. A web page's request carries its own site as
+        Origin (Chrome and Edge extensions send chrome-extension://), and without this any open
+        tab could read the project name, overwrite its tabs or pose as the extension on /ws.
+        No Origin is not a page (curl, a local tool), which already runs as the user.
+        ponytail: any installed extension passes; pin the extension id if that ever matters. */
+    static boolean fromExtension(String origin) {
+        return origin == null || origin.startsWith("chrome-extension://");
+    }
+
     public void startServer(){
         System.out.println("server starting...");
         Javalin app = Javalin.create(config -> {
@@ -2772,6 +2782,9 @@ public class HelloController {
                 });
             });
         }).start(8765);
+        // CORS stays open for the extension, so these gates are what keep web pages out
+        app.before(ctx -> { if (!fromExtension(ctx.header("Origin"))) throw new ForbiddenResponse(); });
+        app.wsBeforeUpgrade("/ws", ctx -> { if (!fromExtension(ctx.header("Origin"))) throw new ForbiddenResponse(); });
         app.ws("/ws", ws -> {
             System.out.println("WEB starting...");
 
