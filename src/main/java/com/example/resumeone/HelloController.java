@@ -2302,8 +2302,10 @@ public class HelloController {
     }
     /** Writes the project to projects.json (replacing any entry with the same name). Both the
         in-memory list and the on-disk list are updated. It does not make the project active:
-        tabs can now land on a project that is not on screen. */
-    public void saveProject(Project projectObj) throws IOException {
+        tabs can now land on a project that is not on screen. Synchronized with deleteProject:
+        two browsers answering one checkpoint post /tabs at once, and their overlapping read
+        and swap of projects.json failed with "being used by another process". */
+    public synchronized void saveProject(Project projectObj) throws IOException {
 
         System.out.println("urls: "+projectObj.urls);
 
@@ -2329,7 +2331,7 @@ public class HelloController {
                 StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     }
 
-    public void deleteProject(Project projectObj, Node projectRow) throws IOException {
+    public synchronized void deleteProject(Project projectObj, Node projectRow) throws IOException {
         removeByName(projects, projectObj.projectName);
         // an unsaved note edit would otherwise write the deleted project back
         if (noteOwner == projectObj) noteOwner = null;
