@@ -60,9 +60,9 @@
     </HBox>
 
     <HBox spacing="2.0" alignment="CENTER_LEFT">
-      <StackPane fx:id="btnMin" styleClass="iconbtn" pickOnBounds="true"/>
-      <StackPane fx:id="btnMax" styleClass="iconbtn" pickOnBounds="true"/>
-      <StackPane fx:id="btnClose" styleClass="iconbtn" pickOnBounds="true"/>
+      <StackPane fx:id="btnMin" styleClass="iconbtn, no-cut" pickOnBounds="true"/>
+      <StackPane fx:id="btnMax" styleClass="iconbtn, no-cut" pickOnBounds="true"/>
+      <StackPane fx:id="btnClose" styleClass="iconbtn, no-cut" pickOnBounds="true"/>
     </HBox>
   </HBox>
 
@@ -81,14 +81,14 @@
       <!-- one row per project, built by createProjectUI(): a 32x32 number, or folder + name when wide -->
       <VBox fx:id="projectList" styleClass="project-list" alignment="TOP_CENTER"/>
 
-      <StackPane fx:id="btnNewProjectRail" styleClass="rail-btn" pickOnBounds="true"/>
+      <StackPane fx:id="btnNewProjectRail" styleClass="rail-btn, cut" pickOnBounds="true"/>
 
       <Region styleClass="rail-spine" minWidth="1.0" prefWidth="1.0" maxWidth="1.0" VBox.vgrow="ALWAYS"/>
 
       <HBox styleClass="rail-foot" alignment="CENTER" spacing="8.0">
         <Button fx:id="btnNewProjectWide" styleClass="btn-secondary, side-new" text="New project"
                 maxWidth="Infinity" HBox.hgrow="ALWAYS"/>
-        <StackPane fx:id="btnSettings" styleClass="rail-btn" pickOnBounds="true"/>
+        <StackPane fx:id="btnSettings" styleClass="rail-btn, cut" pickOnBounds="true"/>
       </HBox>
     </VBox>
 
@@ -198,7 +198,7 @@
              removes it (showNoteStrip). -->
         <!-- the button is the strip's twin (same box, pencil and text start) so opening it
              swaps one for the other without anything moving -->
-        <Button fx:id="btnAddNote" styleClass="note-add" text="Add a note" graphicTextGap="12.0"
+        <Button fx:id="btnAddNote" styleClass="note-add, no-cut" text="Add a note" graphicTextGap="12.0"
                 maxWidth="Infinity" minHeight="40.0" prefHeight="40.0" maxHeight="40.0"/>
         <!-- 40 for one line, a line taller for two (the field's prefHeight, set in fitNote);
              the pencil and x stay centred on it -->

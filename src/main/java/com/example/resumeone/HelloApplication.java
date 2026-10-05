@@ -32,6 +32,7 @@ public class HelloApplication extends Application {
         FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("hud-view.fxml"));
         Parent root = fxmlLoader.load();
         Scene scene = new Scene(root, 1000, 640);
+        Cuts.watch(root);
         stage.setTitle("Resume One");
         stage.initStyle(StageStyle.UNDECORATED);
         stage.setMinWidth(960);   // --app-min-w from the design system

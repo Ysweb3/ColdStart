@@ -229,7 +229,7 @@ public class HelloController {
         clickable(btnCheckpoint, "Checkpoint", this::onCheckpoint);
         installCheckpointMenu();
         installNote();
-        notch(btnResume, 18);
+        notch(btnResume, 14);   // Checkpoint's notch too: the two verbs share one size
         // the block's -fx-shape draws it; this clip keeps the confirmation ring inside it too
         notch(btnCheckpoint, 14);
         clickable(btnDelete, "Delete project", this::showDeleteView);
@@ -1226,6 +1226,8 @@ public class HelloController {
 
     /** "brave" -> "Brave": extension brands arrive in whatever case the browser reports. */
     static String browserLabel(String browser) {
+        // tabs from a browser the extension could not name, reopened in the system default
+        if (DEFAULT_BROWSER.equals(browser)) return "Default browser";
         return browser.isEmpty() ? browser : Character.toUpperCase(browser.charAt(0)) + browser.substring(1);
     }
 
@@ -1263,6 +1265,10 @@ public class HelloController {
     private StackPane remover(Runnable edit, Project projectObj, double size, String what) {
         StackPane x = new StackPane();
         x.getStyleClass().add("rm");
+        // a 24px target (WCAG 2.5.8) that still lays out as the glyph's 12x16: the negative
+        // margin hands the extra back, so rows and chips keep their size
+        x.setPickOnBounds(true);
+        HBox.setMargin(x, new Insets(-4, -6, -4, -6));
         Pane glyph = Icons.node(Icons.CLOSE, size, TX3);
         glyph.getStyleClass().add("rm-glyph");
         x.getChildren().add(glyph);
@@ -1825,6 +1831,8 @@ public class HelloController {
             }
         });
         Tooltip.install(btnCheckpointMenu, tip("Add what is missing"));
+        // what a first-timer cannot read off the block: what it saves, and its key
+        Tooltip.install(btnCheckpoint, tip("Save this project's open apps and tabs · Ctrl+S"));
         btnCheckpoint.setOnContextMenuRequested(e -> { e.consume(); menu.show(btnCheckpoint, e.getScreenX(), e.getScreenY()); });
     }
 
