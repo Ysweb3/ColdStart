@@ -21,7 +21,8 @@ class HelloControllerSegregateAppsTest {
         HashMap<String, HashSet<String>> result = controller.segregateApps(new HashSet<>());
 
         assertEquals(java.util.Set.of("IDE", "Browser", "Music", "Communication", "Notes", "Terminal",
-                "AI", "Database", "API", "Containers", "VersionControl", "Design", "Other"), result.keySet());
+                "AI", "Database", "API", "Containers", "VersionControl", "Design", "Video", "Office", "Other"),
+                result.keySet());
         result.values().forEach(bucket -> assertTrue(bucket.isEmpty()));
     }
 
@@ -182,6 +183,46 @@ class HelloControllerSegregateAppsTest {
 
         assertEquals(java.util.Set.of("Docker Desktop.exe"), result.get("Containers"));
         assertEquals(java.util.Set.of("LM Studio.exe"), result.get("AI"));
+    }
+
+    @Test
+    void videoEditorsAreAVideoCategoryNotOther() {
+        // Other is never relaunched, so an editor's main app used to stay shut on resume
+        var result = controller.segregateApps(new HashSet<>(java.util.List.of(
+                "Adobe Premiere Pro.exe", "AfterFX.exe", "Resolve.exe")));
+        assertEquals(java.util.Set.of("Adobe Premiere Pro.exe", "AfterFX.exe", "Resolve.exe"), result.get("Video"));
+        assertTrue(result.get("Other").isEmpty());
+        assertEquals("After Effects", HelloController.appName("AfterFX.exe"));
+        assertEquals("DaVinci Resolve", HelloController.appName("Resolve.exe"));
+        assertEquals("Adobe Premiere Pro", HelloController.appName("Adobe Premiere Pro.exe"));
+    }
+
+    @Test
+    void everydayWorkAppsAreRelaunchedNotLeftInOther() {
+        // Other is never relaunched: Paint and Office were captured and then stayed shut on resume
+        var result = controller.segregateApps(new HashSet<>(java.util.List.of(
+                "mspaint.exe", "WINWORD.exe", "EXCEL.exe", "OUTLOOK.exe", "obs64.exe")));
+        assertEquals(java.util.Set.of("mspaint.exe"), result.get("Design"));
+        assertEquals(java.util.Set.of("WINWORD.exe", "EXCEL.exe"), result.get("Office"));
+        assertEquals(java.util.Set.of("OUTLOOK.exe"), result.get("Communication"));
+        assertEquals(java.util.Set.of("obs64.exe"), result.get("Video"));
+        assertTrue(result.get("Other").isEmpty());
+        assertEquals("Paint", HelloController.appName("mspaint.exe"));
+        assertEquals("Word", HelloController.appName("WINWORD.exe"));
+        assertEquals("OBS Studio", HelloController.appName("obs64.exe"));
+    }
+
+    @Test
+    void appsSavedUnderOtherMoveOnceTheyAreKnown() {
+        HashMap<String, HashSet<String>> apps = new HashMap<>();
+        apps.put("Other", new HashSet<>(java.util.List.of("mspaint.exe", "NVIDIA App.exe")));
+        apps.put("Design", new HashSet<>(java.util.List.of("Figma.exe")));
+        Project p = new Project("P", null, apps, new java.util.ArrayList<>());
+
+        HelloController.recategorizeOther(p);
+
+        assertEquals(java.util.Set.of("Figma.exe", "mspaint.exe"), p.apps.get("Design"));
+        assertEquals(java.util.Set.of("NVIDIA App.exe"), p.apps.get("Other"), "still unknown, stays");
     }
 
     @Test

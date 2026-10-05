@@ -10,6 +10,7 @@ import javafx.scene.control.Dialog;
 import javafx.scene.control.Label;
 import javafx.scene.control.ScrollPane; // explicit: java.awt.* also exports ScrollPane
 import javafx.scene.control.TextField;
+import javafx.scene.control.TextArea; // explicit: java.awt.* also exports TextArea
 import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
@@ -43,6 +44,7 @@ import javafx.scene.input.KeyCodeCombination;
 import javafx.scene.input.KeyCombination;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
 import javafx.css.PseudoClass;
 import javafx.animation.Animation;
 import javafx.animation.Interpolator;
@@ -121,7 +123,7 @@ public class HelloController {
     @FXML public Region titleStateDot, resumingFill, restoredFill, restoredFailFill, countdownFill;
     @FXML public Label titleStateVerb, titleStateName, resumingCount, resumingPct, resumingName,
             resumingSkipped, restoredCount, restoredTook, restoredSpec, restoredNote, restoredName,
-            restoredWord;
+            restoredWord, restoredNext;
     @FXML public Button btnResumeStop, btnStayHere, btnOpenProject, btnResumeRest;
     private final DoubleProperty resumingFrac = new SimpleDoubleProperty();
     private final DoubleProperty restoredFrac = new SimpleDoubleProperty();
@@ -162,7 +164,16 @@ public class HelloController {
     @FXML public StackPane btnDelete;
     // empty slots in the fxml that Icons draws into
     @FXML public StackPane resumeGlyphBox, ckDoneGlyphBox, emptyGlyphBox,
-            deleteFolderGlyph, npFolderGlyph;
+            deleteFolderGlyph, npFolderGlyph, noteGlyphBox;
+    /** The NEXT line under the buttons: the project's "where was I" note. */
+    @FXML public TextArea noteField;
+    @FXML public HBox noteStrip;
+    @FXML public Button btnAddNote;
+    @FXML public StackPane btnNoteClose;
+    /** The project the note field was filled from. Typing edits this one, not whichever is
+        active when focus leaves the field: a click on another row switches project first. */
+    private Project noteOwner;
+    private boolean noteDirty;
     @FXML public Region statusDot;
     @FXML public Label projectNameLabel, projectPathLabel, checkpointSub, ckDoneSub, tabsCount, statusLabel, resumeCounts;
     /** The full folder path, one hover away from the "…\\atlas-api" the header shows. */
@@ -216,6 +227,7 @@ public class HelloController {
         clickable(btnResume, "Resume", this::onResume);
         clickable(btnCheckpoint, "Checkpoint", this::onCheckpoint);
         installCheckpointMenu();
+        installNote();
         notch(btnResume, 18);
         // the block's -fx-shape draws it; this clip keeps the confirmation ring inside it too
         notch(btnCheckpoint, 14);
@@ -252,6 +264,19 @@ public class HelloController {
             if (scene != null && was == null) {
                 installKeys(scene);
                 trapFocus(scene);
+                // a shown window focuses its first text field, which lit the NEXT strip on every
+                // launch as if mid-typing; nothing is focused until the user clicks into it
+                // a click on a pane (the header, the gaps) takes no focus, so the note field kept
+                // it and never saved or folded; any press outside the strip lets go of it
+                scene.addEventFilter(MouseEvent.MOUSE_PRESSED, e -> {
+                    if (noteField.isFocused() && !(e.getTarget() instanceof Node n && inside(n, noteStrip))) {
+                        detailPane.requestFocus();
+                    }
+                });
+                scene.windowProperty().addListener((o2, none, window) -> {
+                    if (window != null) window.addEventHandler(javafx.stage.WindowEvent.WINDOW_SHOWN,
+                            e -> detailPane.requestFocus());
+                });
             }
         });
         btnDeleteCancel.setOnAction(e -> backToProjects());
@@ -361,6 +386,7 @@ public class HelloController {
             }
             for (Project p : loaded) {
                 migrateLegacyUrls(p);
+                recategorizeOther(p);
             }
             return loaded;
         } catch (IOException e) {
@@ -526,7 +552,7 @@ public class HelloController {
         Icons.animate(btnDelete, trash);
         btnDelete.getStyleClass().add("delete");
         for (var e : Map.of(btnNewProjectRail, Icons.NEW, btnSettings, Icons.SETTINGS).entrySet()) {
-            Pane g = Icons.node(e.getValue(), 16, TX3);
+            Pane g = Icons.node(e.getValue(), 16, TX2);
             e.getKey().getChildren().add(g);
             Icons.animate(e.getKey(), g);
         }
@@ -616,8 +642,15 @@ public class HelloController {
             scene.getAccelerators().put(new KeyCodeCombination(KeyCode.valueOf("DIGIT" + i), KeyCombination.SHORTCUT_DOWN), jump);
             scene.getAccelerators().put(new KeyCodeCombination(KeyCode.valueOf("NUMPAD" + i), KeyCombination.SHORTCUT_DOWN), jump);
         }
-        scene.getAccelerators().put(new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN),
-                () -> { if (!overlayOpen() && detailPane.isVisible()) undoCheckpoint(); });
+        // a handler, not an accelerator: accelerators run before the focused control, so Ctrl+Z
+        // in the note field would undo the checkpoint instead of the typing. The field consumes
+        // its own Ctrl+Z, so this only hears it from outside a text field.
+        KeyCombination undo = new KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN);
+        scene.addEventHandler(KeyEvent.KEY_PRESSED, e -> {
+            if (!undo.match(e) || overlayOpen() || !detailPane.isVisible()) return;
+            undoCheckpoint();
+            e.consume();
+        });
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.B, KeyCombination.SHORTCUT_DOWN),
                 () -> { if (!overlayOpen()) setRailWide(!rail.getStyleClass().contains("rail-wide")); });
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
@@ -892,13 +925,129 @@ public class HelloController {
 
         renderCategories(projectObj);
         renderTabs(projectObj);
+        fillNote(projectObj);
+    }
+
+    private void installNote() {
+        noteGlyphBox.getChildren().add(Icons.node(Icons.EDIT, 14, TX2));
+        Pane x = Icons.node(Icons.CLOSE, 14, TX2);
+        btnNoteClose.getChildren().add(x);
+        Icons.animate(btnNoteClose, x);
+        Tooltip.install(btnNoteClose, tip("Remove note"));
+        // the field writes the cleared note back and saves it; the strip then folds away
+        clickable(btnNoteClose, "Remove note", () -> {
+            noteField.clear();
+            saveNote();
+            showNoteStrip(false);
+            detailPane.requestFocus();
+        });
+        noteField.textProperty().addListener((o, was, now) -> {
+            if (noteOwner == null) return;
+            String note = noteOf(now);
+            if (Objects.equals(note, noteOwner.note)) return;
+            noteOwner.note = note;
+            noteDirty = true;
+        });
+        // the strip's own pencil, size and all, so nothing shifts when the button opens it
+        btnAddNote.setGraphic(Icons.node(Icons.EDIT, 14, TX2));
+        btnAddNote.setOnAction(e -> { showNoteStrip(true); noteField.requestFocus(); });
+        // Enter, Esc and Tab are all "done": let go of the field, which saves it. A filter, so
+        // the TextArea never gets to insert the newline or tab: the note wraps, it has no lines
+        noteField.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            KeyCode k = e.getCode();
+            if (k == KeyCode.ENTER || k == KeyCode.ESCAPE || k == KeyCode.TAB) {
+                detailPane.requestFocus();
+                e.consume();
+            }
+        });
+        // grow with the wrapped text, one line to two, then scroll
+        for (var p : List.of(noteField.textProperty(), noteField.widthProperty(), noteField.fontProperty())) {
+            p.addListener(o -> fitNote());
+        }
+        noteField.focusedProperty().addListener((o, was, focused) -> {
+            if (focused) return;
+            saveNote();
+            // a strip left empty folds back into the button
+            if (noteOwner == null || noteOwner.note == null) showNoteStrip(false);
+        });
+    }
+
+    /** Off-screen twin of the note's text: same font, same wrap width, so its height is the
+        height the wrapped note needs. The TextArea itself only ever reports its pref rows. */
+    private final javafx.scene.text.Text noteMeasure = new javafx.scene.text.Text();
+
+    /** Snaps the field to one or two whole rows (past two it scrolls): sizing it to the
+        measured pixels on every keystroke made it wobble as the text reflowed and the
+        TextArea scrolled to keep the caret in view. */
+    private void fitNote() {
+        noteMeasure.setFont(noteField.getFont());
+        noteMeasure.setWrappingWidth(0);
+        noteMeasure.setText("X");
+        double line = noteMeasure.getLayoutBounds().getHeight();
+        noteMeasure.setText("X\nX");
+        double twoLines = noteMeasure.getLayoutBounds().getHeight();
+        // the content's 8px right padding and the 10px scrollbar, always: a line that only just
+        // fit without the bar overflowed, the bar appeared, the line wrapped under it and the
+        // field stayed one row with its second line hidden. Erring narrow costs at worst an
+        // early second row
+        noteMeasure.setWrappingWidth(Math.max(1, noteField.getWidth() - 18));
+        noteMeasure.setText(noteField.getText().isEmpty() ? " " : noteField.getText());
+        int rows = noteMeasure.getLayoutBounds().getHeight() > line * 1.5 ? 2 : 1;
+        // the measured block, not rows * line: a second line also brings the gap above it.
+        // 8 of slack, or the TextArea clipped the last row's descenders
+        double target = (rows == 1 ? line : twoLines) + 8;
+        // compared on height, not rows: the first fit can run before CSS sets Sora 14, and a
+        // row count that did not change then kept the default font's shorter rows
+        if (target == noteField.getPrefHeight()) return;
+        noteField.setPrefHeight(target);
+        // a VBox short of room shrinks EVERY child toward its min, not just the card that
+        // grows, so with a long tab list the strip sat at its 40 and hid the second row.
+        // Its min is its full height (the field, plus the strip's 6 + 6 padding)
+        noteStrip.setMinHeight(Math.max(40, target + 12));
+    }
+
+    /** The NEXT strip while there is a note (or one being typed), else "Add a note". */
+    private void showNoteStrip(boolean open) {
+        noteStrip.setVisible(open);
+        noteStrip.setManaged(open);
+        btnAddNote.setVisible(!open);
+        btnAddNote.setManaged(!open);
+    }
+
+    /** What the field holds, as stored: trimmed, and null rather than blank. */
+    static String noteOf(String text) {
+        return text == null || text.isBlank() ? null : text.strip();
+    }
+
+    /** renderDetail re-runs on every checkpoint and tab reply; only a change of project
+        refills the field, or a re-render mid-typing would trim the text and move the caret. */
+    private void fillNote(Project projectObj) {
+        if (noteOwner == projectObj) return;
+        saveNote();   // the project being left, if its note was edited and not yet written
+        noteOwner = projectObj;   // first, so the listener sees the note as unchanged
+        noteField.setText(projectObj.note == null ? "" : projectObj.note);
+        noteDirty = false;
+        showNoteStrip(projectObj.note != null);
+    }
+
+    private void saveNote() {
+        if (noteOwner == null || !noteDirty) return;
+        noteDirty = false;
+        Project projectObj = noteOwner;
+        try {
+            saveProject(projectObj);
+        } catch (IOException ex) {
+            confirm("Note not written", projectsFile().getPath(),
+                    "The card shows the note, the disk does not. " + ex.getMessage(),
+                    "Retry", () -> { try { saveProject(projectObj); } catch (IOException ignored) { } });
+        }
     }
 
     // the design folds at four categories and links to an inspector; that artboard is not
     // built, so every non-empty category is listed rather than hidden behind a dead link
     private static final List<String> CATEGORY_ORDER = List.of(
             "IDE", "AI", "Terminal", "Browser", "Database", "API", "Containers",
-            "VersionControl", "Design", "Communication", "Notes", "Music");
+            "VersionControl", "Design", "Video", "Office", "Communication", "Notes", "Music");
 
     /** "2h ago" under Checkpoint: when the last one was taken. It used to read "overwrite \u00b7
         2h old", a warning on every press; a checkpoint is now one Ctrl+Z from undone. */
@@ -1001,7 +1150,18 @@ public class HelloController {
             Map.entry("sourcetree", "Sourcetree"), Map.entry("gitkraken", "GitKraken"), Map.entry("ms-teams", "Teams"),
             Map.entry("ssms", "SSMS"), Map.entry("pgadmin4", "pgAdmin"), Map.entry("mysqlworkbench", "MySQL Workbench"),
             Map.entry("mongodbcompass", "MongoDB Compass"), Map.entry("dbeaver", "DBeaver"),
-            Map.entry("heidisql", "HeidiSQL"), Map.entry("tableplus", "TablePlus"), Map.entry("chatgpt", "ChatGPT"));
+            Map.entry("heidisql", "HeidiSQL"), Map.entry("tableplus", "TablePlus"), Map.entry("chatgpt", "ChatGPT"),
+            Map.entry("afterfx", "After Effects"), Map.entry("resolve", "DaVinci Resolve"),
+            Map.entry("capcut", "CapCut"), Map.entry("indesign", "InDesign"),
+            Map.entry("mspaint", "Paint"), Map.entry("paintdotnet", "Paint.NET"), Map.entry("winword", "Word"),
+            Map.entry("excel", "Excel"), Map.entry("powerpnt", "PowerPoint"), Map.entry("msaccess", "Access"),
+            Map.entry("visio", "Visio"), Map.entry("mspub", "Publisher"), Map.entry("winproj", "Project"),
+            Map.entry("acrord32", "Acrobat Reader"), Map.entry("foxitpdfreader", "Foxit PDF Reader"),
+            Map.entry("wps", "WPS Writer"), Map.entry("et", "WPS Spreadsheets"), Map.entry("wpp", "WPS Presentation"),
+            Map.entry("outlook", "Outlook"), Map.entry("olk", "Outlook"), Map.entry("onenote", "OneNote"),
+            Map.entry("obs", "OBS Studio"), Map.entry("camtasiastudio", "Camtasia"), Map.entry("fl", "FL Studio"),
+            Map.entry("itunes", "iTunes"), Map.entry("azuredatastudio", "Azure Data Studio"),
+            Map.entry("xournalpp", "Xournal++"), Map.entry("aimp", "AIMP"), Map.entry("xd", "Adobe XD"));
 
     /** "idea64.exe" -> "IntelliJ IDEA", "WindowsTerminal.exe" -> "Windows Terminal",
         "obsidian.exe" -> "Obsidian": what a person calls the app, not what Windows does. */
@@ -1150,7 +1310,7 @@ public class HelloController {
     }
 
     private static Pane categoryIcon(String category) {
-        return Icons.node(Icons.CATEGORY.getOrDefault(category, Icons.APP_WINDOW), 12, HUD);
+        return Icons.node(Icons.CATEGORY.getOrDefault(category, Icons.APP_WINDOW), 14, TX2);
     }
 
     private static Tooltip tip(String text) {
@@ -1334,6 +1494,10 @@ public class HelloController {
         titleState(verb, r.project.projectName, clean);
         restoredWord.setText(verb);
         restoredName.setText(r.project.projectName);
+        boolean hasNote = r.project.note != null;
+        restoredNext.setText(hasNote ? r.project.note : "");
+        restoredNext.setVisible(hasNote);
+        restoredNext.setManaged(hasNote);
         logOpen = false;
         showBase(restoredPane);
         renderRestored(r);
@@ -2050,27 +2214,46 @@ public class HelloController {
                     "zed.exe", "trae.exe", "fleet.exe", "idea64.exe", "devenv.exe", "eclipse.exe",
                     "sublime_text.exe", "notepad++.exe", "pycharm64.exe", "webstorm64.exe",
                     "phpstorm64.exe", "clion64.exe", "rider64.exe", "goland64.exe", "rubymine64.exe",
-                    "studio64.exe", "netbeans64.exe", "qtcreator.exe", "gvim.exe", "emacs.exe")),
+                    "studio64.exe", "netbeans64.exe", "qtcreator.exe", "gvim.exe", "emacs.exe",
+                    "Kiro.exe", "Antigravity.exe", "Positron.exe", "dataspell64.exe", "neovide.exe",
+                    "rstudio.exe", "MATLAB.exe", "Arduino IDE.exe", "Unity.exe", "Unity Hub.exe",
+                    "UnrealEditor.exe")),
+            // powershell/cmd stay Other on purpose: with claude in a conhost window they'd come
+            // back as an empty shell beside claude, the case the wt special-case already avoids
             Map.entry("Terminal", List.of("WindowsTerminal.exe", "alacritty.exe", "wezterm-gui.exe",
                     "Hyper.exe", "ConEmu64.exe", "mintty.exe", "Tabby.exe", "warp.exe")),
             Map.entry("AI", List.of("claude.exe", "ChatGPT.exe", "Perplexity.exe", "LM Studio.exe",
-                    "ollama app.exe", "Copilot.exe")),
+                    "ollama app.exe", "Copilot.exe", "Msty.exe", "Jan.exe", "AnythingLLM.exe",
+                    "Cherry Studio.exe")),
             Map.entry("Database", List.of("dbeaver.exe", "datagrip64.exe", "pgAdmin4.exe", "Ssms.exe",
                     "MySQLWorkbench.exe", "TablePlus.exe", "MongoDBCompass.exe", "redisinsight.exe",
-                    "HeidiSQL.exe")),
-            Map.entry("API", List.of("Postman.exe", "Insomnia.exe", "Bruno.exe", "Hoppscotch.exe")),
+                    "HeidiSQL.exe", "azuredatastudio.exe", "Beekeeper Studio.exe", "SQLiteStudio.exe",
+                    "DB Browser for SQLite.exe", "navicat.exe")),
+            Map.entry("API", List.of("Postman.exe", "Insomnia.exe", "Bruno.exe", "Hoppscotch.exe",
+                    "Yaak.exe", "Fiddler Everywhere.exe", "Wireshark.exe")),
             Map.entry("Containers", List.of("Docker Desktop.exe", "Rancher Desktop.exe",
-                    "podman-desktop.exe", "VirtualBox.exe", "vmware.exe")),
+                    "podman-desktop.exe", "VirtualBox.exe", "vmware.exe", "Lens.exe", "OpenLens.exe")),
             Map.entry("VersionControl", List.of("GitHubDesktop.exe", "SourceTree.exe", "gitkraken.exe",
-                    "Fork.exe", "smartgit.exe", "sublime_merge.exe")),
+                    "Fork.exe", "smartgit.exe", "sublime_merge.exe", "GitExtensions.exe")),
             Map.entry("Design", List.of("Figma.exe", "Photoshop.exe", "Illustrator.exe", "blender.exe",
-                    "inkscape.exe", "krita.exe", "Canva.exe")),
+                    "inkscape.exe", "krita.exe", "Canva.exe", "InDesign.exe", "Lightroom.exe",
+                    "mspaint.exe", "PaintDotNet.exe", "XD.exe", "draw.io.exe", "Lunacy.exe", "Affinity.exe")),
+            Map.entry("Video", List.of("Adobe Premiere Pro.exe", "AfterFX.exe", "Resolve.exe", "CapCut.exe",
+                    "Adobe Media Encoder.exe", "shotcut.exe", "kdenlive.exe", "obs64.exe",
+                    "CamtasiaStudio.exe", "HandBrake.exe", "Descript.exe")),
+            Map.entry("Office", List.of("WINWORD.exe", "EXCEL.exe", "POWERPNT.exe", "MSACCESS.exe",
+                    "VISIO.exe", "MSPUB.exe", "WINPROJ.exe", "Acrobat.exe", "AcroRd32.exe",
+                    "SumatraPDF.exe", "FoxitPDFReader.exe", "wps.exe", "et.exe", "wpp.exe")),
             Map.entry("Communication", List.of("discord.exe", "slack.exe", "teams.exe", "ms-teams.exe",
-                    "Zoom.exe", "Telegram.exe", "WhatsApp.exe", "Signal.exe", "Skype.exe", "Element.exe")),
+                    "Zoom.exe", "Telegram.exe", "WhatsApp.exe", "Signal.exe", "Skype.exe", "Element.exe",
+                    "OUTLOOK.exe", "olk.exe", "thunderbird.exe", "Mailspring.exe", "Mattermost.exe",
+                    "Viber.exe", "Messenger.exe", "Zulip.exe", "Beeper.exe")),
             Map.entry("Notes", List.of("notion.exe", "obsidian.exe", "onenote.exe", "Logseq.exe",
-                    "Typora.exe", "Joplin.exe", "anytype.exe", "notepad.exe")),
+                    "Typora.exe", "Joplin.exe", "anytype.exe", "notepad.exe", "Evernote.exe",
+                    "Zettlr.exe", "Todoist.exe", "AFFiNE.exe", "xournalpp.exe")),
             Map.entry("Music", List.of("spotify.exe", "amazonmusic.exe", "AppleMusic.exe", "Tidal.exe",
-                    "MusicBee.exe", "foobar2000.exe", "vlc.exe"))
+                    "MusicBee.exe", "foobar2000.exe", "vlc.exe", "iTunes.exe", "Deezer.exe", "AIMP.exe",
+                    "Audacity.exe", "reaper.exe", "FL64.exe"))
     );
 
     /** Buckets captured exe names by category: {"IDE": [Code.exe], "Browser": [chrome.exe], ...}.
@@ -2091,6 +2274,19 @@ public class HelloController {
             System.out.println(item + " -> " + result.get(item));
         }
         return result;
+    }
+
+    /** Apps saved under Other before KNOWN_APPS learned them (mspaint, Word, ...) move to their
+        category, or they'd never relaunch and an add-mode checkpoint would list them twice. */
+    static void recategorizeOther(Project projectObj) {
+        HashSet<String> other = projectObj.apps == null ? null : projectObj.apps.get(OTHER);
+        if (other == null) return;
+        other.removeIf(app -> {
+            String category = categoryOf(app);
+            if (category.equals(OTHER)) return false;
+            projectObj.apps.computeIfAbsent(category, k -> new HashSet<>()).add(app);
+            return true;
+        });
     }
 
     // windows reports real executable casing (WindowsTerminal.exe, Spotify.exe), so match lowercased
@@ -2135,6 +2331,8 @@ public class HelloController {
 
     public void deleteProject(Project projectObj, Node projectRow) throws IOException {
         removeByName(projects, projectObj.projectName);
+        // an unsaved note edit would otherwise write the deleted project back
+        if (noteOwner == projectObj) noteOwner = null;
 
         ArrayList<Project> onDisk = getProjectsJson();
         removeByName(onDisk, projectObj.projectName);
@@ -2515,7 +2713,10 @@ public class HelloController {
                         if (!onPath(app, System.getenv("PATH")) && appPath(app) == null) {
                             throw new IOException("cannot find " + app);
                         }
-                        new ProcessBuilder("cmd.exe", "/c", "start", appName).start();
+                        // the "" is start's window title: without it, a name with a space
+                        // ("Adobe Premiere Pro") arrives quoted and start takes it as the title,
+                        // opening an empty console instead of the app
+                        new ProcessBuilder("cmd.exe", "/c", "start", "", appName).start();
                     }));
                 }
             }

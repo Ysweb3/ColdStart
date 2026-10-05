@@ -144,7 +144,7 @@
 .side-face { visibility: hidden; -fx-padding: 0 10 0 10; -fx-spacing: 12; }
 .folder-open, .rail-active .folder-shut { visibility: hidden; }
 .rail-active .folder-open { visibility: visible; }
-.side-name  { -fx-font-family: "Sora"; -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+.side-name  { -fx-font-family: "Sora"; -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 .side-count { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 
 .rail-wide .rail-head { -fx-padding: 14 12 8 12; }
@@ -165,7 +165,7 @@
     -fx-background-insets: 0, 0 0 0 2;
     -fx-background-radius: 7, 0 7 7 0;
 }
-.rail-wide .rail-active .side-name { -fx-font-family: "Sora Medium"; -fx-text-fill: -rw-tx; }
+.rail-wide .rail-active .side-name { -fx-font-family: "Sora SemiBold"; -fx-text-fill: -rw-tx; }
 .rail-wide .rail-spine { -fx-border-color: transparent; }
 .rail-foot { -fx-padding: 0; }
 .rail-wide .rail-foot {
@@ -173,6 +173,15 @@
     -fx-border-width: 1 0 0 0;
     -fx-padding: 10 12 12 12;
 }
+/* the gear wears New project's 40px raised face beside it, but stays a square, icon-only button */
+.rail-wide .rail-foot .rail-btn {
+    -fx-min-width: 40; -fx-pref-width: 40; -fx-max-width: 40;
+    -fx-min-height: 40; -fx-pref-height: 40; -fx-max-height: 40;
+    -fx-background-color: -rw-ln, -rw-raised;
+}
+.rail-wide .rail-foot .rail-btn:hover { -fx-background-color: -rw-ln, -rw-hover; }
+.rail-wide .rail-foot .rail-active { -fx-background-color: -rw-tx, -rw-raised; }
+.rail-wide .rail-foot .rail-btn:focus-visible { -fx-background-color: -rw-act, -rw-raised; }
 
 /* ── buttons (Button.jsx): Sora 600 13px, 34 tall, radius 7 ───────── */
 .button {
@@ -219,7 +228,7 @@
 
 /* ── main column ───────────────────────────────────────────────────── */
 .project-name { -fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.project-path { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
+.project-path { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 
 /* The two verbs. Their notches are clips cut in the controller (JavaFX has no clip-path),
    so a clipped edge is simply cut, borders included, as the handoff draws it. */
@@ -279,7 +288,7 @@
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.55), 16, 0.2, 0, 6);
 }
 .menu-item { -fx-padding: 6 12 6 12; -fx-background-radius: 5; }
-.menu-item .label { -fx-font-size: 13px; -fx-text-fill: -rw-tx; }
+.menu-item .label { -fx-font-size: 12px; -fx-text-fill: -rw-tx; }
 .menu-item:focused, .menu-item:hover { -fx-background-color: -rw-raised; }
 .menu-item:focused .label, .menu-item:hover .label { -fx-text-fill: -rw-tx; }
 .menu-item:disabled .label { -fx-text-fill: -rw-tx3t; }
@@ -287,7 +296,7 @@
    Disabled only to stay out of hover and focus, so it opts back out of Modena's fade. */
 .menu-item.menu-head:disabled { -fx-opacity: 1; -fx-padding: 6 12 2 12; }
 .menu-item.menu-head:focused, .menu-item.menu-head:hover { -fx-background-color: transparent; }
-.menu-head .label { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3t; }
+.menu-head .label { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .menu .arrow { -fx-background-color: -rw-tx2; }
 
 /* ── what gets saved ───────────────────────────────────────────────── */
@@ -297,7 +306,50 @@
     -fx-border-color: -rw-ln;
     -fx-border-radius: 13;
 }
-.cat-label { -fx-font-size: 12px; -fx-text-fill: -rw-hud; }
+/* the NEXT note: the card's ground, one line; the field inside is borderless, the strip
+   takes the focus ring. The note is prose, so Sora like .input-name, not the mono field default */
+/* the card's ground, so it reads as part of the card above it; a step brighter border than
+   the card's so it is not lost under it. Neutral: orange is only RESUME, blue only CHECKPOINT */
+.note-strip {
+    -fx-background-color: -rw-g1;
+    -fx-background-radius: 13;
+    -fx-border-color: -rw-ln2;
+    -fx-border-radius: 13;
+}
+.note-strip:focus-within { -fx-border-color: -rw-act; }
+/* "Add a note": the strip's box with its words in tx2. 14px left, as the strip's padding,
+   so the pencil does not move when it opens */
+.button.note-add {
+    -fx-background-color: -rw-g1;
+    -fx-background-radius: 13;
+    -fx-border-color: -rw-ln2;
+    -fx-border-radius: 13;
+    -fx-text-fill: -rw-tx2;
+    -fx-font-family: "Sora";
+    -fx-font-size: 14px;
+    -fx-padding: 0 14 0 14;
+    -fx-alignment: center-left;
+}
+.button.note-add:hover { -fx-background-color: -rw-g2; -fx-text-fill: -rw-tx; }
+/* a TextArea so long notes wrap and grow; every layer modena paints (the box, the focus
+   glow, the content's gradient) goes transparent so only the strip's border shows */
+.text-area.note-input, .text-area.note-input:focused,
+.text-area.note-input .content, .text-area.note-input:focused .content,
+.text-area.note-input .scroll-pane, .text-area.note-input .viewport {
+    -fx-background-color: transparent;
+    -fx-border-color: transparent;
+    -fx-background-insets: 0;
+}
+.text-area.note-input {
+    -fx-font-family: "Sora";
+    -fx-font-size: 14px;
+    -fx-text-fill: -rw-tx;
+    -fx-highlight-fill: -rw-ck;
+    -fx-padding: 0;
+}
+.text-area.note-input .content { -fx-padding: 0 8 0 0; }
+.text-area.note-input .scroll-pane { -fx-hbar-policy: never; -fx-padding: 0; }
+.cat-label { -fx-font-size: 13px; -fx-text-fill: -rw-tx; }
 /* green is only ever "live"; what resume will pass an app is plain secondary text */
 .cat-arg   { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 .cat-foot  { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
@@ -332,8 +384,8 @@
 }
 .tabs-scroll, .tabs-scroll > .viewport { -fx-background-color: transparent; -fx-padding: 0; }
 /* blue is only ever Checkpoint, so a browser's name is ink */
-.browser-name { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.tab-title    { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
+.browser-name { -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.tab-title    { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
 
 /* the stage is undecorated, so the app draws its own outer edge */
 .shell { -fx-border-color: -rw-ln; -fx-border-width: 1; }
@@ -455,6 +507,14 @@
 .hero-word { -fx-font-family: "Sora ExtraBold"; -fx-font-size: 44px; -fx-text-fill: -rw-tx; }
 .hero-name { -fx-font-family: "Sora ExtraBold"; -fx-font-size: 44px; -fx-text-fill: -rw-go; }
 .hero-spec { -fx-font-family: "Space Mono"; -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+/* the note is prose, so Sora; the rule on its left marks it as the user's words, not ours */
+.hero-note {
+    -fx-font-size: 18px;
+    -fx-text-fill: -rw-tx;
+    -fx-border-color: transparent transparent transparent -rw-ln2;
+    -fx-border-width: 0 0 0 3;
+    -fx-padding: 2 0 2 14;
+}
 
 /* one launch per row; the row's border carries its state */
 .step-row {
