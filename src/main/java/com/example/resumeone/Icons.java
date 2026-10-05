@@ -63,7 +63,10 @@ final class Icons {
         CHECKPOINT = new Glyph(new Part("M4.6 2 H19.4 V22 L12 15.4 L4.6 22 Z", "drop")),
         DELETE = new Glyph(new Part(rr(6, 6, 12, 16, 2.4)), new Part("M4 6 H20 M9.6 2.6 H14.4", "lid")),
         NEW = new Glyph(new Part("M12 3 V21 M3 12 H21", "quarter")),
-        EDIT = new Glyph(new Part("M3 21 L7.9 19.7 L19.8 7.8 A2.5 2.5 0 0 0 16.2 4.2 L4.3 16.1 Z M15.3 5.1 L18.9 8.7", "lift")),
+        // the project note: a square sticky with a peeled corner, so it never reads as the
+        // Notes app's tall two-line pad in the category list
+        STICKY = new Glyph(new Part("M5.4 3 H18.6 A2.4 2.4 0 0 1 21 5.4 V14.6 L14.6 21 H5.4 A2.4 2.4 0 0 1 3 18.6 V5.4 "
+             + "A2.4 2.4 0 0 1 5.4 3 Z M21 14.6 H16.6 A2 2 0 0 0 14.6 16.6 V21 M7.4 8.4 H16.6 M7.4 12.4 H11.8", "lift")),
         BROWSE = new Glyph(new Part("M2 18.4 V5.4 A1.4 1.4 0 0 1 3.4 4 H8.6 L11.2 7 H18.6 A1.4 1.4 0 0 1 20 8.4 V10.6"),
                 new Part("M2 19.8 L5.2 11.6 H22 L18.8 19.8 Z", "lift")),
         RECAPTURE = new Glyph(new Part("M18.7 20 A10.4 10.4 0 1 1 21 6.8 M16.6 6.1 L21 6.8 L22 2.4", "spin")),

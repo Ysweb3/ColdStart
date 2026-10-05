@@ -929,7 +929,7 @@ public class HelloController {
     }
 
     private void installNote() {
-        noteGlyphBox.getChildren().add(Icons.node(Icons.EDIT, 14, TX2));
+        noteGlyphBox.getChildren().add(Icons.node(Icons.STICKY, 14, TX2));
         Pane x = Icons.node(Icons.CLOSE, 14, TX2);
         btnNoteClose.getChildren().add(x);
         Icons.animate(btnNoteClose, x);
@@ -948,8 +948,8 @@ public class HelloController {
             noteOwner.note = note;
             noteDirty = true;
         });
-        // the strip's own pencil, size and all, so nothing shifts when the button opens it
-        btnAddNote.setGraphic(Icons.node(Icons.EDIT, 14, TX2));
+        // the strip's own sticky, size and all, so nothing shifts when the button opens it
+        btnAddNote.setGraphic(Icons.node(Icons.STICKY, 14, TX2));
         btnAddNote.setOnAction(e -> { showNoteStrip(true); noteField.requestFocus(); });
         // Enter, Esc and Tab are all "done": let go of the field, which saves it. A filter, so
         // the TextArea never gets to insert the newline or tab: the note wraps, it has no lines
@@ -2141,8 +2141,8 @@ public class HelloController {
             if (connecting && !Motion.REDUCED) spin.play(); else spin.pause();
             statusLabel.setText(statusLine(browsers, connecting));
             statusLabel.getStyleClass().setAll(live ? "port-live" : "port");
-            statusTip.setText(live ? String.join(", ", browsers) + " \u00b7 tabs come and go through the extension"
-                    : connecting ? "waiting for the coldstart extension \u00b7 a browser can take a minute to reconnect"
+            statusTip.setText(live ? String.join(", ", browsers) + " \u00b7"
+                    : connecting ? "waiting for the coldstart extension \u00b7 can take a minute to reconnect"
                     : "install the coldstart extension to checkpoint tabs");
             // someone watching Settings to see the extension land must see it land
             if (settingsPane.isVisible()) renderSettingsRows();
