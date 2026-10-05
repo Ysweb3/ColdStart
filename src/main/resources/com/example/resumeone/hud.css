@@ -253,12 +253,12 @@
 
 /* The checkpoint block, in the same 5a blue as every other checkpoint surface: -rw-ck for the
    edge and the confirmation bar, -rw-ckt for the sub-line, "Saved" and the ring (6.2:1 on
-   -rw-g2). A fixed 296 x 104, so -fx-shape lands exactly and the 1px edge follows the notch;
+   -rw-g2). A fixed 264 x 104, so -fx-shape lands exactly and the 1px edge follows the notch;
    the controller's clip keeps the ring inside it too. */
 .checkpoint {
     -fx-background-color: -rw-ck, -rw-g2;
     -fx-background-insets: 0, 1;
-    -fx-shape: "M0 0 L282 0 L296 14 L296 104 L14 104 L0 90 Z";
+    -fx-shape: "M0 0 L250 0 L264 14 L264 104 L14 104 L0 90 Z";
     -fx-padding: 1;
     -fx-cursor: hand;
 }
@@ -269,13 +269,13 @@
 /* the confirmation's two moving layers */
 .ck-ring { -fx-border-color: -rw-ckt; -fx-border-width: 2; -fx-border-radius: 999; }
 .ck-bar  { -fx-background-color: -rw-ck; }
-/* split segment: the block's right 64px. Same notch as the block (its last 14px are the cut),
+/* split segment: the block's right 52px. Same notch as the block (its last 14px are the cut),
    so the hover fill never pokes outside the shape; the divider is its own 1px region. */
 .ck-divider { -fx-background-color: -rw-ln; }
 .ck-menu {
     -fx-cursor: hand;
     -fx-background-color: transparent;
-    -fx-shape: "M0 0 L50 0 L64 14 L64 102 L0 102 Z";
+    -fx-shape: "M0 0 L38 0 L52 14 L52 102 L0 102 Z";
 }
 .ck-menu:hover { -fx-background-color: -rw-ckh; }
 .ck-glyph { -fx-stroke: -rw-tx; }
