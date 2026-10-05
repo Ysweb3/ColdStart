@@ -36,6 +36,15 @@ class DataSafetyTest {
     }
 
     @Test
+    void aLateReplyToTheLastCheckpointDoesNotEndThisOnesWait() {
+        // 2 browsers, 1 still owed from a checkpoint whose window is open: wait for 3
+        assertEquals(3, HelloController.repliesToWait(2, 1, 100, 50));
+        // window closed: that reply is no longer expected
+        assertEquals(2, HelloController.repliesToWait(2, 1, 100, 150));
+        assertEquals(2, HelloController.repliesToWait(2, 0, 100, 50));
+    }
+
+    @Test
     void aQuickSecondSaveKeepsTheFirstOnesUndo() {
         // "Saved" still up (now < savedUntil) and an undo exists: keep it, so Ctrl+Z reaches
         // back past a double click

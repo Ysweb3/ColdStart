@@ -1853,10 +1853,21 @@ public class HelloController {
         return now < until ? pending : active;
     }
 
+    /** How many POST /tabs this checkpoint waits for: one per browser, plus the replies the
+        last checkpoint is still owed while its window is open - those land on this latch, and
+        would otherwise end the wait before this checkpoint's own browsers answer.
+        ponytail: an owed reply that never comes costs the full TAB_WAIT_MILLIS, only inside the
+        window; a capture id echoed by the extension would make it exact. */
+    static long repliesToWait(int browsers, long stillOwed, long until, long now) {
+        return browsers + (now < until ? stillOwed : 0);
+    }
+
     private CountDownLatch askForTabs(Project projectObj) {
+        long now = System.nanoTime();
+        long wait = repliesToWait(wsSessions.size(), tabReplies.getCount(), tabTargetUntil, now);
         tabTarget = projectObj;
-        tabTargetUntil = System.nanoTime() + TAB_WINDOW_NANOS;
-        tabReplies = new CountDownLatch(wsSessions.size());
+        tabTargetUntil = now + TAB_WINDOW_NANOS;
+        tabReplies = new CountDownLatch((int) wait);
         wsSessions.forEach(session -> session.send("capture"));
         return tabReplies;
     }
