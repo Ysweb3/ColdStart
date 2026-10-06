@@ -49,10 +49,11 @@
     -fx-font-family: "IBM Plex Sans";
 }
 
-/* Plex Mono is the machine face: paths, counts, labels. Category labels and app names are
-   words a person reads, so they are Plex Sans. Nothing on the HUD is set below 12px. */
+/* Plex Mono is the machine face: paths, URLs, counts, ages, the caps section labels. Words a
+   person reads are Plex Sans, footnotes and hints included: the face follows what the text
+   is, never how small or muted it is. Nothing on the HUD is set below 12px. */
 .rail-label, .rail-count, .side-count, .project-path,
-.checkpoint-sub, .cat-arg, .cat-foot {
+.checkpoint-sub, .tab-title {
     -fx-font-family: "IBM Plex Mono";
 }
 
@@ -107,7 +108,7 @@
     -fx-border-color: -rw-ln;
     -fx-border-radius: 0;
     -fx-text-fill: -rw-tx;
-    -fx-font-family: "IBM Plex Mono";
+    -fx-font-family: "IBM Plex Sans";
     -fx-font-size: 12px;
     -fx-padding: 4 8 4 8;
     -fx-effect: none;
@@ -334,7 +335,7 @@
     -fx-border-radius: 0;
     -fx-text-fill: -rw-tx2;
     -fx-font-family: "IBM Plex Sans";
-    -fx-font-size: 14px;
+    -fx-font-size: 13px;
     -fx-padding: 0 14 0 14;
     -fx-alignment: center-left;
 }
@@ -350,7 +351,7 @@
 }
 .text-area.note-input {
     -fx-font-family: "IBM Plex Sans";
-    -fx-font-size: 14px;
+    -fx-font-size: 13px;
     -fx-text-fill: -rw-tx;
     -fx-highlight-fill: -rw-ck;
     -fx-padding: 0;
@@ -394,13 +395,13 @@
 }
 .tabs-scroll, .tabs-scroll > .viewport { -fx-background-color: transparent; -fx-padding: 0; }
 /* blue is only ever Checkpoint, so a browser's name is ink */
-.browser-name { -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.tab-title    { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+.browser-name { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.tab-title    { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 
 /* the stage is undecorated, so the app draws its own outer edge */
 .shell { -fx-border-color: -rw-ln; -fx-border-width: 1; }
 
-.empty-title { -fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.empty-title { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .empty-body  { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
 
 /* ── scrollbars: thin, trackless, thumb only ───────────────────────── */
@@ -519,7 +520,7 @@
 .hero-spec { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
 /* the note is prose, so Plex Sans; the rule on its left marks it as the user's words, not ours */
 .hero-note {
-    -fx-font-size: 18px;
+    -fx-font-size: 17px;
     -fx-text-fill: -rw-tx;
     -fx-border-color: transparent transparent transparent -rw-ln2;
     -fx-border-width: 0 0 0 3;
@@ -548,7 +549,7 @@
     -fx-border-color: -rw-ln;
     -fx-border-radius: 0;
 }
-.fold-title { -fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.fold-title { -fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .fold-meta  { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 
 /* a failure stays visible, on the danger wash, with a Retry */
@@ -560,7 +561,7 @@
 }
 .fail-why { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-bad; }
 
-.foot-note { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
+.foot-note { -fx-font-family: "IBM Plex Sans"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 .countdown-track { -fx-background-color: -rw-raised; }
 .countdown-fill  { -fx-background-color: -rw-tx3; }   /* time passing, not a checkpoint */
 

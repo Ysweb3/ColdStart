@@ -357,6 +357,14 @@ public class HelloController {
         Tooltip.install(btnDelete, tip("Delete project"));
         refreshStatusDot();
         refreshCount();
+        // ages are relative, so they go stale on their own: without this tick a row read "now"
+        // for hours, and the rail and the Checkpoint block showed one checkpoint as 15h and 18h
+        Timeline ages = new Timeline(new KeyFrame(Duration.minutes(1), e -> {
+            refreshCount();
+            if (activeProject != null) checkpointSub.setText(idleLine(activeProject));
+        }));
+        ages.setCycleCount(Animation.INDEFINITE);
+        ages.play();
         if (projects.isEmpty()) {
             showEmpty(true);
         } else {
@@ -927,6 +935,9 @@ public class HelloController {
         resumeCounts.setText(apps > 0 || tabs > 0 ? resumeCountLine(apps, tabs)
                 : countApps(projectObj) > 0 ? "NOTHING TO RELAUNCH" : "NOTHING SAVED YET");
         checkpointSub.setText(idleLine(projectObj));
+        // the same age, computed at the same moment, on the project's rail row
+        StackPane railRow = rowsByProject.get(projectObj.projectName);
+        if (railRow != null) railTip(railRow, projectObj);
         tabsCount.setText(String.valueOf(tabs));
 
         renderCategories(projectObj);
@@ -1002,7 +1013,7 @@ public class HelloController {
         // the measured block, not rows * line: a second line also brings the gap above it.
         // 8 of slack, or the TextArea clipped the last row's descenders
         double target = (rows == 1 ? line : twoLines) + 8;
-        // compared on height, not rows: the first fit can run before CSS sets Plex Sans 14, and a
+        // compared on height, not rows: the first fit can run before CSS sets Plex Sans 13, and a
         // row count that did not change then kept the default font's shorter rows
         if (target == noteField.getPrefHeight()) return;
         noteField.setPrefHeight(target);
@@ -1113,7 +1124,8 @@ public class HelloController {
 
             String note = trailingNote(category, projectObj);
             if (note != null) {
-                Label arg = styled(new Label(note), "cat-arg");
+                // "reopens chats" is a phrase, the IDE note a path: the face follows which
+                Label arg = styled(new Label(note), note.startsWith("…\\") ? "project-path" : "cat-arg");
                 arg.setMinWidth(Region.USE_PREF_SIZE);   // white-space: nowrap
                 row.getChildren().add(arg);
             }
@@ -1572,7 +1584,7 @@ public class HelloController {
         clickable(log, logOpen ? "Hide the resume log" : "Show the resume log", () -> { logOpen = !logOpen; renderRestored(r); });
         restoredRows.getChildren().add(log);
         if (logOpen) {
-            Label lines = styled(new Label(String.join("\n", r.log)), "foot-note");
+            Label lines = styled(new Label(String.join("\n", r.log)), "step-cmd");
             lines.setWrapText(true);
             ScrollPane scroll = new ScrollPane(lines);
             scroll.getStyleClass().add("tabs-scroll");
