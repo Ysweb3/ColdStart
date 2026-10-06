@@ -2012,7 +2012,7 @@ public class HelloController {
 
         renderDetail(projectObj);
         // "just now" dropped: the block's column holds ~18 characters, and "Saved" already says it.
-        checkpointSaved(countApps(projectObj) + " apps · " + countTabs(projectObj) + " tabs");
+        checkpointSaved(resumeCountLine(countApps(projectObj), countTabs(projectObj)));
     }
 
     /** Add mode: every exe open now joins its category; nothing saved is dropped. */
@@ -2041,7 +2041,7 @@ public class HelloController {
           t=0     ring    rwCkRing  400ms standard  - 28px, 2px blue, scale .55 → 2.7, fading out
                   bar     rwCkBar   400ms snap      - the 3px strip rises into the bottom edge
                   idle    rwCkOut   160ms ease-in   - "Checkpoint / overwrite · …" lifts away
-                  done    rwCkIn    300ms snap, after 120ms - "Saved / 10 apps · 14 tabs · just now"
+                  done    rwCkIn    300ms snap, after 120ms - "Saved / 10 APPS · 14 TABS"
           t=2400  done    rwCkOut   200ms ease-in
                   bar     rwCkBarOut 260ms standard
                   idle    rwCkIn    260ms standard, after 140ms
@@ -2911,7 +2911,7 @@ public class HelloController {
                         renderDetail(target);
                         // a reply that missed the checkpoint's wait still corrects the "Saved" line
                         if (System.nanoTime() < ckBusyUntil) {
-                            ckDoneSub.setText(countApps(target) + " apps · " + countTabs(target) + " tabs");
+                            ckDoneSub.setText(resumeCountLine(countApps(target), countTabs(target)));
                         }
                     });
                 }
