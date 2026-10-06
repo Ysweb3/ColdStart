@@ -229,7 +229,7 @@
 
         <HBox alignment="CENTER" spacing="8.0">
           <VBox.margin><Insets top="16.0"/></VBox.margin>
-          <Button fx:id="btnNewProjectEmpty" onAction="#onNewProjectClick" styleClass="btn-checkpoint"
+          <Button fx:id="btnNewProjectEmpty" onAction="#onNewProjectClick" styleClass="btn-primary"
                   text="New project" prefHeight="42.0" minHeight="42.0"/>
         </HBox>
 

@@ -311,6 +311,11 @@ public class HelloController {
         btnNpBrowse.setAccessibleText("Browse for the project folder");
         btnNpCreate.textProperty().bind(Bindings.when(npCapture.selectedProperty())
                 .then("Create + checkpoint").otherwise("Create"));
+        // blue is only ever Checkpoint: a create that will not checkpoint is the neutral bone
+        // action, and drops the bookmark glyph with the blue
+        btnNpCreate.contentDisplayProperty().bind(Bindings.when(npCapture.selectedProperty())
+                .then(ContentDisplay.LEFT).otherwise(ContentDisplay.TEXT_ONLY));
+        npCapture.selectedProperty().addListener((o, was, on) -> styleAs(btnNpCreate, on ? "btn-checkpoint" : "btn-primary"));
         btnResumeStop.setGraphic(Icons.node(Icons.CLOSE, 16, TX2));
         Icons.animate(btnResumeStop, btnResumeStop.getGraphic());
         btnResumeStop.setOnAction(e -> stopRequested = true);
@@ -1994,7 +1999,7 @@ public class HelloController {
             confirm("Checkpoint not written", projectsFile().getPath(),
                     (captureError != null ? "The open apps could not be listed. " : "")
                             + "Nothing changed on disk. " + ex.getMessage(),
-                    "Retry", () -> writeCheckpoint(projectObj, mode));
+                    "Retry", "btn-checkpoint", () -> writeCheckpoint(projectObj, mode));
             return;
         }
         if (replaceUndo(System.nanoTime(), ckBusyUntil, undoByProject.containsKey(projectObj.projectName))) {
@@ -2096,24 +2101,30 @@ public class HelloController {
         return kept;
     }
 
-    /** The generic confirm scrim. The verb button carries the caller's word and action. */
+    /** The generic confirm scrim. The verb button carries the caller's word and action, in the
+        neutral bone: a Retry that rewrites a note is not a checkpoint. */
     private void confirm(String title, String sub, String body, String verb, Runnable onOk) {
-        confirm(title, sub, body, verb, false, onOk);
+        confirm(title, sub, body, verb, "btn-primary", onOk);
     }
 
-    /** danger: the verb deletes, so it wears brick, not checkpoint blue. */
-    private void confirm(String title, String sub, String body, String verb, boolean danger, Runnable onOk) {
+    /** style: "btn-checkpoint" when the verb checkpoints, "btn-danger" when it deletes. */
+    private void confirm(String title, String sub, String body, String verb, String style, Runnable onOk) {
         confirmTitle.setText(title);
         confirmSub.setText(sub);
         confirmBody.setText(body);
         btnConfirmOk.setText(verb);
-        btnConfirmOk.getStyleClass().removeAll("btn-checkpoint", "btn-danger");
-        btnConfirmOk.getStyleClass().add(danger ? "btn-danger" : "btn-checkpoint");
+        styleAs(btnConfirmOk, style);
         btnConfirmOk.setOnAction(e -> {
             showOverlay(null);
             onOk.run();
         });
         showOverlay(confirmPane);
+    }
+
+    /** Swaps a main button between bone, checkpoint blue and brick, keeping its other classes. */
+    private static void styleAs(Button b, String style) {
+        b.getStyleClass().removeAll("btn-primary", "btn-checkpoint", "btn-danger");
+        b.getStyleClass().add(style);
     }
 
     private void deleteActive() {
@@ -2124,7 +2135,7 @@ public class HelloController {
             deleteProject(projectObj, rowsByProject.get(projectObj.projectName));
         } catch (IOException ex) {
             confirm("Project not deleted", projectsFile().getPath(),
-                    "Nothing changed on disk. " + ex.getMessage(), "Retry", true, this::deleteActive);
+                    "Nothing changed on disk. " + ex.getMessage(), "Retry", "btn-danger", this::deleteActive);
             return;
         }
         rowsByProject.remove(projectObj.projectName);

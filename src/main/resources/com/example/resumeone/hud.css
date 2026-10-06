@@ -24,6 +24,7 @@
     -rw-ln:     #32353B;
     -rw-ln2:    #464A52;
     -rw-tx:     #E9E3DF;
+    -rw-tx-h:   #D9D2CD;   /* the bone button under the pointer: darker, never whiter */
     -rw-tx2:    #A8A29E;
     -rw-tx3:    #77726E;   /* glyphs, dots */
     -rw-tx3t:   #8E8A86;   /* muted TEXT: one step up, 5.5:1 on the card, readable at 12px */
@@ -32,8 +33,10 @@
     -rw-go2:    #FF8533;   /* resume hover */
     -rw-gop:    #D95500;   /* resume pressed; the launching ring */
     -rw-goi:    #1A0A00;   /* ink on orange */
-    -rw-ck:     #2A5688;   /* blue is only ever CHECKPOINT: border, bar */
-    -rw-ckt:    #6E9BD1;   /* checkpoint text, hover border, ring */
+    -rw-ck:     #2A5688;   /* blue is only ever CHECKPOINT: the button fill, the confirmation bar */
+    -rw-ck-edge: #3D6EA8;  /* the Checkpoint block's edge: 3.4:1 on its ground, where -rw-ck's 2.4
+                              vanished. Edge only: bone on it would be 4.1, under AA for 13px text */
+    -rw-ckt:    #6E9BD1;   /* checkpoint text, the block's hover edge, the ring */
     -rw-ckh:    #272A2F;   /* the chevron segment under the pointer */
     -rw-live:   #5DB075;
     -rw-live-tx: #8ACB9D;   /* live green for words: "Brave connected" in the title bar */
@@ -221,6 +224,15 @@
 .btn-checkpoint:hover, .btn-checkpoint:armed { -fx-background-color: -rw-ckt; -fx-text-fill: -rw-g; }
 .btn-checkpoint:hover .ico, .btn-checkpoint:armed .ico { -fx-stroke: -rw-g; }
 
+/* The neutral main action: bone, not a verb colour, for a press that neither checkpoints nor
+   resumes (New project, a plain Create, a Retry that rewrites a note). Ink on it is 15:1. */
+.btn-primary {
+    -fx-background-color: -rw-tx;
+    -fx-text-fill: -rw-g1;
+}
+.btn-primary .ico { -fx-stroke: -rw-g1; }
+.btn-primary:hover, .btn-primary:armed { -fx-background-color: -rw-tx-h; }
+
 .btn-danger {
     -fx-background-color: -rw-brick-btn;
     -fx-text-fill: -rw-on-bad;
@@ -260,18 +272,18 @@
 .resume:disabled .resume-key { -fx-border-color: -rw-ln2; -fx-background-color: transparent; }
 .resume:disabled .ico { -fx-stroke: -rw-tx3; }
 
-/* The checkpoint block, in the same 5a blue as every other checkpoint surface: -rw-ck for the
-   edge and the confirmation bar, -rw-ckt for the sub-line, "Saved" and the ring (6.2:1 on
+/* The checkpoint block: -rw-ck-edge for its edge (3.4:1, lit to -rw-ckt under the pointer),
+   -rw-ck for the confirmation bar, -rw-ckt for the sub-line, "Saved" and the ring (6.2:1 on
    -rw-g2). A fixed 264 x 104, so -fx-shape lands exactly and the 1px edge follows the notch;
    the controller's clip keeps the ring inside it too. */
 .checkpoint {
-    -fx-background-color: -rw-ck, -rw-g2;
+    -fx-background-color: -rw-ck-edge, -rw-g2;
     -fx-background-insets: 0, 1;
     -fx-shape: "M0 0 L250 0 L264 14 L264 104 L14 104 L0 90 Z";
     -fx-padding: 1;
     -fx-cursor: hand;
 }
-.checkpoint:hover { -fx-background-color: -rw-ck, -rw-g3; }
+.checkpoint:hover { -fx-background-color: -rw-ckt, -rw-g3; }
 .checkpoint-word { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .checkpoint-sub  { -fx-font-size: 12px; -fx-text-fill: -rw-ckt; }
 .ck-done-word    { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-ckt; }
@@ -353,7 +365,8 @@
     -fx-font-family: "IBM Plex Sans";
     -fx-font-size: 14px;
     -fx-text-fill: -rw-tx;
-    -fx-highlight-fill: -rw-ck;
+    -fx-highlight-fill: -rw-ln2;
+    -fx-highlight-text-fill: -rw-tx;
     -fx-padding: 0;
 }
 .text-area.note-input .content { -fx-padding: 0 8 0 0; }
@@ -464,7 +477,8 @@
     -fx-prompt-text-fill: -rw-tx3t;
     -fx-font-family: "IBM Plex Mono";
     -fx-font-size: 12px;
-    -fx-highlight-fill: -rw-ck;
+    -fx-highlight-fill: -rw-ln2;
+    -fx-highlight-text-fill: -rw-tx;
     -fx-pref-height: 34;
 }
 .text-field:focused { -fx-border-color: -rw-act; }
@@ -580,7 +594,8 @@
     -fx-background-insets: 0, 4, 6;
 }
 .resume:hover:focus-visible { -fx-background-color: -rw-go2, -rw-goi, -rw-go2; }
-.checkpoint:focus-visible { -fx-background-color: -rw-act, -rw-g2; -fx-background-insets: 0, 2; }
+.checkpoint:focus-visible { -fx-background-color: -rw-act, -rw-ck-edge, -rw-g2; -fx-background-insets: 0, 2, 3; }
+.checkpoint:hover:focus-visible { -fx-background-color: -rw-act, -rw-ckt, -rw-g3; -fx-background-insets: 0, 2, 3; }
 .ck-menu:focus-visible { -fx-background-color: -rw-act, -rw-ckh; -fx-background-insets: 0, 2; }
 /* the remove x shows itself when Tab reaches it, not only under the pointer */
 .rm:focus-visible {
