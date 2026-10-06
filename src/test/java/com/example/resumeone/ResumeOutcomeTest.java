@@ -47,6 +47,23 @@ class ResumeOutcomeTest {
     }
 
     @Test
+    void aBrowserWithEveryTabOpenIsAlreadyOpenNotLaunched() {
+        HelloController.LaunchStep chrome = new HelloController.LaunchStep("chrome", "", true,
+                () -> { throw new HelloController.AlreadyOpen(); });
+        HelloController.LaunchStep brave = new HelloController.LaunchStep("brave", "", true, () -> { });
+        HelloController.ResumeRun r = new HelloController.ResumeRun(new Project("atlas", null, new HashMap<>(), new ArrayList<>()));
+        r.plan = new HelloController.ResumePlan(List.of(chrome, brave), List.of("idea64.exe"));
+        chrome.run();
+        brave.run();
+
+        assertEquals(HelloController.LaunchStep.State.SKIPPED, chrome.state);
+        assertEquals(HelloController.LaunchStep.State.DONE, brave.state);
+        assertEquals(2, r.done());   // both finished, so the run still reads 2 / 2
+        assertEquals(List.of("idea64.exe", "chrome"), r.alreadyOpen());
+        assertEquals("RESUMED", HelloController.outcome(r));
+    }
+
+    @Test
     void pathLookupFindsAnExeAndSkipsBadEntries(@TempDir Path dir) throws IOException {
         Files.createFile(dir.resolve("tool.exe"));
         String path = "\"C:\\bad<entry\";" + ";" + dir;
