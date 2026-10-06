@@ -73,6 +73,7 @@ import java.nio.file.StandardCopyOption;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.List; // explicit: java.awt.* also exports List
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -106,6 +107,10 @@ public class HelloController {
     // one extension per browser, each with its own socket: a single field meant the second
     // browser to connect silently replaced the first, and only it ever got the capture push
     private final Set<WsContext> wsSessions = ConcurrentHashMap.newKeySet();
+    /** An {"open":[urls]} waiting on its {"opened":n}: how many tabs that browser really opened. */
+    private final Map<WsContext, CompletableFuture<Integer>> openReplies = new ConcurrentHashMap<>();
+    /** The extension answers in milliseconds; one from before the reply never does. */
+    static final long OPEN_REPLY_MS = 2000;
 
     @FXML
     public VBox projectList;
@@ -1417,9 +1422,7 @@ public class HelloController {
                     step.state = LaunchStep.State.LAUNCHING;
                     Platform.runLater(() -> renderResuming(r));
                     step.run();
-                    r.log.add(step.state == LaunchStep.State.DONE
-                            ? step.label + " → " + step.command
-                            : step.label + " failed: " + step.error);
+                    r.log.add(step.logLine());
                     Platform.runLater(() -> renderResuming(r));
                     Thread.sleep(LAUNCH_GAP_MS);
                 }
@@ -1464,7 +1467,7 @@ public class HelloController {
         for (LaunchStep step : r.plan.steps()) {
             switch (step.state) {
                 case QUEUED -> queued.add(step.label);
-                case DONE -> { }
+                case DONE, SKIPPED -> { }
                 default -> {
                     HBox row = stepRow(step);
                     resumingRows.getChildren().add(row);
@@ -1480,7 +1483,7 @@ public class HelloController {
             resumingRows.getChildren().add(foldRow(Icons.TIMESTAMP, queued.size() + " queued", names(queued)));
         }
 
-        List<String> skipped = r.plan.skipped();
+        List<String> skipped = r.alreadyOpen();
         resumingSkipped.setText(skipped.isEmpty() ? "" : skipped.size() + " already open, left alone · " + names(skipped));
     }
 
@@ -1561,7 +1564,7 @@ public class HelloController {
         }
         // the RESUME block counted these too; without this row "6 apps" would end as "4 apps"
         // with nothing to say where the other two went
-        List<String> skipped = r.plan.skipped();
+        List<String> skipped = r.alreadyOpen();
         if (!skipped.isEmpty()) {
             restoredRows.getChildren().add(foldRow(Icons.CHECK, skipped.size() + " already open, left alone", names(skipped)));
         }
@@ -1620,9 +1623,7 @@ public class HelloController {
         stopCountdown();
         Thread t = new Thread(() -> {
             step.run();
-            r.log.add(step.state == LaunchStep.State.DONE
-                    ? step.label + " → " + step.command + " (retry)"
-                    : step.label + " failed again: " + step.error);
+            r.log.add(step.logLine() + " (retry)");
             Platform.runLater(() -> renderRestored(r));
         }, "retry");
         t.setDaemon(true);
@@ -2560,11 +2561,17 @@ public class HelloController {
     }
 
     @FunctionalInterface
-    interface Launch { void start() throws IOException, URISyntaxException; }
+    interface Launch { void start() throws IOException, URISyntaxException, AlreadyOpen; }
+
+    /** A launch that found nothing to do: every saved tab was already open in that browser. */
+    static final class AlreadyOpen extends Exception {
+        AlreadyOpen() { super(null, null, false, false); }
+    }
 
     /** One process launch: the row's label, the command it shows, and how it went. */
     static final class LaunchStep {
-        enum State { QUEUED, LAUNCHING, DONE, FAILED }
+        /** SKIPPED: ran, but there was nothing to open - shown as already open, not launched */
+        enum State { QUEUED, LAUNCHING, DONE, SKIPPED, FAILED }
         final String label, command;
         final boolean browser;
         final Launch launch;
@@ -2584,11 +2591,21 @@ public class HelloController {
             try {
                 launch.start();
                 state = State.DONE;
+            } catch (AlreadyOpen ex) {
+                state = State.SKIPPED;
             } catch (IOException | URISyntaxException ex) {
                 error = ex.getMessage();
                 state = State.FAILED;
                 System.err.println("failed to launch " + label + ": " + error);
             }
+        }
+
+        String logLine() {
+            return switch (state) {
+                case DONE -> label + " → " + command;
+                case SKIPPED -> label + ": every tab already open";
+                default -> label + " failed: " + error;
+            };
         }
     }
 
@@ -2609,10 +2626,18 @@ public class HelloController {
 
         int total()     { return plan.steps().size(); }
         long started()  { return plan.steps().stream().filter(s -> s.state != LaunchStep.State.QUEUED).count(); }
-        long done()     { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.DONE).count(); }
+        /** finished fine, including a browser that had every tab open already */
+        long done()     { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.DONE || s.state == LaunchStep.State.SKIPPED).count(); }
         long failed()   { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.FAILED).count(); }
         long queued()   { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.QUEUED).count(); }
         long appsDone() { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.DONE && !s.browser).count(); }
+
+        /** Left alone: apps the plan found running, plus browsers that turned out to have every tab. */
+        List<String> alreadyOpen() {
+            List<String> all = new ArrayList<>(plan.skipped());
+            plan.steps().stream().filter(s -> s.state == LaunchStep.State.SKIPPED).forEach(s -> all.add(s.label));
+            return all;
+        }
     }
 
     /** Brings a saved project back: browsers with their tabs, then every other captured app.
@@ -2654,7 +2679,16 @@ public class HelloController {
                     .filter(s -> wsBrowser(s).equalsIgnoreCase(browser)).findFirst().orElse(null);
             if (live != null) {
                 steps.add(new LaunchStep(browser, urls.size() + " urls · via extension, open tabs skipped",
-                        true, () -> live.send(gson.toJson(Map.of("open", urls)))));
+                        true, () -> {
+                    CompletableFuture<Integer> reply = new CompletableFuture<>();
+                    openReplies.put(live, reply);
+                    live.send(gson.toJson(Map.of("open", urls)));
+                    // every tab already there means nothing launched; no answer (an older
+                    // extension) still counts as sent, as it always did
+                    int opened = reply.completeOnTimeout(-1, OPEN_REPLY_MS, TimeUnit.MILLISECONDS).join();
+                    openReplies.remove(live, reply);
+                    if (opened == 0) throw new AlreadyOpen();
+                }));
                 continue;
             }
             String command = urls.size() + " urls · " + (exePath == null ? "default browser" : "one window");
@@ -2767,7 +2801,8 @@ public class HelloController {
         return "NULL";
     }
     // == Embedded server (the contract with ResumeOneExtension) ============
-    //   WS  /ws?browser=X   extension keeps this open; app pushes "capture" to request tabs
+    //   WS  /ws?browser=X   extension keeps this open; app pushes "capture" to request tabs,
+    //                       or {"open":[urls]} on resume and the extension answers {"opened":n}
     //   GET /project        active project name ("" if none) - the popup's "is the app up?"
     //   POST /tabs          {browser, urls[]} -> stored on the active project and saved
     //   Port 8765, CORS open, because the extension's fetch comes from a chrome-extension:// origin.
@@ -2802,6 +2837,13 @@ public class HelloController {
                         + " (" + wsSessions.size() + " connected)");
                 refreshStatusDot();
                 });
+            // {"opened":n} answers a resume's {"open":[urls]}; anything else (the heartbeat) is ignored
+            ws.onMessage(ctx -> {
+                if (!ctx.message().startsWith("{")) return;
+                Object opened = gson.fromJson(ctx.message(), Map.class).get("opened");
+                CompletableFuture<Integer> reply = openReplies.remove(ctx);
+                if (reply != null && opened instanceof Number n) reply.complete(n.intValue());
+            });
             ws.onClose(ctx -> {
                 wsSessions.remove(ctx);
                 // the last one gone is usually a worker suspending or a browser restarting:
