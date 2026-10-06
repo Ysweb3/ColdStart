@@ -1002,7 +1002,7 @@ public class HelloController {
         // the measured block, not rows * line: a second line also brings the gap above it.
         // 8 of slack, or the TextArea clipped the last row's descenders
         double target = (rows == 1 ? line : twoLines) + 8;
-        // compared on height, not rows: the first fit can run before CSS sets Sora 14, and a
+        // compared on height, not rows: the first fit can run before CSS sets Plex Sans 14, and a
         // row count that did not change then kept the default font's shorter rows
         if (target == noteField.getPrefHeight()) return;
         noteField.setPrefHeight(target);
