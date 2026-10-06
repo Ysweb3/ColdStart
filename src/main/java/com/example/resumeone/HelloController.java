@@ -1255,7 +1255,7 @@ public class HelloController {
     private HBox chip(Project projectObj, String category, String app) {
         HBox chip = new HBox(2, new Label(appName(app)), remover(() -> removeApp(projectObj, category, app), projectObj, 12, appName(app)));
         Tooltip.install(chip, tip(app));
-        chip.getStyleClass().add("chip");
+        chip.getStyleClass().addAll("chip","cut");
         chip.setAlignment(Pos.CENTER_LEFT);
         return chip;
     }
