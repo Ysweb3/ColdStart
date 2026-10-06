@@ -2402,7 +2402,8 @@ public class HelloController {
         return path != null ? path.trim() : null;
     }
     // every running claude writes ~/.claude/sessions/<pid>.json with its cwd. a live one for
-    // this folder means its window is already up, so opening another would only duplicate it.
+    // this folder (that is not a background one) means its window is already up, so opening
+    // another would only duplicate it.
     boolean claudeRunningIn(String folderPath) {
         return claudeRunningIn(folderPath, new File(System.getProperty("user.home"), ".claude/sessions"));
     }
@@ -2415,6 +2416,9 @@ public class HelloController {
                 Map<String, Object> session = gson.fromJson(r, Map.class);
                 Object cwd = session.get("cwd");
                 Object pid = session.get("pid");
+                // a background session ("kind":"bg") outlives the terminal it started in and has
+                // no window, so a leftover one from yesterday must not stand in for an open claude
+                if ("bg".equals(session.get("kind"))) continue;
                 // the file outlives a crash, so the pid has to be checked too
                 if (cwd != null && pid != null && folderPath.equalsIgnoreCase(cwd.toString())
                         && ProcessHandle.of(((Number) pid).longValue()).map(ProcessHandle::isAlive).orElse(false)) {
