@@ -760,7 +760,8 @@ public class HelloController {
                 statRow(Icons.BROWSER, "Browser extensions",
                         browsers.isEmpty() ? (System.nanoTime() < connectingUntil ? "connecting\u2026"
                                                                            : "none connected \u00b7 install the coldstart extension")
-                                           : String.join(" \u00b7 ", browsers) + " connected", null),
+                                           : String.join(", ", browsers.stream().map(HelloController::browserLabel).toList())
+                                             + " connected", null),
                 statRow(Icons.APP_WINDOW, "Ignored processes", names(ignored), String.join("\n", ignored)),
                 storageRow);
     }
@@ -2180,7 +2181,7 @@ public class HelloController {
             if (connecting && !Motion.REDUCED) spin.play(); else spin.pause();
             statusLabel.setText(statusLine(browsers, connecting));
             statusLabel.getStyleClass().setAll(live ? "port-live" : "port");
-            statusTip.setText(live ? String.join(", ", browsers) + " \u00b7"
+            statusTip.setText(live ? String.join(", ", browsers.stream().map(HelloController::browserLabel).toList())
                     : connecting ? "waiting for the coldstart extension \u00b7 can take a minute to reconnect"
                     : "install the coldstart extension to checkpoint tabs");
             // someone watching Settings to see the extension land must see it land
