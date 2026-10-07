@@ -2841,8 +2841,14 @@ public class HelloController {
                         + " (" + wsSessions.size() + " connected)");
                 refreshStatusDot();
                 });
-            // {"opened":n} answers a resume's {"open":[urls]}; anything else (the heartbeat) is ignored
+            // the heartbeat is echoed: it is the extension's only way to tell a hung app from a
+            // quiet one, and it redials a socket that stops echoing.
+            // {"opened":n} answers a resume's {"open":[urls]}; anything else is ignored
             ws.onMessage(ctx -> {
+                if ("Heartbeat".equals(ctx.message())) {
+                    ctx.send("Heartbeat");
+                    return;
+                }
                 if (!ctx.message().startsWith("{")) return;
                 Object opened = gson.fromJson(ctx.message(), Map.class).get("opened");
                 CompletableFuture<Integer> reply = openReplies.remove(ctx);
