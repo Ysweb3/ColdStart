@@ -34,7 +34,48 @@ class AppFoldersTest {
                 new AppFolders.Window("Code.exe", "\u25cf background.js - ResumeOneExtension - Visual Studio Code"),
                 new AppFolders.Window("Code.exe", "Welcome - Visual Studio Code"),   // no folder: left out
                 new AppFolders.Window("chrome.exe", "ResumeOne - Google Chrome")),   // not an IDE
-                appData, home.getPath());
+                appData, home.getPath()).folders();
+    }
+
+    @Test
+    void pathsInTitlesCommandLinesAndExplorerResolve() throws IOException {
+        File work = new File(home, "My Work (2026)");
+        File txt = new File(work, "a - notes.txt");
+        File blend = new File(work, "scene.blend");
+        File cut = new File(work, "cut.prproj");
+        File unity = new File(home, "Unity Game");
+        assertTrue(work.mkdirs() && unity.mkdirs());
+        for (File f : List.of(txt, blend, cut)) Files.writeString(f.toPath(), "");
+
+        // spaces, brackets and " - " inside the path itself must survive the cut-back
+        assertEquals(txt.getPath(), AppFolders.fileInTitle("*" + txt.getPath() + " - Notepad++"));
+        assertEquals(cut.getPath(), AppFolders.fileInTitle("Adobe Premiere Pro 2025 - " + cut.getPath()));
+        assertNull(AppFolders.fileInTitle("new 1 - Notepad++"));
+
+        // Blender: bracketed path (old title), then a name matched against recent-files.txt
+        assertEquals(blend.getPath(), AppFolders.blendFile(new AppFolders.Window("blender.exe", "Blender* [" + blend.getPath() + "]"), List.of()));
+        File recent = new File(home, "AppData\\Blender Foundation\\Blender\\4.2\\config\\recent-files.txt");
+        recent.getParentFile().mkdirs();
+        Files.writeString(recent.toPath(), blend.getPath() + "\n");
+        List<String> known = AppFolders.blenderRecent(new File(home, "AppData\\Blender Foundation\\Blender"));
+        assertEquals(blend.getPath(), AppFolders.blendFile(new AppFolders.Window("blender.exe", "* scene - Blender 4.2"), known));
+        assertEquals(blend.getPath(), AppFolders.blendFile(new AppFolders.Window("blender.exe", "C:\\b\\blender.exe",
+                "\"C:\\b\\blender.exe\" \"" + blend.getPath() + "\"", "Blender"), List.of()));
+
+        // Unity: the Hub's -projectPath, quoted or not
+        assertEquals(unity.getPath(), AppFolders.unityProject("Unity.exe -projectpath \"" + unity.getPath() + "\" -useHub"));
+        assertEquals(List.of("-projectPath", unity.getPath()), AppFolders.openArgs("Unity.exe", unity.getPath()));
+
+        // Explorer: Shell.Application's url; a bare window name is not a path
+        assertEquals(work.getPath(), AppFolders.explorerFolder(work.toPath().toUri().toString()));
+        assertNull(AppFolders.explorerFolder("Downloads"));
+
+        // an Explorer folder joins the Files row, so the card shows what resume opens
+        HashMap<String, HashSet<String>> apps = new HashMap<>();
+        HelloController.addFolderApps(apps, Map.of("explorer.exe", new ArrayList<>(List.of(work.getPath()))));
+        assertEquals(Set.of("explorer.exe"), apps.get("Files"));
+        assertEquals("File Explorer · My Work (2026)",
+                HelloController.folderStep("explorer.exe", work.getPath(), null).label);
     }
 
     @Test

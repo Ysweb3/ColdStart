@@ -44,7 +44,7 @@ class IconsTest {
                 if (p.anim() != null) assertTrue(ANIMS.contains(p.anim()), "unknown anim " + p.anim());
             }
         }
-        assertEquals(14, Icons.CATEGORY.size());
+        assertEquals(15, Icons.CATEGORY.size());
     }
 
     @Test

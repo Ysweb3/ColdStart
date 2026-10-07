@@ -20,7 +20,8 @@ import java.util.HashSet;
  *   "folderPath":    "C:\...\ResumeOne",           // null when no folder was chosen
  *   "apps":          {"IDE": ["Code.exe"], "AI": ["claude.exe"], ...},   // category -> exe names
  *   "folders":       {"idea64.exe": ["C:\...\ResumeOne"], "Code.exe": ["C:\...\ResumeOneExtension"]},
- *                                                   // exe -> folders its windows had open; absent = none told
+ *                                                   // exe -> folders/files its windows had open; absent = none told
+ *   "exePaths":      {"Unity.exe": "C:\...\2022.3.10f1\Editor\Unity.exe"},  // exe -> where it ran from
  *   "urls":          [],                            // legacy, see below
  *   "urlsByBrowser": {"Chrome": ["https://..."], "brave": [...]},      // extension brand -> tabs
  *   "note":          "fix the export bug next"      // "where was I", shown on resume; absent = none
@@ -35,6 +36,7 @@ public class Project {
     public HashMap<String, HashSet<String>> apps;
     // see AppFolders. Gson leaves it null for a project saved before it existed.
     public HashMap<String, ArrayList<String>> folders;
+    public HashMap<String, String> exePaths;
     // legacy: url list from before capture recorded which browser the tabs came from.
     // still read so an existing projects.json is not silently emptied - see getProjectsJson().
     public ArrayList<String> urls;

@@ -9,6 +9,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,16 +19,26 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Which folder each IDE window has open, so a resume brings IntelliJ back on one folder and
- * VS Code on another instead of both on the project's single folderPath.
+ * Which folder or file each app window has open, so a resume brings IntelliJ back on one
+ * folder and VS Code on another instead of both on the project's single folderPath.
  *
- * A window title only carries a name ("ResumeOne – Main.java", "x.ts - ResumeOneExtension -
+ * IDEs only put a name in the title ("ResumeOne – Main.java", "x.ts - ResumeOneExtension -
  * Visual Studio Code"), so the name is looked up in the app's own list of folders it has
- * opened. A window whose folder can't be told is left out; that app relaunches as before.
+ * opened. Notepad++, Premiere, After Effects and older Blender put the whole path there,
+ * Unity has it on its command line, and Explorer is asked through Shell.Application. A
+ * window whose folder can't be told is left out; that app relaunches as before.
  */
 final class AppFolders {
 
-    record Window(String exe, String title) {}
+    /** exePath and commandLine are "" when unknown; the command line is only read for the
+        apps that keep their document there (Unity, Blender). */
+    record Window(String exe, String exePath, String commandLine, String title) {
+        Window(String exe, String title) { this(exe, "", "", title); }
+    }
+
+    /** What a capture found: exe -> its open folders/files, and exe -> the exe's full path
+        (Unity installs per version, Blender is rarely on PATH, so resume starts that file). */
+    record Capture(HashMap<String, ArrayList<String>> folders, HashMap<String, String> exePaths) {}
 
     /** a VS Code build: its folder under %APPDATA% and the command that opens a folder in it */
     record VsCode(String dataDir, String cli) {}
@@ -42,21 +54,34 @@ final class AppFolders {
             "phpstorm64.exe", "clion64.exe", "rider64.exe", "goland64.exe", "rubymine64.exe",
             "dataspell64.exe");
 
+    // the whole path is in the title: "*C:\x\a.txt - Notepad++", "Adobe Premiere Pro 2025 -
+    // C:\x\cut.prproj", "Blender* [C:\x\scene.blend]" (Blender gets more tries, see blendFile)
+    static final List<String> TITLE_PATH = List.of("notepad++.exe", "adobe premiere pro.exe", "afterfx.exe");
+    static final String BLENDER = "blender.exe", UNITY = "unity.exe", EXPLORER = "explorer.exe";
+
     static boolean knows(String exe) {
         String lower = exe.toLowerCase();
-        return VSCODE_FAMILY.containsKey(lower) || JETBRAINS.contains(lower);
+        return VSCODE_FAMILY.containsKey(lower) || JETBRAINS.contains(lower) || TITLE_PATH.contains(lower)
+                || List.of(BLENDER, UNITY, EXPLORER).contains(lower);
     }
 
-    /** exe -> folders its windows have open right now, for the apps knows() covers. */
-    static HashMap<String, ArrayList<String>> capture() throws IOException {
+    /** The arguments that reopen dir in app: Unity takes it as -projectPath, the rest bare. */
+    static List<String> openArgs(String app, String dir) {
+        return UNITY.equalsIgnoreCase(app) ? List.of("-projectPath", dir) : List.of(dir);
+    }
+
+    /** What every open window of a known app has open right now. */
+    static Capture capture() throws IOException {
         File appData = new File(System.getenv("APPDATA"));
         return resolve(captureWindows(), appData, System.getProperty("user.home"));
     }
 
-    static HashMap<String, ArrayList<String>> resolve(List<Window> windows, File appData, String userHome) {
+    static Capture resolve(List<Window> windows, File appData, String userHome) {
         HashMap<String, ArrayList<String>> out = new HashMap<>();
+        HashMap<String, String> exePaths = new HashMap<>();
         Map<String, List<String>> vscodeKnown = new HashMap<>();
         Map<String, String> jetbrainsKnown = null;   // read once, only when a JetBrains window is up
+        List<String> blendRecent = null;
         for (Window w : windows) {
             String lower = w.exe().toLowerCase();
             String folder = null;
@@ -68,12 +93,115 @@ final class AppFolders {
             } else if (JETBRAINS.contains(lower)) {
                 if (jetbrainsKnown == null) jetbrainsKnown = jetbrainsProjects(new File(appData, "JetBrains"), userHome);
                 folder = jetbrainsFolder(w.title(), jetbrainsKnown);
+            } else if (TITLE_PATH.contains(lower)) {
+                folder = fileInTitle(w.title());
+            } else if (lower.equals(BLENDER)) {
+                if (blendRecent == null) blendRecent = blenderRecent(new File(appData, "Blender Foundation\\Blender"));
+                folder = blendFile(w, blendRecent);
+            } else if (lower.equals(UNITY)) {
+                folder = unityProject(w.commandLine());
+            } else if (lower.equals(EXPLORER)) {
+                folder = explorerFolder(w.title());
             }
             if (folder == null) continue;
             ArrayList<String> list = out.computeIfAbsent(w.exe(), k -> new ArrayList<>());
             if (list.stream().noneMatch(folder::equalsIgnoreCase)) list.add(folder);
+            if (!w.exePath().isEmpty()) exePaths.put(w.exe(), w.exePath());
+        }
+        return new Capture(out, exePaths);
+    }
+
+    // == Path in the title or on the command line ===========================
+
+    private static final Pattern DRIVE = Pattern.compile("[A-Za-z]:\\\\");
+
+    /** The longest existing file path in the title. A path can hold spaces, dashes and
+        brackets, so each one starting at a drive letter is cut back a word at a time until
+        what is left is a file - with the "]" or " -" that followed it trimmed off. */
+    static String fileInTitle(String title) {
+        Matcher m = DRIVE.matcher(title);
+        while (m.find()) {
+            String rest = title.substring(m.start());
+            for (int end = rest.length(); end > 3; end = rest.lastIndexOf(' ', end - 1)) {
+                String raw = rest.substring(0, end);
+                for (String candidate : List.of(raw, raw.replaceAll("[\\])\\s-]+$", ""))) {
+                    if (new File(candidate).isFile()) return candidate;
+                }
+            }
+        }
+        return null;
+    }
+
+    private static final Pattern BLEND_ARG = Pattern.compile("\"([^\"]+\\.blend)\"|(\\S+\\.blend)\\b", Pattern.CASE_INSENSITIVE);
+
+    /** Blender changed its title across versions (path in brackets, then name only), so: a
+        .blend it was started with, then a path in the title, then a recent file the title names.
+        ponytail: two recent files with one name resolve to the newest version's first; a
+        Blender add-on reporting bpy.data.filepath would be exact. */
+    static String blendFile(Window w, List<String> recent) {
+        Matcher arg = BLEND_ARG.matcher(w.commandLine());
+        while (arg.find()) {
+            String path = arg.group(1) != null ? arg.group(1) : arg.group(2);
+            if (new File(path).isFile()) return path;
+        }
+        String inTitle = fileInTitle(w.title());
+        if (inTitle != null) return inTitle;
+        for (String part : w.title().split(" [-\u2013] |[\\[\\]()]")) {
+            String name = part.replace("*", "").trim();
+            if (name.isEmpty()) continue;
+            for (String path : recent) {
+                String file = new File(path).getName();
+                if (name.equalsIgnoreCase(file) || name.equalsIgnoreCase(file.replaceFirst("(?i)\\.blend$", ""))) {
+                    return path;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Every version's config\recent-files.txt, newest version first, most recent file first. */
+    static List<String> blenderRecent(File blenderDir) {
+        List<String> out = new ArrayList<>();
+        File[] versions = blenderDir.listFiles(File::isDirectory);
+        if (versions == null) return out;
+        Arrays.sort(versions, Comparator.comparing(File::getName).reversed());
+        for (File version : versions) {
+            try {
+                for (String line : Files.readAllLines(new File(version, "config\\recent-files.txt").toPath())) {
+                    if (!line.isBlank() && new File(line.trim()).isFile()) out.add(line.trim());
+                }
+            } catch (IOException ex) {
+                // a version that never saved a file has none
+            }
         }
         return out;
+    }
+
+    private static final Pattern PROJECT_PATH = Pattern.compile("(?i)-projectpath\\s+(?:\"([^\"]+)\"|(\\S+))");
+
+    /** Unity's title is "Project - Scene - Platform - Unity 6", but the Hub starts it with
+        -projectPath, so the folder is on the command line. */
+    static String unityProject(String commandLine) {
+        Matcher m = PROJECT_PATH.matcher(commandLine);
+        if (!m.find()) return null;
+        String dir = m.group(1) != null ? m.group(1) : m.group(2);
+        return new File(dir).isDirectory() ? new File(dir).getPath() : null;
+    }
+
+    /** Shell.Application hands each Explorer window (or tab) over as a file:/// url; a window
+        whose title shows the full path (a folder option) counts too. Home, This PC and other
+        virtual folders have no path and are left out. */
+    static String explorerFolder(String title) {
+        String path = title;
+        if (title.startsWith("file:")) {
+            try {
+                path = Paths.get(URI.create(title)).toString();
+            } catch (RuntimeException ex) {
+                return null;
+            }
+        }
+        File f = new File(path);
+        return f.isAbsolute() && f.isDirectory() ? f.getPath() : null;
     }
 
     // == VS Code family =====================================================
@@ -188,18 +316,25 @@ final class AppFolders {
 
     // == Window listing =====================================================
 
-    /** Every titled top-level window as (name.exe, title) - one process can own several,
-        which is how two VS Code windows on two folders show up. */
+    /** Every titled top-level window - one process can own several, which is how two VS Code
+        windows on two folders show up - plus one line per Explorer window from Shell.Application,
+        with its file:/// url standing in for the title. */
     static List<Window> captureWindows() throws IOException {
-        // single quotes only, as in captureRunningApps. UTF-8 out, or the en dash JetBrains
-        // puts in every title arrives as '?' and the project name can't be split off.
+        // single quotes only, as in captureRunningApps; fields are tab-separated ([char]9, as
+        // "`t" would need double quotes) since titles and command lines can hold '|'. UTF-8 out,
+        // or the en dash JetBrains puts in every title arrives as '?' and can't be split on.
         ProcessBuilder pb = new ProcessBuilder("powershell.exe", "-NoProfile", "-Command",
-                "[Console]::OutputEncoding = [Text.Encoding]::UTF8; " +
+                "[Console]::OutputEncoding = [Text.Encoding]::UTF8; $t = [char]9; " +
                 "Add-Type -AssemblyName UIAutomationClient; " +
-                "$n = @{}; Get-Process | ForEach-Object { $n[$_.Id] = $_.ProcessName }; " +
+                "$p = @{}; Get-Process | ForEach-Object { $p[$_.Id] = $_ }; " +
+                "$c = @{}; Get-CimInstance Win32_Process -Filter 'Name=''Unity.exe'' or Name=''blender.exe''' | " +
+                "ForEach-Object { $c[[int]$_.ProcessId] = $_.CommandLine }; " +
                 "[Windows.Automation.AutomationElement]::RootElement.FindAll(" +
                 "[Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition) | " +
-                "ForEach-Object { $c = $_.Current; if ($c.Name -and $n[$c.ProcessId]) { $n[$c.ProcessId] + '.exe|' + $c.Name } }");
+                "ForEach-Object { $e = $_.Current; $q = $p[$e.ProcessId]; if ($e.Name -and $q) { " +
+                "$q.ProcessName + '.exe' + $t + $q.Path + $t + $c[$e.ProcessId] + $t + $e.Name } }; " +
+                "(New-Object -ComObject Shell.Application).Windows() | " +
+                "ForEach-Object { 'explorer.exe' + $t + $t + $t + $_.LocationURL }");
         pb.redirectErrorStream(true);
         Process process = pb.start();
         List<Window> out = new ArrayList<>();
@@ -207,9 +342,9 @@ final class AppFolders {
                 new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                String[] parts = line.replace("\uFEFF", "").split("\\|", 2);
-                if (parts.length == 2 && parts[0].toLowerCase().endsWith(".exe")) {
-                    out.add(new Window(parts[0].trim(), parts[1].trim()));
+                String[] f = line.replace("\uFEFF", "").split("\t", 4);
+                if (f.length == 4 && f[0].toLowerCase().endsWith(".exe")) {
+                    out.add(new Window(f[0].trim(), f[1].trim(), f[2].trim(), f[3].trim()));
                 }
             }
         }

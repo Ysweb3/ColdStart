@@ -21,7 +21,7 @@ class HelloControllerSegregateAppsTest {
         HashMap<String, HashSet<String>> result = controller.segregateApps(new HashSet<>());
 
         assertEquals(java.util.Set.of("IDE", "Browser", "Music", "Communication", "Notes", "Terminal",
-                "AI", "Database", "API", "Containers", "VersionControl", "Design", "Video", "Office", "Other"),
+                "AI", "Database", "API", "Containers", "VersionControl", "Design", "Video", "Office", "Files", "Other"),
                 result.keySet());
         result.values().forEach(bucket -> assertTrue(bucket.isEmpty()));
     }

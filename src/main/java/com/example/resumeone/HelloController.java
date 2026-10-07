@@ -523,7 +523,11 @@ public class HelloController {
             try {
                 if (projectObj.lastCheckpoint != null) {
                     projectObj.apps = segregateApps(captureRunningApps());
-                    projectObj.folders = captureFolders(projectObj.apps);
+                    AppFolders.Capture dirs = captureFolders(projectObj.apps);
+                    if (dirs != null) {
+                        projectObj.folders = dirs.folders();
+                        projectObj.exePaths = dirs.exePaths();
+                    }
                 }
                 saveProject(projectObj);
             } catch (IOException ex) {
@@ -1076,7 +1080,7 @@ public class HelloController {
     // built, so every non-empty category is listed rather than hidden behind a dead link
     private static final List<String> CATEGORY_ORDER = List.of(
             "IDE", "AI", "Terminal", "Browser", "Database", "API", "Containers",
-            "VersionControl", "Design", "Video", "Office", "Communication", "Notes", "Music");
+            "VersionControl", "Design", "Video", "Office", "Communication", "Notes", "Files", "Music");
 
     /** "2h ago" under Checkpoint: when the last one was taken. It used to read "overwrite \u00b7
         2h old", a warning on every press; a checkpoint is now one Ctrl+Z from undone. */
@@ -1158,6 +1162,7 @@ public class HelloController {
     // only where the exe name is not the app's name; everything else is the exe, capitalised
     private static final Map<String, String> APP_NAMES = Map.ofEntries(
             Map.entry("code", "VS Code"), Map.entry("code - insiders", "VS Code Insiders"),
+            Map.entry("explorer", "File Explorer"),
             Map.entry("idea", "IntelliJ IDEA"), Map.entry("pycharm", "PyCharm"), Map.entry("webstorm", "WebStorm"),
             Map.entry("phpstorm", "PhpStorm"), Map.entry("clion", "CLion"), Map.entry("goland", "GoLand"),
             Map.entry("rubymine", "RubyMine"), Map.entry("datagrip", "DataGrip"), Map.entry("studio", "Android Studio"),
@@ -1201,14 +1206,15 @@ public class HelloController {
     }
 
     /** The extra argument resumeProject() will actually use for this category: claude opens its
-        agent view, an IDE its own saved folders ("…\atlas-api +1"), else VS Code the project folder. */
+        agent view, any app its saved folders or files ("…\atlas-api +1"), else VS Code the
+        project folder. */
     static String trailingNote(String category, Project projectObj) {
         if ("AI".equals(category) && hasApp(projectObj, "claude.exe")) {
             return "reopens chats";
         }
-        if ("IDE".equals(category) && projectObj.folders != null) {
+        if (projectObj.folders != null) {
             List<String> names = projectObj.folders.entrySet().stream()
-                    .filter(e -> "IDE".equals(categoryOf(e.getKey())))
+                    .filter(e -> category.equals(categoryOf(e.getKey())))
                     .flatMap(e -> e.getValue().stream())
                     .map(dir -> new File(dir).getName()).distinct().toList();
             if (!names.isEmpty()) {
@@ -1963,7 +1969,7 @@ public class HelloController {
         // the block can say what it is doing
         Thread worker = new Thread(() -> {
             HashMap<String, HashSet<String>> now = null;
-            HashMap<String, ArrayList<String>> dirs = null;
+            AppFolders.Capture dirs = null;
             IOException failed = null;
             try {
                 if (mode.apps()) {
@@ -1978,7 +1984,7 @@ public class HelloController {
             } catch (InterruptedException ignored) {
             }
             HashMap<String, HashSet<String>> captured = now;
-            HashMap<String, ArrayList<String>> folders = dirs;
+            AppFolders.Capture folders = dirs;
             IOException error = failed;
             Platform.runLater(() -> finishCheckpoint(projectObj, mode, before, captured, folders, error));
         }, "checkpoint");
@@ -1991,7 +1997,7 @@ public class HelloController {
     /** The FX-thread half of writeCheckpoint, once the capture is back (or failed). */
     private void finishCheckpoint(Project projectObj, Checkpoint mode, String before,
                                   HashMap<String, HashSet<String>> captured,
-                                  HashMap<String, ArrayList<String>> folders, IOException captureError) {
+                                  AppFolders.Capture folders, IOException captureError) {
         checkpointing = null;
         boolean onScreen = projectObj == activeProject;
         try {
@@ -2002,8 +2008,14 @@ public class HelloController {
             }
             // null: the window listing failed, so the folders saved last time are kept
             if (folders != null) {
-                if (mode.merge() && projectObj.folders != null) mergeFolders(projectObj.folders, folders);
-                else projectObj.folders = folders;
+                if (mode.merge() && projectObj.folders != null) {
+                    mergeFolders(projectObj.folders, folders.folders());
+                    if (projectObj.exePaths == null) projectObj.exePaths = new HashMap<>();
+                    projectObj.exePaths.putAll(folders.exePaths());
+                } else {
+                    projectObj.folders = folders.folders();
+                    projectObj.exePaths = folders.exePaths();
+                }
             }
             projectObj.lastCheckpoint = Instant.now().toString();
             saveProject(projectObj);
@@ -2049,16 +2061,27 @@ public class HelloController {
         });
     }
 
-    /** Folders the IDEs among these apps have open (see AppFolders). Null when the window
+    /** Folders and files the open apps have up (see AppFolders). An app only seen through its
+        windows - Explorer, whose folder windows Get-Process does not report - joins its
+        category in apps, so the card shows what resume will open. Null when the window
         listing failed, so the caller keeps what it had instead of forgetting every folder. */
-    static HashMap<String, ArrayList<String>> captureFolders(Map<String, HashSet<String>> apps) {
-        // the listing is a second PowerShell run: skip it when no IDE it knows is open
-        if (apps.values().stream().flatMap(Set::stream).noneMatch(AppFolders::knows)) return new HashMap<>();
+    static AppFolders.Capture captureFolders(Map<String, HashSet<String>> apps) {
+        AppFolders.Capture found;
         try {
-            return AppFolders.capture();
+            // always run, ~0.5s: Explorer windows never show up in apps to gate on
+            found = AppFolders.capture();
         } catch (IOException ex) {
             System.err.println("could not list window folders: " + ex.getMessage());
             return null;
+        }
+        addFolderApps(apps, found.folders());
+        return found;
+    }
+
+    static void addFolderApps(Map<String, HashSet<String>> apps, Map<String, ArrayList<String>> folders) {
+        for (String exe : folders.keySet()) {
+            boolean listed = apps.values().stream().flatMap(Set::stream).anyMatch(exe::equalsIgnoreCase);
+            if (!listed) apps.computeIfAbsent(categoryOf(exe), k -> new HashSet<>()).add(exe);
         }
     }
 
@@ -2337,6 +2360,9 @@ public class HelloController {
             Map.entry("Notes", List.of("notion.exe", "obsidian.exe", "onenote.exe", "Logseq.exe",
                     "Typora.exe", "Joplin.exe", "anytype.exe", "notepad.exe", "Evernote.exe",
                     "Zettlr.exe", "Todoist.exe", "AFFiNE.exe", "xournalpp.exe")),
+            // only its folder windows count (AppFolders); with none saved it is always running,
+            // so resume never starts a bare one
+            Map.entry("Files", List.of("explorer.exe")),
             Map.entry("Music", List.of("spotify.exe", "amazonmusic.exe", "AppleMusic.exe", "Tidal.exe",
                     "MusicBee.exe", "foobar2000.exe", "vlc.exe", "iTunes.exe", "Deezer.exe", "AIMP.exe",
                     "Audacity.exe", "reaper.exe", "FL64.exe"))
@@ -2809,7 +2835,7 @@ public class HelloController {
     static Map<String, ArrayList<String>> liveFolders(Project projectObj) {
         if (projectObj.folders == null || projectObj.folders.isEmpty()) return Map.of();
         try {
-            return AppFolders.capture();
+            return AppFolders.capture().folders();
         } catch (IOException ex) {
             return Map.of();
         }
@@ -2915,7 +2941,7 @@ public class HelloController {
                             log.add("skipping " + app + ": already open on " + dir);
                             continue;
                         }
-                        steps.add(folderStep(app, dir));
+                        steps.add(folderStep(app, dir, projectObj.exePaths == null ? null : projectObj.exePaths.get(app)));
                         any = true;
                     }
                     if (!any) skipped.add(app);
@@ -2978,23 +3004,32 @@ public class HelloController {
         return new ResumePlan(steps, skipped);
     }
 
-    /** Opens one saved folder in the IDE that had it: a VS Code build through its own command,
-        a JetBrains IDE through `start` like any other app, with the folder as the argument. */
-    static LaunchStep folderStep(String app, String dir) {
+    /** Opens one saved folder or file in the app that had it: a VS Code build through its own
+        command, anything else from the exe it ran from last time (the same Unity version, a
+        Blender that is not on PATH), or else through `start` like any other app. */
+    static LaunchStep folderStep(String app, String dir, String exePath) {
         String label = appName(app) + " · " + new File(dir).getName();
         AppFolders.VsCode vs = AppFolders.VSCODE_FAMILY.get(app.toLowerCase());
         String name = vs != null ? vs.cli() : app.replaceFirst("(?i)\\.exe$", "");
-        return new LaunchStep(label, name + " " + dir, false, () -> {
+        List<String> args = AppFolders.openArgs(app, dir);
+        return new LaunchStep(label, name + " " + String.join(" ", args), false, () -> {
             // moved or deleted since: VS Code would open an empty window and read as restored
-            if (!new File(dir).exists()) throw new IOException("folder is gone: " + dir);
+            if (!new File(dir).exists()) throw new IOException("no longer there: " + dir);
+            List<String> cmd = new ArrayList<>();
             if (vs != null) {
-                new ProcessBuilder("cmd.exe", "/c", vs.cli(), dir).start();
-                return;
-            }
-            if (!onPath(app, System.getenv("PATH")) && appPath(app) == null) {
+                cmd.addAll(List.of("cmd.exe", "/c", vs.cli()));
+            } else if (exePath != null && new File(exePath).isFile()) {
+                cmd.add(exePath);
+            } else if (onPath(app, System.getenv("PATH")) || appPath(app) != null) {
+                cmd.addAll(List.of("cmd.exe", "/c", "start", "", name));
+            } else {
                 throw new IOException("cannot find " + app);
             }
-            new ProcessBuilder("cmd.exe", "/c", "start", "", name, dir).start();
+            cmd.addAll(args);
+            // nothing reads the child's output, and a chatty one (Blender logs to stdout)
+            // would stall on a full pipe
+            new ProcessBuilder(cmd).redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    .redirectError(ProcessBuilder.Redirect.DISCARD).start();
         });
     }
 
