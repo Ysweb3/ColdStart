@@ -188,12 +188,9 @@ public class HelloController {
     private Project noteOwner;
     private boolean noteDirty;
     @FXML public Region statusDot;
-    @FXML public Label projectNameLabel, projectPathLabel, checkpointSub, ckDoneSub, tabsCount, statusLabel, resumeCounts;
+    @FXML public Label projectNameLabel, projectPathLabel, checkpointSub, ckDoneSub, statusLabel, resumeCounts;
     /** The full folder path, one hover away from the "…\\atlas-api" the header shows. */
     private Tooltip pathTip;
-    /** The card lists four categories and folds the rest into a "+n more" row until asked. */
-    private boolean showAllCategories;
-    static final int CATEGORIES_SHOWN = 4;
 
     /** "connecting…": a 10px ring whose arc turns in place of the dot while no extension holds
         the socket yet but one is expected - at startup, and after the last one leaves. */
@@ -763,7 +760,8 @@ public class HelloController {
                 statRow(Icons.BROWSER, "Browser extensions",
                         browsers.isEmpty() ? (System.nanoTime() < connectingUntil ? "connecting\u2026"
                                                                            : "none connected \u00b7 install the coldstart extension")
-                                           : String.join(" \u00b7 ", browsers) + " connected", null),
+                                           : String.join(", ", browsers.stream().map(HelloController::browserLabel).toList())
+                                             + " connected", null),
                 statRow(Icons.APP_WINDOW, "Ignored processes", names(ignored), String.join("\n", ignored)),
                 storageRow);
     }
@@ -950,7 +948,6 @@ public class HelloController {
         // the same age, computed at the same moment, on the project's rail row
         StackPane railRow = rowsByProject.get(projectObj.projectName);
         if (railRow != null) railTip(railRow, projectObj);
-        tabsCount.setText(String.valueOf(tabs));
 
         renderCategories(projectObj);
         renderTabs(projectObj);
@@ -1101,9 +1098,8 @@ public class HelloController {
 
         List<String> filled = CATEGORY_ORDER.stream()
                 .filter(c -> projectObj.apps.get(c) != null && !projectObj.apps.get(c).isEmpty()).toList();
-        // one past the limit just shows: a "+1 more" row would take the same line as the row it hides
-        boolean fold = !showAllCategories && filled.size() > CATEGORIES_SHOWN + 1;
-        for (String category : fold ? filled.subList(0, CATEGORIES_SHOWN) : filled) {
+        // every category is listed: the column scrolls, so nothing hides behind a "+n more"
+        for (String category : filled) {
             HashSet<String> bucket = projectObj.apps.get(category);
 
             // a 120px label column: 12px glyph + the 12px label; "Communication" is the widest
@@ -1144,17 +1140,6 @@ public class HelloController {
 
             categoryRows.getChildren().add(row);
         }
-        if (fold || (showAllCategories && filled.size() > CATEGORIES_SHOWN + 1)) {
-            List<String> rest = filled.subList(CATEGORIES_SHOWN, filled.size());
-            HBox more = new HBox(9, Icons.node(Icons.CHEVRON, 12, TX3), styled(new Label(fold
-                    ? "+" + rest.size() + " more \u00b7 " + String.join(", ", rest.stream().map(HelloController::categoryLabel).toList())
-                    : "show fewer"), "cat-foot"));
-            more.setAlignment(Pos.CENTER_LEFT);
-            more.getStyleClass().add("cat-more");
-            clickable(more, fold ? "Show all categories" : "Show fewer categories", () -> { showAllCategories = !showAllCategories; renderCategories(projectObj); });
-            categoryRows.getChildren().add(more);
-        }
-
         // "Other" is captured but never relaunched, which the design calls out by name
         HashSet<String> other = projectObj.apps.get(OTHER);
         if (other != null && !other.isEmpty()) {
@@ -1257,6 +1242,10 @@ public class HelloController {
     static String browserLabel(String browser) {
         // tabs from a browser the extension could not name, reopened in the system default
         if (DEFAULT_BROWSER.equals(browser)) return "Default browser";
+        // "Chrome · Work" reads better than the email the bucket is keyed by
+        // ponytail: reads Local State on every label; cache it if the file ever gets slow
+        String name = nameOf(profileEntry(browser));
+        if (name != null) browser = brandOf(browser) + PROFILE_SEP + name;
         return browser.isEmpty() ? browser : Character.toUpperCase(browser.charAt(0)) + browser.substring(1);
     }
 
@@ -2192,7 +2181,7 @@ public class HelloController {
             if (connecting && !Motion.REDUCED) spin.play(); else spin.pause();
             statusLabel.setText(statusLine(browsers, connecting));
             statusLabel.getStyleClass().setAll(live ? "port-live" : "port");
-            statusTip.setText(live ? String.join(", ", browsers) + " \u00b7"
+            statusTip.setText(live ? String.join(", ", browsers.stream().map(HelloController::browserLabel).toList())
                     : connecting ? "waiting for the coldstart extension \u00b7 can take a minute to reconnect"
                     : "install the coldstart extension to checkpoint tabs");
             // someone watching Settings to see the extension land must see it land
@@ -2505,19 +2494,40 @@ public class HelloController {
     /** The profile folder ("Profile 2") a bucket's email is signed in to; null opens the
         browser on whichever profile it picks, as before. */
     static String profileDir(String key) {
+        Map.Entry<String, Map<String, Object>> p = profileEntry(key);
+        return p == null ? null : p.getKey();
+    }
+
+    static String profileDir(File localState, String email) {
+        Map.Entry<String, Map<String, Object>> p = profileEntry(localState, email);
+        return p == null ? null : p.getKey();
+    }
+
+    /** The name the profile goes by in the browser ("Work", "Yash"); null when unknown, so the
+        email shows instead. */
+    static String profileName(File localState, String email) {
+        return nameOf(profileEntry(localState, email));
+    }
+
+    private static String nameOf(Map.Entry<String, Map<String, Object>> p) {
+        Object name = p == null ? null : p.getValue().get("name");
+        return name instanceof String s && !s.isBlank() ? s : null;
+    }
+
+    private static Map.Entry<String, Map<String, Object>> profileEntry(String key) {
         String email = profileOf(key), data = USER_DATA.get(brandOf(key).toLowerCase());
         if (email == null || data == null) return null;
-        return profileDir(new File(System.getenv("LOCALAPPDATA"), data + "\\Local State"), email);
+        return profileEntry(new File(System.getenv("LOCALAPPDATA"), data + "\\Local State"), email);
     }
 
     /** Local State's profile.info_cache maps each folder to its profile, user_name the email. */
-    static String profileDir(File localState, String email) {
+    private static Map.Entry<String, Map<String, Object>> profileEntry(File localState, String email) {
         try (Reader r = new FileReader(localState)) {
             Map<String, Object> state = new Gson().fromJson(r, Map.class);
             Map<String, Map<String, Object>> profiles =
                     (Map<String, Map<String, Object>>) ((Map<String, Object>) state.get("profile")).get("info_cache");
             for (Map.Entry<String, Map<String, Object>> p : profiles.entrySet()) {
-                if (email.equalsIgnoreCase(String.valueOf(p.getValue().get("user_name")))) return p.getKey();
+                if (email.equalsIgnoreCase(String.valueOf(p.getValue().get("user_name")))) return p;
             }
         } catch (IOException | RuntimeException ex) {
             // no Local State, or a shape we do not know: let the browser pick the profile

@@ -40,7 +40,9 @@ class BrowserProfileTest {
                   "Default":{"name":"Person 1","user_name":""},
                   "Profile 2":{"name":"Work","user_name":"Me@X.com"}}}}""");
         assertEquals("Profile 2", HelloController.profileDir(localState.toFile(), "me@x.com"));
+        assertEquals("Work", HelloController.profileName(localState.toFile(), "me@x.com"), "the heading shows this");
         assertNull(HelloController.profileDir(localState.toFile(), "nobody@x.com"));
+        assertNull(HelloController.profileName(localState.toFile(), "nobody@x.com"), "unknown: email stays");
         assertNull(HelloController.profileDir(dir.resolve("missing").toFile(), "me@x.com"));
         Files.writeString(localState, "{not json");
         assertNull(HelloController.profileDir(localState.toFile(), "me@x.com"), "garbage: browser picks");
