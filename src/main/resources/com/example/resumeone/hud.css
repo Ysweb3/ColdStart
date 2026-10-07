@@ -8,6 +8,12 @@
 /* Sora (400/500/600/700/800) + Space Mono ship with the app and are registered by
    HelloApplication.loadFonts() — JavaFX CSS has no @font-face. */
 
+/* No rounding anywhere: square corners on every node, Modena's defaults included (an author
+   rule outranks the user-agent sheet whatever its selector). Actions (buttons, fields, the
+   keycap) get a 6px corner cut from Cuts.java, which CSS cannot draw at a fixed size;
+   containers, chips and rows stay square, so the notch keeps meaning "press this". */
+* { -fx-background-radius: 0; -fx-border-radius: 0; }
+
 .root {
     -rw-g:      #000000;   /* --surface-app */
     -rw-g1:     #0F1012;   /* rail, title bar, card */
@@ -65,22 +71,24 @@
     -fx-min-width: 32; -fx-pref-width: 32; -fx-max-width: 32;
     -fx-min-height: 32; -fx-pref-height: 32; -fx-max-height: 32;
     -fx-background-color: transparent;
-    -fx-background-radius: 7;
+    -fx-background-radius: 0;
     -fx-cursor: hand;
 }
 .iconbtn:hover { -fx-background-color: -rw-raised; }
 .iconbtn:hover .ico { -fx-stroke: -rw-tx; }
-/* The window's close is a plain ghost like its neighbours: brick is only ever delete or
-   failed, and closing the window deletes nothing. */
+/* The window's close lights in the Delete button's brick under the pointer, as Windows' own
+   close does; at rest it is a plain ghost like its neighbours. */
+#btnClose:hover { -fx-background-color: -rw-brick-btn; }
+#btnClose:pressed { -fx-background-color: -rw-brick-btn-h; }
+#btnClose:hover .ico { -fx-stroke: -rw-on-bad; }
 /* the project's delete stays a quiet ghost until it is meant */
 .iconbtn.delete:hover { -fx-background-color: -rw-bad-tint; }
 .iconbtn.delete:hover .ico { -fx-stroke: -rw-bad; }
 
-/* StatusDot: live glows, idle does not */
+/* StatusDot: a flat dot, green when live, grey when idle; no glow */
 .dot-live {
     -fx-background-color: -rw-live;
     -fx-background-radius: 999;
-    -fx-effect: dropshadow(gaussian, -rw-live, 8, 0, 0, 0);
 }
 .dot-idle {
     -fx-background-color: -rw-tx3;
@@ -95,9 +103,9 @@
 /* tooltips are popups with their own scene; the selector still reaches them */
 .tooltip {
     -fx-background-color: -rw-raised;
-    -fx-background-radius: 5;
+    -fx-background-radius: 0;
     -fx-border-color: -rw-ln;
-    -fx-border-radius: 5;
+    -fx-border-radius: 0;
     -fx-text-fill: -rw-tx;
     -fx-font-family: "Space Mono";
     -fx-font-size: 12px;
@@ -122,7 +130,7 @@
     -fx-min-height: 32; -fx-pref-height: 32; -fx-max-height: 32;
     -fx-background-color: -rw-ln, -rw-g1;
     -fx-background-insets: 0, 1;
-    -fx-background-radius: 7, 6;
+    -fx-background-radius: 0;
     -fx-cursor: hand;
 }
 /* "> .label": the number only, never the wide face's name and age */
@@ -144,17 +152,17 @@
 .side-face { visibility: hidden; -fx-padding: 0 10 0 10; -fx-spacing: 12; }
 .folder-open, .rail-active .folder-shut { visibility: hidden; }
 .rail-active .folder-open { visibility: visible; }
-.side-name  { -fx-font-family: "Sora"; -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+.side-name  { -fx-font-family: "Sora"; -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 .side-count { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 
 .rail-wide .rail-head { -fx-padding: 14 12 8 12; }
 .rail-wide .project-list { -fx-spacing: 2; -fx-padding: 0 8 0 8; }
-/* SidebarItem: 34px, radius 7; active and hover are raised, active adds a 2px ink edge */
+/* SidebarItem: 34px, square; active and hover are raised, active adds a 2px ink edge */
 .rail-wide .side-row {
     -fx-min-width: 0; -fx-pref-width: 196; -fx-max-width: 10000;
     -fx-min-height: 34; -fx-pref-height: 34; -fx-max-height: 34;
     -fx-background-color: transparent;
-    -fx-background-radius: 7;
+    -fx-background-radius: 0;
 }
 .rail-wide .side-row > .label { visibility: hidden; }
 .rail-wide .side-face { visibility: visible; }
@@ -163,9 +171,9 @@
 .rail-wide .side-row.rail-active {
     -fx-background-color: -rw-tx, -rw-raised;
     -fx-background-insets: 0, 0 0 0 2;
-    -fx-background-radius: 7, 0 7 7 0;
+    -fx-background-radius: 0;
 }
-.rail-wide .rail-active .side-name { -fx-font-family: "Sora Medium"; -fx-text-fill: -rw-tx; }
+.rail-wide .rail-active .side-name { -fx-font-family: "Sora SemiBold"; -fx-text-fill: -rw-tx; }
 .rail-wide .rail-spine { -fx-border-color: transparent; }
 .rail-foot { -fx-padding: 0; }
 .rail-wide .rail-foot {
@@ -173,12 +181,21 @@
     -fx-border-width: 1 0 0 0;
     -fx-padding: 10 12 12 12;
 }
+/* the gear wears New project's 40px raised face beside it, but stays a square, icon-only button */
+.rail-wide .rail-foot .rail-btn {
+    -fx-min-width: 40; -fx-pref-width: 40; -fx-max-width: 40;
+    -fx-min-height: 40; -fx-pref-height: 40; -fx-max-height: 40;
+    -fx-background-color: -rw-ln, -rw-raised;
+}
+.rail-wide .rail-foot .rail-btn:hover { -fx-background-color: -rw-ln, -rw-hover; }
+.rail-wide .rail-foot .rail-active { -fx-background-color: -rw-tx, -rw-raised; }
+.rail-wide .rail-foot .rail-btn:focus-visible { -fx-background-color: -rw-act, -rw-raised; }
 
-/* ── buttons (Button.jsx): Sora 600 13px, 34 tall, radius 7 ───────── */
+/* ── buttons (Button.jsx): Sora 600 13px, 34 tall, square ───────── */
 .button {
     -fx-background-insets: 0;
-    -fx-background-radius: 7;
-    -fx-border-radius: 7;
+    -fx-background-radius: 0;
+    -fx-border-radius: 0;
     -fx-focus-color: -rw-act;
     -fx-faint-focus-color: transparent;
     -fx-cursor: hand;
@@ -219,7 +236,7 @@
 
 /* ── main column ───────────────────────────────────────────────────── */
 .project-name { -fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.project-path { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
+.project-path { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 
 /* The two verbs. Their notches are clips cut in the controller (JavaFX has no clip-path),
    so a clipped edge is simply cut, borders included, as the handoff draws it. */
@@ -231,9 +248,9 @@
 .resume-key {
     -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-goi;
     -fx-border-color: rgba(26, 10, 0, 0.38);
-    -fx-border-radius: 4;
+    -fx-border-radius: 0;
     -fx-background-color: rgba(26, 10, 0, 0.06);
-    -fx-background-radius: 4;
+    -fx-background-radius: 0;
     -fx-padding: 2 8 2 8;
 }
 /* nothing to resume: orange is the verb, and there is no verb here */
@@ -244,12 +261,12 @@
 
 /* The checkpoint block, in the same 5a blue as every other checkpoint surface: -rw-ck for the
    edge and the confirmation bar, -rw-ckt for the sub-line, "Saved" and the ring (6.2:1 on
-   -rw-g2). A fixed 296 x 104, so -fx-shape lands exactly and the 1px edge follows the notch;
+   -rw-g2). A fixed 264 x 104, so -fx-shape lands exactly and the 1px edge follows the notch;
    the controller's clip keeps the ring inside it too. */
 .checkpoint {
     -fx-background-color: -rw-ck, -rw-g2;
     -fx-background-insets: 0, 1;
-    -fx-shape: "M0 0 L282 0 L296 14 L296 104 L14 104 L0 90 Z";
+    -fx-shape: "M0 0 L250 0 L264 14 L264 104 L14 104 L0 90 Z";
     -fx-padding: 1;
     -fx-cursor: hand;
 }
@@ -260,13 +277,13 @@
 /* the confirmation's two moving layers */
 .ck-ring { -fx-border-color: -rw-ckt; -fx-border-width: 2; -fx-border-radius: 999; }
 .ck-bar  { -fx-background-color: -rw-ck; }
-/* split segment: the block's right 64px. Same notch as the block (its last 14px are the cut),
+/* split segment: the block's right 52px. Same notch as the block (its last 14px are the cut),
    so the hover fill never pokes outside the shape; the divider is its own 1px region. */
 .ck-divider { -fx-background-color: -rw-ln; }
 .ck-menu {
     -fx-cursor: hand;
     -fx-background-color: transparent;
-    -fx-shape: "M0 0 L50 0 L64 14 L64 102 L0 102 Z";
+    -fx-shape: "M0 0 L38 0 L52 14 L52 102 L0 102 Z";
 }
 .ck-menu:hover { -fx-background-color: -rw-ckh; }
 .ck-glyph { -fx-stroke: -rw-tx; }
@@ -274,12 +291,12 @@
 .context-menu {
     -fx-background-color: -rw-ln, -rw-g2;
     -fx-background-insets: 0, 1;
-    -fx-background-radius: 7, 6;
+    -fx-background-radius: 0;
     -fx-padding: 4;
     -fx-effect: dropshadow(gaussian, rgba(0,0,0,0.55), 16, 0.2, 0, 6);
 }
-.menu-item { -fx-padding: 6 12 6 12; -fx-background-radius: 5; }
-.menu-item .label { -fx-font-size: 13px; -fx-text-fill: -rw-tx; }
+.menu-item { -fx-padding: 6 12 6 12; -fx-background-radius: 0; }
+.menu-item .label { -fx-font-size: 12px; -fx-text-fill: -rw-tx; }
 .menu-item:focused, .menu-item:hover { -fx-background-color: -rw-raised; }
 .menu-item:focused .label, .menu-item:hover .label { -fx-text-fill: -rw-tx; }
 .menu-item:disabled .label { -fx-text-fill: -rw-tx3t; }
@@ -287,15 +304,15 @@
    Disabled only to stay out of hover and focus, so it opts back out of Modena's fade. */
 .menu-item.menu-head:disabled { -fx-opacity: 1; -fx-padding: 6 12 2 12; }
 .menu-item.menu-head:focused, .menu-item.menu-head:hover { -fx-background-color: transparent; }
-.menu-head .label { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3t; }
+.menu-head .label { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .menu .arrow { -fx-background-color: -rw-tx2; }
 
 /* ── what gets saved ───────────────────────────────────────────────── */
 .card {
     -fx-background-color: -rw-g1;
-    -fx-background-radius: 13;
+    -fx-background-radius: 0;
     -fx-border-color: -rw-ln;
-    -fx-border-radius: 13;
+    -fx-border-radius: 0;
 }
 /* the NEXT note: the card's ground, one line; the field inside is borderless, the strip
    takes the focus ring. The note is prose, so Sora like .input-name, not the mono field default */
@@ -303,18 +320,18 @@
    the card's so it is not lost under it. Neutral: orange is only RESUME, blue only CHECKPOINT */
 .note-strip {
     -fx-background-color: -rw-g1;
-    -fx-background-radius: 13;
+    -fx-background-radius: 0;
     -fx-border-color: -rw-ln2;
-    -fx-border-radius: 13;
+    -fx-border-radius: 0;
 }
 .note-strip:focus-within { -fx-border-color: -rw-act; }
 /* "Add a note": the strip's box with its words in tx2. 14px left, as the strip's padding,
    so the pencil does not move when it opens */
 .button.note-add {
     -fx-background-color: -rw-g1;
-    -fx-background-radius: 13;
+    -fx-background-radius: 0;
     -fx-border-color: -rw-ln2;
-    -fx-border-radius: 13;
+    -fx-border-radius: 0;
     -fx-text-fill: -rw-tx2;
     -fx-font-family: "Sora";
     -fx-font-size: 14px;
@@ -340,7 +357,7 @@
 }
 .text-area.note-input .content { -fx-padding: 0 8 0 0; }
 .text-area.note-input .scroll-pane { -fx-hbar-policy: never; -fx-padding: 0; }
-.cat-label { -fx-font-size: 12px; -fx-text-fill: -rw-hud; }
+.cat-label { -fx-font-size: 13px; -fx-text-fill: -rw-tx; }
 /* green is only ever "live"; what resume will pass an app is plain secondary text */
 .cat-arg   { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 .cat-foot  { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
@@ -353,9 +370,9 @@
 /* AppChip sm: 26 tall, raised, 13px category glyph in tx2, 11px mono name */
 .chip {
     -fx-background-color: -rw-raised;
-    -fx-background-radius: 7;
+    -fx-background-radius: 0;
     -fx-border-color: -rw-ln;
-    -fx-border-radius: 7;
+    -fx-border-radius: 0;
     -fx-padding: 0 3 0 8;   /* the x's own box is the right edge */
     -fx-spacing: 2;
     -fx-min-height: 26; -fx-pref-height: 26; -fx-max-height: 26;
@@ -363,9 +380,11 @@
 .chip .label { -fx-font-size: 12px; -fx-text-fill: -rw-tx; }
 /* hover-only remove at the end of chips and tab rows. Opacity, never managed, so nothing
    shifts on hover. */
+/* 24x24 to hit (WCAG 2.5.8); remover() gives back 12 x 8 with a negative margin, so it lays
+   out as the glyph's 12x16 and nothing around it moves. */
 .rm { -fx-cursor: hand; -fx-opacity: 0;
-      -fx-min-width: 12; -fx-pref-width: 12; -fx-max-width: 12;
-      -fx-min-height: 16; -fx-pref-height: 16; -fx-max-height: 16; }
+      -fx-min-width: 24; -fx-pref-width: 24; -fx-max-width: 24;
+      -fx-min-height: 24; -fx-pref-height: 24; -fx-max-height: 24; }
 .chip:hover .rm, .tab-row:hover .rm { -fx-opacity: 1; }
 .rm:hover .ico { -fx-stroke: -rw-bad; }
 
@@ -375,8 +394,8 @@
 }
 .tabs-scroll, .tabs-scroll > .viewport { -fx-background-color: transparent; -fx-padding: 0; }
 /* blue is only ever Checkpoint, so a browser's name is ink */
-.browser-name { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.tab-title    { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
+.browser-name { -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.tab-title    { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
 
 /* the stage is undecorated, so the app draws its own outer edge */
 .shell { -fx-border-color: -rw-ln; -fx-border-width: 1; }
@@ -397,7 +416,7 @@
 .scroll-bar > .thumb {
     -fx-background-color: -rw-ln2;
     -fx-background-insets: 2;
-    -fx-background-radius: 999;
+    -fx-background-radius: 0;
 }
 .scroll-bar > .thumb:hover   { -fx-background-color: -rw-tx3; }
 .scroll-bar > .thumb:pressed { -fx-background-color: -rw-tx2; }
@@ -437,9 +456,9 @@
 
 .text-field {
     -fx-background-color: -rw-g;
-    -fx-background-radius: 7;
+    -fx-background-radius: 0;
     -fx-border-color: -rw-ln;
-    -fx-border-radius: 7;
+    -fx-border-radius: 0;
     -fx-text-fill: -rw-tx;
     -fx-prompt-text-fill: -rw-tx3t;
     -fx-font-family: "Space Mono";
@@ -453,9 +472,9 @@
 .scrim { -fx-background-color: rgba(0, 0, 0, 0.74); }
 .dialog {
     -fx-background-color: -rw-g1;
-    -fx-background-radius: 19;
+    -fx-background-radius: 0;
     -fx-border-color: -rw-ln;
-    -fx-border-radius: 19;
+    -fx-border-radius: 0;
     -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.65), 32, 0.16, 0, 12);
 }
 .dialog-title { -fx-font-size: 17px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
@@ -463,9 +482,9 @@
 
 .inset-row {
     -fx-background-color: -rw-g;
-    -fx-background-radius: 7;
+    -fx-background-radius: 0;
     -fx-border-color: -rw-ln;
-    -fx-border-radius: 7;
+    -fx-border-radius: 0;
 }
 
 /* the name is prose, not a path, so it opts out of the mono .text-field default */
@@ -489,9 +508,9 @@
 /* muted: the meter's fill already says how far in orange; the figure only reads it out */
 .strip-pct   { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 .strip-took  { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
-.meter-track { -fx-background-color: -rw-raised; -fx-background-radius: 3; }
-.meter-fill  { -fx-background-color: -rw-go; -fx-background-radius: 3 0 0 3; }
-.meter-fail  { -fx-background-color: -rw-brick; -fx-background-radius: 0 3 3 0; }
+.meter-track { -fx-background-color: -rw-raised; -fx-background-radius: 0; }
+.meter-fill  { -fx-background-color: -rw-go; -fx-background-radius: 0; }
+.meter-fail  { -fx-background-color: -rw-brick; -fx-background-radius: 0; }
 /* no sheen: the meter moves when a process starts, and that movement is the only motion it
    needs. An animated gradient across it was the one decoration DESIGN.md rules out. */
 
@@ -510,9 +529,9 @@
 /* one launch per row; the row's border carries its state */
 .step-row {
     -fx-background-color: -rw-g2;
-    -fx-background-radius: 7;
+    -fx-background-radius: 0;
     -fx-border-color: -rw-ln;
-    -fx-border-radius: 7;
+    -fx-border-radius: 0;
 }
 /* the ring alone at rest; the bloom is one beat, flashed from code when the launch starts */
 .step-row:launching { -fx-border-color: -rw-go; }
@@ -525,9 +544,9 @@
 /* folded groups: queued, the log, launched, handed back */
 .fold-row {
     -fx-background-color: -rw-g1;
-    -fx-background-radius: 7;
+    -fx-background-radius: 0;
     -fx-border-color: -rw-ln;
-    -fx-border-radius: 7;
+    -fx-border-radius: 0;
 }
 .fold-title { -fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .fold-meta  { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
@@ -535,9 +554,9 @@
 /* a failure stays visible, on the danger wash, with a Retry */
 .fail-row {
     -fx-background-color: -rw-bad-tint;
-    -fx-background-radius: 7;
+    -fx-background-radius: 0;
     -fx-border-color: -rw-bad;
-    -fx-border-radius: 7;
+    -fx-border-radius: 0;
 }
 .fail-why { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-bad; }
 
@@ -563,7 +582,12 @@
 .checkpoint:focus-visible { -fx-background-color: -rw-act, -rw-g2; -fx-background-insets: 0, 2; }
 .ck-menu:focus-visible { -fx-background-color: -rw-act, -rw-ckh; -fx-background-insets: 0, 2; }
 /* the remove x shows itself when Tab reaches it, not only under the pointer */
-.rm:focus-visible { -fx-opacity: 1; }
+.rm:focus-visible {
+    -fx-opacity: 1;
+    /* a ring around the glyph, not the 24px target: the chip is the thing being edited */
+    -fx-border-color: -rw-act;
+    -fx-border-insets: 3 5 3 5;
+}
 .rm:focus-visible .ico { -fx-stroke: -rw-tx; }
 .chip:focus-within .rm, .tab-row:focus-within .rm { -fx-opacity: 1; }
 /* the wide rows' transparent ground out-ranked .rail-btn's ring above; this puts it back */
@@ -574,5 +598,5 @@
 .iconbtn:focus-visible {
     -fx-background-color: -rw-act, -rw-g1;
     -fx-background-insets: 0, 2;
-    -fx-background-radius: 7, 5;
+    -fx-background-radius: 0;
 }

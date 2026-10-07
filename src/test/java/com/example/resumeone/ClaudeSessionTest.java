@@ -29,6 +29,11 @@ class ClaudeSessionTest {
         Files.writeString(sessions.resolve("live.json"), json.formatted(1));
         assertFalse(controller.claudeRunningIn(folder, sessions.toFile()), "stale file: pid dead");
 
+        // a background session is alive but windowless: resume still has to open claude
+        Files.writeString(sessions.resolve("live.json"), "{\"pid\":%d,\"cwd\":\"C:\\\\Users\\\\me\\\\proj\",\"kind\":\"bg\"}"
+                .formatted(ProcessHandle.current().pid()));
+        assertFalse(controller.claudeRunningIn(folder, sessions.toFile()), "background session ignored");
+
         Files.writeString(sessions.resolve("live.json"), "{not json");
         assertFalse(controller.claudeRunningIn(folder, sessions.toFile()), "garbage file ignored");
         assertFalse(controller.claudeRunningIn(folder, new File(sessions.toFile(), "missing")));

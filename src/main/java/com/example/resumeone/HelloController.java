@@ -3,6 +3,7 @@ package com.example.resumeone;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
 import io.javalin.Javalin;
+import io.javalin.http.ForbiddenResponse;
 import io.javalin.websocket.WsContext;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -72,7 +73,10 @@ import java.nio.file.StandardCopyOption;
 import java.net.URISyntaxException;
 import java.util.*;
 import java.util.List; // explicit: java.awt.* also exports List
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -103,6 +107,10 @@ public class HelloController {
     // one extension per browser, each with its own socket: a single field meant the second
     // browser to connect silently replaced the first, and only it ever got the capture push
     private final Set<WsContext> wsSessions = ConcurrentHashMap.newKeySet();
+    /** An {"open":[urls]} waiting on its {"opened":n}: how many tabs that browser really opened. */
+    private final Map<WsContext, CompletableFuture<Integer>> openReplies = new ConcurrentHashMap<>();
+    /** The extension answers in milliseconds; one from before the reply never does. */
+    static final long OPEN_REPLY_MS = 2000;
 
     @FXML
     public VBox projectList;
@@ -226,7 +234,7 @@ public class HelloController {
         clickable(btnCheckpoint, "Checkpoint", this::onCheckpoint);
         installCheckpointMenu();
         installNote();
-        notch(btnResume, 18);
+        notch(btnResume, 14);   // Checkpoint's notch too: the two verbs share one size
         // the block's -fx-shape draws it; this clip keeps the confirmation ring inside it too
         notch(btnCheckpoint, 14);
         clickable(btnDelete, "Delete project", this::showDeleteView);
@@ -384,6 +392,7 @@ public class HelloController {
             }
             for (Project p : loaded) {
                 migrateLegacyUrls(p);
+                recategorizeOther(p);
             }
             return loaded;
         } catch (IOException e) {
@@ -549,7 +558,7 @@ public class HelloController {
         Icons.animate(btnDelete, trash);
         btnDelete.getStyleClass().add("delete");
         for (var e : Map.of(btnNewProjectRail, Icons.NEW, btnSettings, Icons.SETTINGS).entrySet()) {
-            Pane g = Icons.node(e.getValue(), 16, TX3);
+            Pane g = Icons.node(e.getValue(), 16, TX2);
             e.getKey().getChildren().add(g);
             Icons.animate(e.getKey(), g);
         }
@@ -914,10 +923,10 @@ public class HelloController {
 
         btnResume.setDisable(apps == 0 && tabs == 0);
         // the count is the proof: what one press brings back, on the button that does it - so it
-        // counts what Resume launches, not everything captured (Other and handled browsers are not)
+        // matches the chips on the card, not everything captured (Other is never relaunched)
         resumeCounts.setText(apps > 0 || tabs > 0 ? resumeCountLine(apps, tabs)
                 : countApps(projectObj) > 0 ? "NOTHING TO RELAUNCH" : "NOTHING SAVED YET");
-        checkpointSub.setText(checkpointing == projectObj ? CHECKPOINTING : checkpointLine(projectObj.lastCheckpoint));
+        checkpointSub.setText(idleLine(projectObj));
         tabsCount.setText(String.valueOf(tabs));
 
         renderCategories(projectObj);
@@ -926,7 +935,7 @@ public class HelloController {
     }
 
     private void installNote() {
-        noteGlyphBox.getChildren().add(Icons.node(Icons.EDIT, 14, TX2));
+        noteGlyphBox.getChildren().add(Icons.node(Icons.STICKY, 14, TX2));
         Pane x = Icons.node(Icons.CLOSE, 14, TX2);
         btnNoteClose.getChildren().add(x);
         Icons.animate(btnNoteClose, x);
@@ -945,8 +954,8 @@ public class HelloController {
             noteOwner.note = note;
             noteDirty = true;
         });
-        // the strip's own pencil, size and all, so nothing shifts when the button opens it
-        btnAddNote.setGraphic(Icons.node(Icons.EDIT, 14, TX2));
+        // the strip's own sticky, size and all, so nothing shifts when the button opens it
+        btnAddNote.setGraphic(Icons.node(Icons.STICKY, 14, TX2));
         btnAddNote.setOnAction(e -> { showNoteStrip(true); noteField.requestFocus(); });
         // Enter, Esc and Tab are all "done": let go of the field, which saves it. A filter, so
         // the TextArea never gets to insert the newline or tab: the note wraps, it has no lines
@@ -1044,10 +1053,14 @@ public class HelloController {
     // built, so every non-empty category is listed rather than hidden behind a dead link
     private static final List<String> CATEGORY_ORDER = List.of(
             "IDE", "AI", "Terminal", "Browser", "Database", "API", "Containers",
-            "VersionControl", "Design", "Video", "Communication", "Notes", "Music");
+            "VersionControl", "Design", "Video", "Office", "Communication", "Notes", "Music");
 
     /** "2h ago" under Checkpoint: when the last one was taken. It used to read "overwrite \u00b7
         2h old", a warning on every press; a checkpoint is now one Ctrl+Z from undone. */
+    private String idleLine(Project projectObj) {
+        return checkpointing == projectObj ? CHECKPOINTING : checkpointLine(projectObj.lastCheckpoint);
+    }
+
     static String checkpointLine(String lastCheckpoint) {
         String age = ago(lastCheckpoint);
         if ("never".equals(age)) return "no checkpoint yet";
@@ -1145,7 +1158,16 @@ public class HelloController {
             Map.entry("mongodbcompass", "MongoDB Compass"), Map.entry("dbeaver", "DBeaver"),
             Map.entry("heidisql", "HeidiSQL"), Map.entry("tableplus", "TablePlus"), Map.entry("chatgpt", "ChatGPT"),
             Map.entry("afterfx", "After Effects"), Map.entry("resolve", "DaVinci Resolve"),
-            Map.entry("capcut", "CapCut"), Map.entry("indesign", "InDesign"));
+            Map.entry("capcut", "CapCut"), Map.entry("indesign", "InDesign"),
+            Map.entry("mspaint", "Paint"), Map.entry("paintdotnet", "Paint.NET"), Map.entry("winword", "Word"),
+            Map.entry("excel", "Excel"), Map.entry("powerpnt", "PowerPoint"), Map.entry("msaccess", "Access"),
+            Map.entry("visio", "Visio"), Map.entry("mspub", "Publisher"), Map.entry("winproj", "Project"),
+            Map.entry("acrord32", "Acrobat Reader"), Map.entry("foxitpdfreader", "Foxit PDF Reader"),
+            Map.entry("wps", "WPS Writer"), Map.entry("et", "WPS Spreadsheets"), Map.entry("wpp", "WPS Presentation"),
+            Map.entry("outlook", "Outlook"), Map.entry("olk", "Outlook"), Map.entry("onenote", "OneNote"),
+            Map.entry("obs", "OBS Studio"), Map.entry("camtasiastudio", "Camtasia"), Map.entry("fl", "FL Studio"),
+            Map.entry("itunes", "iTunes"), Map.entry("azuredatastudio", "Azure Data Studio"),
+            Map.entry("xournalpp", "Xournal++"), Map.entry("aimp", "AIMP"), Map.entry("xd", "Adobe XD"));
 
     /** "idea64.exe" -> "IntelliJ IDEA", "WindowsTerminal.exe" -> "Windows Terminal",
         "obsidian.exe" -> "Obsidian": what a person calls the app, not what Windows does. */
@@ -1209,6 +1231,8 @@ public class HelloController {
 
     /** "brave" -> "Brave": extension brands arrive in whatever case the browser reports. */
     static String browserLabel(String browser) {
+        // tabs from a browser the extension could not name, reopened in the system default
+        if (DEFAULT_BROWSER.equals(browser)) return "Default browser";
         return browser.isEmpty() ? browser : Character.toUpperCase(browser.charAt(0)) + browser.substring(1);
     }
 
@@ -1236,7 +1260,7 @@ public class HelloController {
     private HBox chip(Project projectObj, String category, String app) {
         HBox chip = new HBox(2, new Label(appName(app)), remover(() -> removeApp(projectObj, category, app), projectObj, 12, appName(app)));
         Tooltip.install(chip, tip(app));
-        chip.getStyleClass().add("chip");
+        chip.getStyleClass().addAll("chip","cut");
         chip.setAlignment(Pos.CENTER_LEFT);
         return chip;
     }
@@ -1246,6 +1270,10 @@ public class HelloController {
     private StackPane remover(Runnable edit, Project projectObj, double size, String what) {
         StackPane x = new StackPane();
         x.getStyleClass().add("rm");
+        // a 24px target (WCAG 2.5.8) that still lays out as the glyph's 12x16: the negative
+        // margin hands the extra back, so rows and chips keep their size
+        x.setPickOnBounds(true);
+        HBox.setMargin(x, new Insets(-4, -6, -4, -6));
         Pane glyph = Icons.node(Icons.CLOSE, size, TX3);
         glyph.getStyleClass().add("rm-glyph");
         x.getChildren().add(glyph);
@@ -1294,7 +1322,7 @@ public class HelloController {
     }
 
     private static Pane categoryIcon(String category) {
-        return Icons.node(Icons.CATEGORY.getOrDefault(category, Icons.APP_WINDOW), 12, HUD);
+        return Icons.node(Icons.CATEGORY.getOrDefault(category, Icons.APP_WINDOW), 14, TX2);
     }
 
     private static Tooltip tip(String text) {
@@ -1394,9 +1422,7 @@ public class HelloController {
                     step.state = LaunchStep.State.LAUNCHING;
                     Platform.runLater(() -> renderResuming(r));
                     step.run();
-                    r.log.add(step.state == LaunchStep.State.DONE
-                            ? step.label + " → " + step.command
-                            : step.label + " failed: " + step.error);
+                    r.log.add(step.logLine());
                     Platform.runLater(() -> renderResuming(r));
                     Thread.sleep(LAUNCH_GAP_MS);
                 }
@@ -1441,7 +1467,7 @@ public class HelloController {
         for (LaunchStep step : r.plan.steps()) {
             switch (step.state) {
                 case QUEUED -> queued.add(step.label);
-                case DONE -> { }
+                case DONE, SKIPPED -> { }
                 default -> {
                     HBox row = stepRow(step);
                     resumingRows.getChildren().add(row);
@@ -1457,7 +1483,7 @@ public class HelloController {
             resumingRows.getChildren().add(foldRow(Icons.TIMESTAMP, queued.size() + " queued", names(queued)));
         }
 
-        List<String> skipped = r.plan.skipped();
+        List<String> skipped = r.alreadyOpen();
         resumingSkipped.setText(skipped.isEmpty() ? "" : skipped.size() + " already open, left alone · " + names(skipped));
     }
 
@@ -1538,7 +1564,7 @@ public class HelloController {
         }
         // the RESUME block counted these too; without this row "6 apps" would end as "4 apps"
         // with nothing to say where the other two went
-        List<String> skipped = r.plan.skipped();
+        List<String> skipped = r.alreadyOpen();
         if (!skipped.isEmpty()) {
             restoredRows.getChildren().add(foldRow(Icons.CHECK, skipped.size() + " already open, left alone", names(skipped)));
         }
@@ -1597,9 +1623,7 @@ public class HelloController {
         stopCountdown();
         Thread t = new Thread(() -> {
             step.run();
-            r.log.add(step.state == LaunchStep.State.DONE
-                    ? step.label + " → " + step.command + " (retry)"
-                    : step.label + " failed again: " + step.error);
+            r.log.add(step.logLine() + " (retry)");
             Platform.runLater(() -> renderRestored(r));
         }, "retry");
         t.setDaemon(true);
@@ -1744,28 +1768,12 @@ public class HelloController {
         return projectObj.apps.values().stream().mapToInt(Set::size).sum();
     }
 
-    /** What one press of Resume can launch, as planResume walks it: Other is never relaunched, a
-        browser whose tabs are saved comes back as its tabs, and a terminal that only hosts
-        claude opens with it. Apps already open at the time are left alone, and 1l says so. */
+    /** What one press of Resume brings back: every app chip on the card. A browser with saved
+        tabs comes back as its tabs and a terminal hosting claude opens with it, but both still
+        open, so both count; only Other, listed apart as "not relaunched", is left out. */
     static int launchableApps(Project projectObj) {
         if (projectObj == null || projectObj.apps == null) return 0;
-        Set<String> withTabs = new HashSet<>();
-        if (projectObj.urlsByBrowser != null) {
-            projectObj.urlsByBrowser.forEach((browser, urls) -> {
-                String exe = BROWSER_EXE.get(browser.toLowerCase());
-                if (exe != null && !urls.isEmpty()) withTabs.add(exe);
-            });
-        }
-        boolean claudeInTerminal = hasApp(projectObj, "claude.exe") && hasApp(projectObj, "WindowsTerminal.exe");
-        int n = 0;
-        for (String category : CATEGORY_ORDER) {
-            for (String app : projectObj.apps.getOrDefault(category, new HashSet<>())) {
-                if (withTabs.contains(app.toLowerCase())) continue;
-                if (claudeInTerminal && app.equalsIgnoreCase("WindowsTerminal.exe")) continue;
-                n++;
-            }
-        }
-        return n;
+        return CATEGORY_ORDER.stream().mapToInt(c -> projectObj.apps.getOrDefault(c, new HashSet<>()).size()).sum();
     }
 
     static int countTabs(Project projectObj) {
@@ -1824,6 +1832,8 @@ public class HelloController {
             }
         });
         Tooltip.install(btnCheckpointMenu, tip("Add what is missing"));
+        // what a first-timer cannot read off the block: what it saves, and its key
+        Tooltip.install(btnCheckpoint, tip("Save this project's open apps and tabs · Ctrl+S"));
         btnCheckpoint.setOnContextMenuRequested(e -> { e.consume(); menu.show(btnCheckpoint, e.getScreenX(), e.getScreenY()); });
     }
 
@@ -1853,11 +1863,31 @@ public class HelloController {
         return now < until ? pending : active;
     }
 
-    private void askForTabs(Project projectObj) {
-        tabTarget = projectObj;
-        tabTargetUntil = System.nanoTime() + TAB_WINDOW_NANOS;
-        wsSessions.forEach(session -> session.send("capture"));
+    /** How many POST /tabs this checkpoint waits for: one per browser, plus the replies the
+        last checkpoint is still owed while its window is open - those land on this latch, and
+        would otherwise end the wait before this checkpoint's own browsers answer.
+        ponytail: an owed reply that never comes costs the full TAB_WAIT_MILLIS, only inside the
+        window; a capture id echoed by the extension would make it exact. */
+    static long repliesToWait(int browsers, long stillOwed, long until, long now) {
+        return browsers + (now < until ? stillOwed : 0);
     }
+
+    private CountDownLatch askForTabs(Project projectObj) {
+        long now = System.nanoTime();
+        long wait = repliesToWait(wsSessions.size(), tabReplies.getCount(), tabTargetUntil, now);
+        tabTarget = projectObj;
+        tabTargetUntil = now + TAB_WINDOW_NANOS;
+        tabReplies = new CountDownLatch((int) wait);
+        wsSessions.forEach(session -> session.send("capture"));
+        return tabReplies;
+    }
+
+    /** One count per browser asked by the last checkpoint; POST /tabs ticks it off. */
+    private volatile CountDownLatch tabReplies = new CountDownLatch(0);
+    /** How long "checkpointing…" waits, after the apps are listed, for browsers still to reply.
+        ponytail: fixed, a worker the browser has put to sleep needs its alarm (up to a minute)
+        and is not waited for; its saved tabs stay and a late reply still updates the card. */
+    static final long TAB_WAIT_MILLIS = 3_000;
 
     /** Puts back what a checkpoint changes (apps, tabs, its time) from a gson snapshot. */
     void restore(Project projectObj, String snapshot) {
@@ -1902,8 +1932,7 @@ public class HelloController {
         // own bucket in POST /tabs, and one that does not answer (asleep worker, dead socket,
         // closed) keeps what it had. Stale beats gone.
         tabMode = mode;
-        boolean tabsComing = mode.tabs() && !wsSessions.isEmpty();
-        if (mode.tabs()) askForTabs(projectObj);
+        CountDownLatch replies = mode.tabs() ? askForTabs(projectObj) : new CountDownLatch(0);
         if (projectObj == activeProject) checkpointSub.setText(CHECKPOINTING);
         // the PowerShell capture takes seconds: off the FX thread the HUD keeps drawing and
         // the block can say what it is doing
@@ -1912,12 +1941,16 @@ public class HelloController {
             IOException failed = null;
             try {
                 if (mode.apps()) now = segregateApps(captureRunningApps());
+                // still "checkpointing…": the browsers usually answered while PowerShell ran,
+                // so this rarely waits, and "Saved" can always give the tab count
+                replies.await(TAB_WAIT_MILLIS, TimeUnit.MILLISECONDS);
             } catch (IOException ex) {
                 failed = ex;
+            } catch (InterruptedException ignored) {
             }
             HashMap<String, HashSet<String>> captured = now;
             IOException error = failed;
-            Platform.runLater(() -> finishCheckpoint(projectObj, mode, before, tabsComing, captured, error));
+            Platform.runLater(() -> finishCheckpoint(projectObj, mode, before, captured, error));
         }, "checkpoint");
         worker.setDaemon(true);
         worker.start();
@@ -1926,7 +1959,7 @@ public class HelloController {
     static final String CHECKPOINTING = "checkpointing…";
 
     /** The FX-thread half of writeCheckpoint, once the capture is back (or failed). */
-    private void finishCheckpoint(Project projectObj, Checkpoint mode, String before, boolean tabsComing,
+    private void finishCheckpoint(Project projectObj, Checkpoint mode, String before,
                                   HashMap<String, HashSet<String>> captured, IOException captureError) {
         checkpointing = null;
         boolean onScreen = projectObj == activeProject;
@@ -1962,8 +1995,7 @@ public class HelloController {
 
         renderDetail(projectObj);
         // "just now" dropped: the block's column holds ~18 characters, and "Saved" already says it.
-        // Tabs reply after this returns, so their count is "tabs…" until POST /tabs fills it in.
-        checkpointSaved(countApps(projectObj) + " apps · " + (tabsComing ? "tabs…" : countTabs(projectObj) + " tabs"));
+        checkpointSaved(countApps(projectObj) + " apps · " + countTabs(projectObj) + " tabs");
     }
 
     /** Add mode: every exe open now joins its category; nothing saved is dropped. */
@@ -2029,6 +2061,11 @@ public class HelloController {
                         new KeyFrame(Duration.millis(2600), kv(doneO, 0, in), kv(doneY, -5, in)),
                         new KeyFrame(Duration.millis(2660), kv(bar, 3, std)),
                         new KeyFrame(Duration.millis(2800), kv(idleO, 1, std), kv(idleY, 0, std)));
+        // renderDetail has already moved the idle line on to "just now", which flashed for the
+        // 160ms before it lifted away: it keeps "checkpointing…" and changes while hidden
+        checkpointSub.setText(CHECKPOINTING);
+        t.getKeyFrames().add(new KeyFrame(Duration.millis(2400),
+                e -> { if (activeProject != null) checkpointSub.setText(idleLine(activeProject)); }));
         Motion.stop(btnCheckpoint);
         Motion.run(btnCheckpoint, t);
     }
@@ -2125,8 +2162,8 @@ public class HelloController {
             if (connecting && !Motion.REDUCED) spin.play(); else spin.pause();
             statusLabel.setText(statusLine(browsers, connecting));
             statusLabel.getStyleClass().setAll(live ? "port-live" : "port");
-            statusTip.setText(live ? String.join(", ", browsers) + " \u00b7 tabs come and go through the extension"
-                    : connecting ? "waiting for the coldstart extension \u00b7 a browser can take a minute to reconnect"
+            statusTip.setText(live ? String.join(", ", browsers) + " \u00b7"
+                    : connecting ? "waiting for the coldstart extension \u00b7 can take a minute to reconnect"
                     : "install the coldstart extension to checkpoint tabs");
             // someone watching Settings to see the extension land must see it land
             if (settingsPane.isVisible()) renderSettingsRows();
@@ -2198,29 +2235,46 @@ public class HelloController {
                     "zed.exe", "trae.exe", "fleet.exe", "idea64.exe", "devenv.exe", "eclipse.exe",
                     "sublime_text.exe", "notepad++.exe", "pycharm64.exe", "webstorm64.exe",
                     "phpstorm64.exe", "clion64.exe", "rider64.exe", "goland64.exe", "rubymine64.exe",
-                    "studio64.exe", "netbeans64.exe", "qtcreator.exe", "gvim.exe", "emacs.exe")),
+                    "studio64.exe", "netbeans64.exe", "qtcreator.exe", "gvim.exe", "emacs.exe",
+                    "Kiro.exe", "Antigravity.exe", "Positron.exe", "dataspell64.exe", "neovide.exe",
+                    "rstudio.exe", "MATLAB.exe", "Arduino IDE.exe", "Unity.exe", "Unity Hub.exe",
+                    "UnrealEditor.exe")),
+            // powershell/cmd stay Other on purpose: with claude in a conhost window they'd come
+            // back as an empty shell beside claude, the case the wt special-case already avoids
             Map.entry("Terminal", List.of("WindowsTerminal.exe", "alacritty.exe", "wezterm-gui.exe",
                     "Hyper.exe", "ConEmu64.exe", "mintty.exe", "Tabby.exe", "warp.exe")),
             Map.entry("AI", List.of("claude.exe", "ChatGPT.exe", "Perplexity.exe", "LM Studio.exe",
-                    "ollama app.exe", "Copilot.exe")),
+                    "ollama app.exe", "Copilot.exe", "Msty.exe", "Jan.exe", "AnythingLLM.exe",
+                    "Cherry Studio.exe")),
             Map.entry("Database", List.of("dbeaver.exe", "datagrip64.exe", "pgAdmin4.exe", "Ssms.exe",
                     "MySQLWorkbench.exe", "TablePlus.exe", "MongoDBCompass.exe", "redisinsight.exe",
-                    "HeidiSQL.exe")),
-            Map.entry("API", List.of("Postman.exe", "Insomnia.exe", "Bruno.exe", "Hoppscotch.exe")),
+                    "HeidiSQL.exe", "azuredatastudio.exe", "Beekeeper Studio.exe", "SQLiteStudio.exe",
+                    "DB Browser for SQLite.exe", "navicat.exe")),
+            Map.entry("API", List.of("Postman.exe", "Insomnia.exe", "Bruno.exe", "Hoppscotch.exe",
+                    "Yaak.exe", "Fiddler Everywhere.exe", "Wireshark.exe")),
             Map.entry("Containers", List.of("Docker Desktop.exe", "Rancher Desktop.exe",
-                    "podman-desktop.exe", "VirtualBox.exe", "vmware.exe")),
+                    "podman-desktop.exe", "VirtualBox.exe", "vmware.exe", "Lens.exe", "OpenLens.exe")),
             Map.entry("VersionControl", List.of("GitHubDesktop.exe", "SourceTree.exe", "gitkraken.exe",
-                    "Fork.exe", "smartgit.exe", "sublime_merge.exe")),
+                    "Fork.exe", "smartgit.exe", "sublime_merge.exe", "GitExtensions.exe")),
             Map.entry("Design", List.of("Figma.exe", "Photoshop.exe", "Illustrator.exe", "blender.exe",
-                    "inkscape.exe", "krita.exe", "Canva.exe", "InDesign.exe", "Lightroom.exe")),
+                    "inkscape.exe", "krita.exe", "Canva.exe", "InDesign.exe", "Lightroom.exe",
+                    "mspaint.exe", "PaintDotNet.exe", "XD.exe", "draw.io.exe", "Lunacy.exe", "Affinity.exe")),
             Map.entry("Video", List.of("Adobe Premiere Pro.exe", "AfterFX.exe", "Resolve.exe", "CapCut.exe",
-                    "Adobe Media Encoder.exe", "shotcut.exe", "kdenlive.exe")),
+                    "Adobe Media Encoder.exe", "shotcut.exe", "kdenlive.exe", "obs64.exe",
+                    "CamtasiaStudio.exe", "HandBrake.exe", "Descript.exe")),
+            Map.entry("Office", List.of("WINWORD.exe", "EXCEL.exe", "POWERPNT.exe", "MSACCESS.exe",
+                    "VISIO.exe", "MSPUB.exe", "WINPROJ.exe", "Acrobat.exe", "AcroRd32.exe",
+                    "SumatraPDF.exe", "FoxitPDFReader.exe", "wps.exe", "et.exe", "wpp.exe")),
             Map.entry("Communication", List.of("discord.exe", "slack.exe", "teams.exe", "ms-teams.exe",
-                    "Zoom.exe", "Telegram.exe", "WhatsApp.exe", "Signal.exe", "Skype.exe", "Element.exe")),
+                    "Zoom.exe", "Telegram.exe", "WhatsApp.exe", "Signal.exe", "Skype.exe", "Element.exe",
+                    "OUTLOOK.exe", "olk.exe", "thunderbird.exe", "Mailspring.exe", "Mattermost.exe",
+                    "Viber.exe", "Messenger.exe", "Zulip.exe", "Beeper.exe")),
             Map.entry("Notes", List.of("notion.exe", "obsidian.exe", "onenote.exe", "Logseq.exe",
-                    "Typora.exe", "Joplin.exe", "anytype.exe", "notepad.exe")),
+                    "Typora.exe", "Joplin.exe", "anytype.exe", "notepad.exe", "Evernote.exe",
+                    "Zettlr.exe", "Todoist.exe", "AFFiNE.exe", "xournalpp.exe")),
             Map.entry("Music", List.of("spotify.exe", "amazonmusic.exe", "AppleMusic.exe", "Tidal.exe",
-                    "MusicBee.exe", "foobar2000.exe", "vlc.exe"))
+                    "MusicBee.exe", "foobar2000.exe", "vlc.exe", "iTunes.exe", "Deezer.exe", "AIMP.exe",
+                    "Audacity.exe", "reaper.exe", "FL64.exe"))
     );
 
     /** Buckets captured exe names by category: {"IDE": [Code.exe], "Browser": [chrome.exe], ...}.
@@ -2243,6 +2297,19 @@ public class HelloController {
         return result;
     }
 
+    /** Apps saved under Other before KNOWN_APPS learned them (mspaint, Word, ...) move to their
+        category, or they'd never relaunch and an add-mode checkpoint would list them twice. */
+    static void recategorizeOther(Project projectObj) {
+        HashSet<String> other = projectObj.apps == null ? null : projectObj.apps.get(OTHER);
+        if (other == null) return;
+        other.removeIf(app -> {
+            String category = categoryOf(app);
+            if (category.equals(OTHER)) return false;
+            projectObj.apps.computeIfAbsent(category, k -> new HashSet<>()).add(app);
+            return true;
+        });
+    }
+
     // windows reports real executable casing (WindowsTerminal.exe, Spotify.exe), so match lowercased
     static String categoryOf(String app) {
         for (Map.Entry<String, List<String>> entry : KNOWN_APPS.entrySet()) {
@@ -2256,8 +2323,10 @@ public class HelloController {
     }
     /** Writes the project to projects.json (replacing any entry with the same name). Both the
         in-memory list and the on-disk list are updated. It does not make the project active:
-        tabs can now land on a project that is not on screen. */
-    public void saveProject(Project projectObj) throws IOException {
+        tabs can now land on a project that is not on screen. Synchronized with deleteProject:
+        two browsers answering one checkpoint post /tabs at once, and their overlapping read
+        and swap of projects.json failed with "being used by another process". */
+    public synchronized void saveProject(Project projectObj) throws IOException {
 
         System.out.println("urls: "+projectObj.urls);
 
@@ -2283,7 +2352,7 @@ public class HelloController {
                 StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     }
 
-    public void deleteProject(Project projectObj, Node projectRow) throws IOException {
+    public synchronized void deleteProject(Project projectObj, Node projectRow) throws IOException {
         removeByName(projects, projectObj.projectName);
         // an unsaved note edit would otherwise write the deleted project back
         if (noteOwner == projectObj) noteOwner = null;
@@ -2333,7 +2402,8 @@ public class HelloController {
         return path != null ? path.trim() : null;
     }
     // every running claude writes ~/.claude/sessions/<pid>.json with its cwd. a live one for
-    // this folder means its window is already up, so opening another would only duplicate it.
+    // this folder (that is not a background one) means its window is already up, so opening
+    // another would only duplicate it.
     boolean claudeRunningIn(String folderPath) {
         return claudeRunningIn(folderPath, new File(System.getProperty("user.home"), ".claude/sessions"));
     }
@@ -2346,6 +2416,9 @@ public class HelloController {
                 Map<String, Object> session = gson.fromJson(r, Map.class);
                 Object cwd = session.get("cwd");
                 Object pid = session.get("pid");
+                // a background session ("kind":"bg") outlives the terminal it started in and has
+                // no window, so a leftover one from yesterday must not stand in for an open claude
+                if ("bg".equals(session.get("kind"))) continue;
                 // the file outlives a crash, so the pid has to be checked too
                 if (cwd != null && pid != null && folderPath.equalsIgnoreCase(cwd.toString())
                         && ProcessHandle.of(((Number) pid).longValue()).map(ProcessHandle::isAlive).orElse(false)) {
@@ -2492,11 +2565,17 @@ public class HelloController {
     }
 
     @FunctionalInterface
-    interface Launch { void start() throws IOException, URISyntaxException; }
+    interface Launch { void start() throws IOException, URISyntaxException, AlreadyOpen; }
+
+    /** A launch that found nothing to do: every saved tab was already open in that browser. */
+    static final class AlreadyOpen extends Exception {
+        AlreadyOpen() { super(null, null, false, false); }
+    }
 
     /** One process launch: the row's label, the command it shows, and how it went. */
     static final class LaunchStep {
-        enum State { QUEUED, LAUNCHING, DONE, FAILED }
+        /** SKIPPED: ran, but there was nothing to open - shown as already open, not launched */
+        enum State { QUEUED, LAUNCHING, DONE, SKIPPED, FAILED }
         final String label, command;
         final boolean browser;
         final Launch launch;
@@ -2516,11 +2595,21 @@ public class HelloController {
             try {
                 launch.start();
                 state = State.DONE;
+            } catch (AlreadyOpen ex) {
+                state = State.SKIPPED;
             } catch (IOException | URISyntaxException ex) {
                 error = ex.getMessage();
                 state = State.FAILED;
                 System.err.println("failed to launch " + label + ": " + error);
             }
+        }
+
+        String logLine() {
+            return switch (state) {
+                case DONE -> label + " → " + command;
+                case SKIPPED -> label + ": every tab already open";
+                default -> label + " failed: " + error;
+            };
         }
     }
 
@@ -2541,10 +2630,18 @@ public class HelloController {
 
         int total()     { return plan.steps().size(); }
         long started()  { return plan.steps().stream().filter(s -> s.state != LaunchStep.State.QUEUED).count(); }
-        long done()     { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.DONE).count(); }
+        /** finished fine, including a browser that had every tab open already */
+        long done()     { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.DONE || s.state == LaunchStep.State.SKIPPED).count(); }
         long failed()   { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.FAILED).count(); }
         long queued()   { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.QUEUED).count(); }
         long appsDone() { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.DONE && !s.browser).count(); }
+
+        /** Left alone: apps the plan found running, plus browsers that turned out to have every tab. */
+        List<String> alreadyOpen() {
+            List<String> all = new ArrayList<>(plan.skipped());
+            plan.steps().stream().filter(s -> s.state == LaunchStep.State.SKIPPED).forEach(s -> all.add(s.label));
+            return all;
+        }
     }
 
     /** Brings a saved project back: browsers with their tabs, then every other captured app.
@@ -2586,7 +2683,16 @@ public class HelloController {
                     .filter(s -> wsBrowser(s).equalsIgnoreCase(browser)).findFirst().orElse(null);
             if (live != null) {
                 steps.add(new LaunchStep(browser, urls.size() + " urls · via extension, open tabs skipped",
-                        true, () -> live.send(gson.toJson(Map.of("open", urls)))));
+                        true, () -> {
+                    CompletableFuture<Integer> reply = new CompletableFuture<>();
+                    openReplies.put(live, reply);
+                    live.send(gson.toJson(Map.of("open", urls)));
+                    // every tab already there means nothing launched; no answer (an older
+                    // extension) still counts as sent, as it always did
+                    int opened = reply.completeOnTimeout(-1, OPEN_REPLY_MS, TimeUnit.MILLISECONDS).join();
+                    openReplies.remove(live, reply);
+                    if (opened == 0) throw new AlreadyOpen();
+                }));
                 continue;
             }
             String command = urls.size() + " urls · " + (exePath == null ? "default browser" : "one window");
@@ -2699,10 +2805,20 @@ public class HelloController {
         return "NULL";
     }
     // == Embedded server (the contract with ResumeOneExtension) ============
-    //   WS  /ws?browser=X   extension keeps this open; app pushes "capture" to request tabs
+    //   WS  /ws?browser=X   extension keeps this open; app pushes "capture" to request tabs,
+    //                       or {"open":[urls]} on resume and the extension answers {"opened":n}
     //   GET /project        active project name ("" if none) - the popup's "is the app up?"
     //   POST /tabs          {browser, urls[]} -> stored on the active project and saved
     //   Port 8765, CORS open, because the extension's fetch comes from a chrome-extension:// origin.
+
+    /** Whether a request may reach the server. A web page's request carries its own site as
+        Origin (Chrome and Edge extensions send chrome-extension://), and without this any open
+        tab could read the project name, overwrite its tabs or pose as the extension on /ws.
+        No Origin is not a page (curl, a local tool), which already runs as the user.
+        ponytail: any installed extension passes; pin the extension id if that ever matters. */
+    static boolean fromExtension(String origin) {
+        return origin == null || origin.startsWith("chrome-extension://");
+    }
 
     public void startServer(){
         System.out.println("server starting...");
@@ -2713,6 +2829,9 @@ public class HelloController {
                 });
             });
         }).start(8765);
+        // CORS stays open for the extension, so these gates are what keep web pages out
+        app.before(ctx -> { if (!fromExtension(ctx.header("Origin"))) throw new ForbiddenResponse(); });
+        app.wsBeforeUpgrade("/ws", ctx -> { if (!fromExtension(ctx.header("Origin"))) throw new ForbiddenResponse(); });
         app.ws("/ws", ws -> {
             System.out.println("WEB starting...");
 
@@ -2722,10 +2841,18 @@ public class HelloController {
                         + " (" + wsSessions.size() + " connected)");
                 refreshStatusDot();
                 });
-            // echo the heartbeat: it is the extension's only way to tell a hung app from a
-            // quiet one, and it redials a socket that stops echoing
+            // the heartbeat is echoed: it is the extension's only way to tell a hung app from a
+            // quiet one, and it redials a socket that stops echoing.
+            // {"opened":n} answers a resume's {"open":[urls]}; anything else is ignored
             ws.onMessage(ctx -> {
-                if ("Heartbeat".equals(ctx.message())) ctx.send("Heartbeat");
+                if ("Heartbeat".equals(ctx.message())) {
+                    ctx.send("Heartbeat");
+                    return;
+                }
+                if (!ctx.message().startsWith("{")) return;
+                Object opened = gson.fromJson(ctx.message(), Map.class).get("opened");
+                CompletableFuture<Integer> reply = openReplies.remove(ctx);
+                if (reply != null && opened instanceof Number n) reply.complete(n.intValue());
             });
             ws.onClose(ctx -> {
                 wsSessions.remove(ctx);
@@ -2758,13 +2885,14 @@ public class HelloController {
                         ? mergeUrls(target.urlsByBrowser.getOrDefault(key, new ArrayList<>()), pages)
                         : new ArrayList<>(pages));
                 saveProject(target);
+                tabReplies.countDown();
                 // tabs arrive after the checkpoint button has already returned, so the
                 // card has to be redrawn off the javalin thread - and only if it is this card
                 if (isHud()) {
                     Platform.runLater(() -> {
                         if (target != activeProject) return;
                         renderDetail(target);
-                        // the "Saved" line said "tabs…" until now
+                        // a reply that missed the checkpoint's wait still corrects the "Saved" line
                         if (System.nanoTime() < ckBusyUntil) {
                             ckDoneSub.setText(countApps(target) + " apps · " + countTabs(target) + " tabs");
                         }

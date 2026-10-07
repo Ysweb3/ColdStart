@@ -30,8 +30,9 @@ class ResumeOutcomeTest {
         Project p = new Project("atlas", null, apps, new ArrayList<>());
         p.urlsByBrowser.put("brave", new ArrayList<>(List.of("https://a.com/")));  // brave returns as tabs
 
-        // Code, claude, and Edge (no saved tabs, so it launches as an app)
-        assertEquals(3, HelloController.launchableApps(p));
+        // every chip on the card: Brave returns as its tabs and the terminal with claude, but
+        // both still open; only Other is left out
+        assertEquals(5, HelloController.launchableApps(p));
         assertEquals(6, HelloController.countApps(p));
     }
 
@@ -43,6 +44,23 @@ class ResumeOutcomeTest {
         assertEquals("STOPPED", HelloController.outcome(r));
         r.error = "powershell exited 1";
         assertEquals("NOT RESUMED", HelloController.outcome(r));
+    }
+
+    @Test
+    void aBrowserWithEveryTabOpenIsAlreadyOpenNotLaunched() {
+        HelloController.LaunchStep chrome = new HelloController.LaunchStep("chrome", "", true,
+                () -> { throw new HelloController.AlreadyOpen(); });
+        HelloController.LaunchStep brave = new HelloController.LaunchStep("brave", "", true, () -> { });
+        HelloController.ResumeRun r = new HelloController.ResumeRun(new Project("atlas", null, new HashMap<>(), new ArrayList<>()));
+        r.plan = new HelloController.ResumePlan(List.of(chrome, brave), List.of("idea64.exe"));
+        chrome.run();
+        brave.run();
+
+        assertEquals(HelloController.LaunchStep.State.SKIPPED, chrome.state);
+        assertEquals(HelloController.LaunchStep.State.DONE, brave.state);
+        assertEquals(2, r.done());   // both finished, so the run still reads 2 / 2
+        assertEquals(List.of("idea64.exe", "chrome"), r.alreadyOpen());
+        assertEquals("RESUMED", HelloController.outcome(r));
     }
 
     @Test

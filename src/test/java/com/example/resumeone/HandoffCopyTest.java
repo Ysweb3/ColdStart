@@ -78,6 +78,7 @@ class HandoffCopyTest {
     void tabGroupsAreHeadedByTheBrowsersName() {
         assertEquals("Brave", HelloController.browserLabel("brave"));
         assertEquals("Chrome", HelloController.browserLabel("Chrome"));
+        assertEquals("Default browser", HelloController.browserLabel(HelloController.DEFAULT_BROWSER));
     }
 
     @Test
