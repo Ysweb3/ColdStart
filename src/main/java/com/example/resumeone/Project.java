@@ -19,6 +19,8 @@ import java.util.HashSet;
  *   "active":        false,                         // unused; the active project is runtime state
  *   "folderPath":    "C:\...\ResumeOne",           // null when no folder was chosen
  *   "apps":          {"IDE": ["Code.exe"], "AI": ["claude.exe"], ...},   // category -> exe names
+ *   "folders":       {"idea64.exe": ["C:\...\ResumeOne"], "Code.exe": ["C:\...\ResumeOneExtension"]},
+ *                                                   // exe -> folders its windows had open; absent = none told
  *   "urls":          [],                            // legacy, see below
  *   "urlsByBrowser": {"Chrome": ["https://..."], "brave": [...]},      // extension brand -> tabs
  *   "note":          "fix the export bug next"      // "where was I", shown on resume; absent = none
@@ -31,6 +33,8 @@ public class Project {
     public boolean active;
     public String folderPath;
     public HashMap<String, HashSet<String>> apps;
+    // see AppFolders. Gson leaves it null for a project saved before it existed.
+    public HashMap<String, ArrayList<String>> folders;
     // legacy: url list from before capture recorded which browser the tabs came from.
     // still read so an existing projects.json is not silently emptied - see getProjectsJson().
     public ArrayList<String> urls;
