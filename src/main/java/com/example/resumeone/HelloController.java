@@ -188,7 +188,7 @@ public class HelloController {
     private Project noteOwner;
     private boolean noteDirty;
     @FXML public Region statusDot;
-    @FXML public Label projectNameLabel, projectPathLabel, checkpointSub, ckDoneSub, tabsCount, statusLabel, resumeCounts;
+    @FXML public Label projectNameLabel, projectPathLabel, checkpointSub, ckDoneSub, statusLabel, resumeCounts;
     /** The full folder path, one hover away from the "…\\atlas-api" the header shows. */
     private Tooltip pathTip;
     /** The card lists four categories and folds the rest into a "+n more" row until asked. */
@@ -950,7 +950,6 @@ public class HelloController {
         // the same age, computed at the same moment, on the project's rail row
         StackPane railRow = rowsByProject.get(projectObj.projectName);
         if (railRow != null) railTip(railRow, projectObj);
-        tabsCount.setText(String.valueOf(tabs));
 
         renderCategories(projectObj);
         renderTabs(projectObj);

@@ -179,16 +179,15 @@
 
           <VBox styleClass="tabs-col" spacing="8.0" minWidth="288.0" prefWidth="288.0" maxWidth="288.0">
             <padding><Insets top="14.0" right="16.0" bottom="14.0" left="16.0"/></padding>
-            <HBox alignment="BASELINE_LEFT" spacing="8.0">
-              <Label styleClass="rail-label" text="TABS"/>
-              <Region HBox.hgrow="ALWAYS"/>
-              <Label fx:id="tabsCount" styleClass="rail-count" text="0"/>
-            </HBox>
+            <Label styleClass="rail-label" text="TABS"/>
             <!-- scrolls rather than folding: minHeight 0 so a long list never pushes the
                  card taller than the window; the scrollbar is themed globally -->
             <ScrollPane styleClass="tabs-scroll" fitToWidth="true" hbarPolicy="NEVER"
                         minHeight="0.0" VBox.vgrow="ALWAYS">
-              <VBox fx:id="tabsList" spacing="8.0"/>
+              <!-- right 12: the rows' x stays clear of the scrollbar, not on its edge -->
+              <VBox fx:id="tabsList" spacing="8.0">
+                <padding><Insets right="12.0"/></padding>
+              </VBox>
             </ScrollPane>
           </VBox>
         </HBox>
