@@ -111,6 +111,13 @@ public class HelloController {
     private final Map<WsContext, CompletableFuture<Integer>> openReplies = new ConcurrentHashMap<>();
     /** The extension answers in milliseconds; one from before the reply never does. */
     static final long OPEN_REPLY_MS = 2000;
+    /** Tabs a browser resume just started still owes, by bucket key: its extension takes them
+        the moment it connects and opens them one at a time, rather than the command line
+        loading every one at once. */
+    private final Map<String, List<String>> pendingOpens = new ConcurrentHashMap<>();
+    /** How long that browser has to bring its extension up before the rest are launched the
+        old way, all in one go - it may not have the extension (another profile, firefox). */
+    static final long PENDING_OPEN_MS = 15_000;
 
     @FXML
     public VBox projectList;
@@ -2408,9 +2415,10 @@ public class HelloController {
     }
     // == Resume ============================================================
     //   resumeProject(): 1. capture what is running now (so we don't open it twice)
-    //                    2. open each browser with its saved urls as arguments - unless its
-    //                       extension is connected, then push {"open":[urls]} over the socket
-    //                       and let it open only the tabs that are not already there
+    //                    2. push {"open":[urls]} to each browser's connected extension, which
+    //                       opens only the missing tabs, one at a time; no extension: start the
+    //                       browser (in the saved profile) on the first url and hand it the rest
+    //                       when its extension connects - or all at once after PENDING_OPEN_MS
     //                    3. `start` every other captured app, with special cases for
     //                       claude (agent view of the project folder), VS Code (project folder), wt
 
@@ -2459,7 +2467,71 @@ public class HelloController {
     // because brave reports itself as chrome there
     static String wsBrowser(WsContext ctx) {
         String browser = ctx.queryParam("browser");
-        return browser == null || browser.isEmpty() ? "unknown browser" : browser;
+        return browserKey(browser == null || browser.isEmpty() ? "unknown browser" : browser, ctx.queryParam("profile"));
+    }
+
+    // each profile runs its own extension, so with the brand alone two chrome profiles
+    // overwrote each other's tabs. a signed-in profile rides along as "Chrome · me@x.com";
+    // one signed in to nothing sends no email and stays plain "Chrome".
+    static final String PROFILE_SEP = " · ";
+
+    static String browserKey(String browser, String profile) {
+        return profile == null || profile.isEmpty() ? browser : browser + PROFILE_SEP + profile;
+    }
+
+    static String brandOf(String key) {
+        int i = key.indexOf(PROFILE_SEP);
+        return i < 0 ? key : key.substring(0, i);
+    }
+
+    static String profileOf(String key) {
+        int i = key.indexOf(PROFILE_SEP);
+        return i < 0 ? null : key.substring(i + PROFILE_SEP.length());
+    }
+
+    /** Whether a connected extension is the one a saved bucket belongs to. A bucket with no
+        profile (saved before the extension sent one) goes to any profile of its brand, as before. */
+    static boolean sameBrowser(String connected, String saved) {
+        return connected.equalsIgnoreCase(saved)
+                || profileOf(saved) == null && brandOf(connected).equalsIgnoreCase(saved);
+    }
+
+    // where each brand keeps its profiles under %LOCALAPPDATA%; opera has no profile folders
+    static final Map<String, String> USER_DATA = Map.of(
+            "chrome", "Google\\Chrome\\User Data",
+            "edge", "Microsoft\\Edge\\User Data",
+            "brave", "BraveSoftware\\Brave-Browser\\User Data");
+
+    /** The profile folder ("Profile 2") a bucket's email is signed in to; null opens the
+        browser on whichever profile it picks, as before. */
+    static String profileDir(String key) {
+        String email = profileOf(key), data = USER_DATA.get(brandOf(key).toLowerCase());
+        if (email == null || data == null) return null;
+        return profileDir(new File(System.getenv("LOCALAPPDATA"), data + "\\Local State"), email);
+    }
+
+    /** Local State's profile.info_cache maps each folder to its profile, user_name the email. */
+    static String profileDir(File localState, String email) {
+        try (Reader r = new FileReader(localState)) {
+            Map<String, Object> state = new Gson().fromJson(r, Map.class);
+            Map<String, Map<String, Object>> profiles =
+                    (Map<String, Map<String, Object>>) ((Map<String, Object>) state.get("profile")).get("info_cache");
+            for (Map.Entry<String, Map<String, Object>> p : profiles.entrySet()) {
+                if (email.equalsIgnoreCase(String.valueOf(p.getValue().get("user_name")))) return p.getKey();
+            }
+        } catch (IOException | RuntimeException ex) {
+            // no Local State, or a shape we do not know: let the browser pick the profile
+        }
+        return null;
+    }
+
+    /** One profile's window of tabs: every url its own argument with no shell in between, as cmd
+        would split a query string on its & (java only quotes args containing spaces). */
+    static List<String> browserCommand(String exePath, String profileDir, List<String> urls) {
+        List<String> cmd = new ArrayList<>(List.of(exePath));
+        if (profileDir != null) cmd.add("--profile-directory=" + profileDir);
+        cmd.addAll(urls);
+        return cmd;
     }
 
     // the bucket for urls whose browser we could not identify - opened with the system default
@@ -2505,7 +2577,7 @@ public class HelloController {
     // the App Paths registry keys instead. per-user installs (common for chrome and brave) land
     // in HKCU, machine-wide ones in HKLM.
     String browserPath(String browser) throws IOException {
-        String exe = browser == null ? null : BROWSER_EXE.get(browser.toLowerCase());
+        String exe = browser == null ? null : BROWSER_EXE.get(brandOf(browser).toLowerCase());
         return exe == null ? null : appPath(exe);
     }
 
@@ -2703,7 +2775,7 @@ public class HelloController {
             }
             // check for open urls and skip them
             WsContext live = wsSessions.stream()
-                    .filter(s -> wsBrowser(s).equalsIgnoreCase(browser)).findFirst().orElse(null);
+                    .filter(s -> sameBrowser(wsBrowser(s), browser)).findFirst().orElse(null);
             if (live != null) {
                 steps.add(new LaunchStep(browser, urls.size() + " urls · via extension, open tabs skipped",
                         true, () -> {
@@ -2718,7 +2790,7 @@ public class HelloController {
                 }));
                 continue;
             }
-            String command = urls.size() + " urls · " + (exePath == null ? "default browser" : "one window");
+            String command = urls.size() + " urls · " + (exePath == null ? "default browser" : "one at a time");
             steps.add(new LaunchStep(browser, command, true, () -> {
                 if (exePath == null) {
                     // unknown brand, browser not installed, or urls saved before we tracked the
@@ -2727,13 +2799,22 @@ public class HelloController {
                         Desktop.getDesktop().browse(new URI(url));
                     }
                 } else {
-                    // every url as its own argument, launched with no shell in between: cmd would
-                    // split a query string on its & (java only quotes args containing spaces).
-                    // one invocation also means one window of tabs rather than one window each.
-                    List<String> cmd = new ArrayList<>();
-                    cmd.add(exePath);
-                    cmd.addAll(urls);
-                    new ProcessBuilder(cmd).start();
+                    // only the first tab goes on the command line, in the profile it was saved
+                    // from; the rest wait in pendingOpens for this browser's extension to connect
+                    String dir = profileDir(browser);
+                    new ProcessBuilder(browserCommand(exePath, dir, urls.subList(0, Math.min(1, urls.size())))).start();
+                    if (urls.size() > 1) {
+                        List<String> rest = List.copyOf(urls.subList(1, urls.size()));
+                        pendingOpens.put(browser, rest);
+                        CompletableFuture.delayedExecutor(PENDING_OPEN_MS, TimeUnit.MILLISECONDS).execute(() -> {
+                            if (!pendingOpens.remove(browser, rest)) return;   // the extension took them
+                            try {
+                                new ProcessBuilder(browserCommand(exePath, dir, rest)).start();
+                            } catch (IOException ex) {
+                                System.err.println("failed to open the rest of " + browser + ": " + ex.getMessage());
+                            }
+                        });
+                    }
                 }
             }));
         }
@@ -2828,10 +2909,10 @@ public class HelloController {
         return "NULL";
     }
     // == Embedded server (the contract with ResumeOneExtension) ============
-    //   WS  /ws?browser=X   extension keeps this open; app pushes "capture" to request tabs,
+    //   WS  /ws?browser=X&profile=email   extension keeps this open; app pushes "capture" to request tabs,
     //                       or {"open":[urls]} on resume and the extension answers {"opened":n}
     //   GET /project        active project name ("" if none) - the popup's "is the app up?"
-    //   POST /tabs          {browser, urls[]} -> stored on the active project and saved
+    //   POST /tabs          {browser, profile, urls[]} -> stored on the active project and saved
     //   Port 8765, CORS open, because the extension's fetch comes from a chrome-extension:// origin.
 
     /** Whether a request may reach the server. A web page's request carries its own site as
@@ -2863,6 +2944,12 @@ public class HelloController {
                 System.out.println("extension connected: " + wsBrowser(ctx)
                         + " (" + wsSessions.size() + " connected)");
                 refreshStatusDot();
+                // a browser a resume just started: its extension takes the tabs still owed
+                for (String saved : pendingOpens.keySet()) {
+                    if (!sameBrowser(wsBrowser(ctx), saved)) continue;
+                    List<String> rest = pendingOpens.remove(saved);
+                    if (rest != null) ctx.send(gson.toJson(Map.of("open", rest)));
+                }
                 });
             // the heartbeat is echoed: it is the extension's only way to tell a hung app from a
             // quiet one, and it redials a socket that stops echoing.
@@ -2902,11 +2989,19 @@ public class HelloController {
             Project target = tabsTarget(tabTarget, tabTargetUntil, System.nanoTime(), activeProject);
             if (target != null && incoming != null) {
                 // browser is absent when getBrowserFromBrands() recognises no brand
-                String key = browser != null ? browser.toString() : DEFAULT_BROWSER;
+                String brand = browser != null ? browser.toString() : DEFAULT_BROWSER;
+                Object profile = data.get("profile");
+                String key = browserKey(brand, profile == null ? null : profile.toString());
                 List<String> pages = incoming.stream().filter(HelloController::isPageUrl).toList();
-                target.urlsByBrowser.put(key, tabMode.merge()
-                        ? mergeUrls(target.urlsByBrowser.getOrDefault(key, new ArrayList<>()), pages)
-                        : new ArrayList<>(pages));
+                ArrayList<String> had = target.urlsByBrowser.getOrDefault(key, new ArrayList<>());
+                // the brand-only bucket from before the extension sent its profile is this
+                // profile's now - unless a profile signed in to nothing is on the socket as it
+                // ponytail: two signed-in profiles of one brand - whichever posts first takes it
+                if (!key.equals(brand) && wsSessions.stream().noneMatch(s -> wsBrowser(s).equals(brand))) {
+                    List<String> legacy = target.urlsByBrowser.remove(brand);
+                    if (legacy != null) had = mergeUrls(had, legacy);
+                }
+                target.urlsByBrowser.put(key, tabMode.merge() ? mergeUrls(had, pages) : new ArrayList<>(pages));
                 saveProject(target);
                 tabReplies.countDown();
                 // tabs arrive after the checkpoint button has already returned, so the
