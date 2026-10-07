@@ -65,8 +65,11 @@ Triggered by **Resume** on the card.
 resumeProject(project)
  ├─ running = captureRunningApps()            what is open right now
  ├─ for each browser in urlsByBrowser:
+ │    extension connected?                    send {"open":[urls]}; it opens the missing ones one by one
  │    browserPath(browser)                    App Paths registry lookup → C:\...\chrome.exe
- │    ProcessBuilder(exe, url1, url2, ...)    one window, all tabs; falls back to Desktop.browse()
+ │    profileDir(browser)                     "Chrome · me@x.com" → Local State → "Profile 2"
+ │    ProcessBuilder(exe, --profile-directory, url1)   rest go to its extension when it connects,
+ │                                            or all at once after 15s; no exe → Desktop.browse()
  └─ for each app in project.apps (named categories only, never Other):
       shouldLaunch(app, running, handled)?    skip if already open, skip browsers handled above
       claude  → cmd /c start [wt -d folder] claude agents [--cwd folder]   (claudeCommand())
@@ -91,9 +94,9 @@ screen lists what was already open, so the two numbers reconcile.
 The desktop app cannot see browser tabs. The extension can, so:
 
 ```
-background.js (service worker, one per browser)
- ├─ connectWS()        opens ws://localhost:8765/ws?browser=Chrome, retries every 3s
- ├─ on "capture"       chrome.tabs.query → POST /tabs {browser:"Chrome", urls:[...]}
+background.js (service worker, one per browser profile)
+ ├─ connectWS()        opens ws://localhost:8765/ws?browser=Chrome&profile=me@x.com, retries every 3s
+ ├─ on "capture"       chrome.tabs.query → POST /tabs {browser:"Chrome", profile, urls:[...]}
  ├─ heartbeat 20s      keeps the socket alive
  └─ chrome.alarms 1m   MV3 kills idle workers; the alarm wakes it and reconnects
 
@@ -104,8 +107,10 @@ popup.js (click the toolbar icon)
 
 On the app side (`startServer()`):
 
-- `/ws` — connect/close just maintain `wsSessions` and the green dot in the title bar.
-- `POST /tabs` — stores `urls` under `activeProject.urlsByBrowser[browser]`, saves, and redraws
+- `/ws` — connect/close maintain `wsSessions` and the green dot in the title bar; a connect also
+  takes any tabs a resume left in `pendingOpens` for that browser.
+- `POST /tabs` — stores `urls` under `activeProject.urlsByBrowser["Chrome · me@x.com"]` (brand alone when no
+  profile is signed in), saves, and redraws
   the card via `Platform.runLater` (Javalin runs on its own thread; JavaFX must be touched from
   the FX thread).
 
