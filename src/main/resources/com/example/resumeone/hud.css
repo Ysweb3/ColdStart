@@ -5,7 +5,7 @@
    .12em tracking, RESUME's -.045em) and transitions (hover snaps instead of fading 140ms).
    Press is .985 for 80ms, from Motion.pressable. */
 
-/* Sora (400/500/600/700/800) + Space Mono ship with the app and are registered by
+/* IBM Plex Sans (400/600/700) + IBM Plex Mono (400/700) ship with the app and are registered by
    HelloApplication.loadFonts() — JavaFX CSS has no @font-face. */
 
 /* No rounding anywhere: square corners on every node, Modena's defaults included (an author
@@ -24,6 +24,7 @@
     -rw-ln:     #32353B;
     -rw-ln2:    #464A52;
     -rw-tx:     #E9E3DF;
+    -rw-tx-h:   #D9D2CD;   /* the bone button under the pointer: darker, never whiter */
     -rw-tx2:    #A8A29E;
     -rw-tx3:    #77726E;   /* glyphs, dots */
     -rw-tx3t:   #8E8A86;   /* muted TEXT: one step up, 5.5:1 on the card, readable at 12px */
@@ -32,8 +33,10 @@
     -rw-go2:    #FF8533;   /* resume hover */
     -rw-gop:    #D95500;   /* resume pressed; the launching ring */
     -rw-goi:    #1A0A00;   /* ink on orange */
-    -rw-ck:     #2A5688;   /* blue is only ever CHECKPOINT: border, bar */
-    -rw-ckt:    #6E9BD1;   /* checkpoint text, hover border, ring */
+    -rw-ck:     #2A5688;   /* blue is only ever CHECKPOINT: the button fill, the confirmation bar */
+    -rw-ck-edge: #3D6EA8;  /* the Checkpoint block's edge: 3.4:1 on its ground, where -rw-ck's 2.4
+                              vanished. Edge only: bone on it would be 4.1, under AA for 13px text */
+    -rw-ckt:    #6E9BD1;   /* checkpoint text, the block's hover edge, the ring */
     -rw-ckh:    #272A2F;   /* the chevron segment under the pointer */
     -rw-live:   #5DB075;
     -rw-live-tx: #8ACB9D;   /* live green for words: "Brave connected" in the title bar */
@@ -46,14 +49,15 @@
     -rw-on-bad: #FFF1F0;
 
     -fx-background-color: -rw-g;
-    -fx-font-family: "Sora";
+    -fx-font-family: "IBM Plex Sans";
 }
 
-/* Space Mono is the machine face: paths, counts, labels. Category labels and app names are
-   words a person reads, so they are Sora. Nothing on the HUD is set below 12px. */
+/* Plex Mono is the machine face: paths, URLs, counts, ages, the caps section labels. Words a
+   person reads are Plex Sans, footnotes and hints included: the face follows what the text
+   is, never how small or muted it is. Nothing on the HUD is set below 12px. */
 .rail-label, .rail-count, .side-count, .project-path,
-.checkpoint-sub, .cat-arg, .cat-foot {
-    -fx-font-family: "Space Mono";
+.checkpoint-sub, .tab-title {
+    -fx-font-family: "IBM Plex Mono";
 }
 
 /* ── title bar ─────────────────────────────────────────────────────── */
@@ -96,9 +100,9 @@
 }
 
 /* ":8765 · no extension", or "connected · brave" in live green while an extension holds the socket */
-.port      { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
+.port      { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 /* a lighter step of live green for the words; the dot keeps -rw-live */
-.port-live { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-live-tx; -fx-font-weight: bold; }
+.port-live { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-live-tx; -fx-font-weight: bold; }
 
 /* tooltips are popups with their own scene; the selector still reaches them */
 .tooltip {
@@ -107,7 +111,7 @@
     -fx-border-color: -rw-ln;
     -fx-border-radius: 0;
     -fx-text-fill: -rw-tx;
-    -fx-font-family: "Space Mono";
+    -fx-font-family: "IBM Plex Sans";
     -fx-font-size: 12px;
     -fx-padding: 4 8 4 8;
     -fx-effect: none;
@@ -134,7 +138,7 @@
     -fx-cursor: hand;
 }
 /* "> .label": the number only, never the wide face's name and age */
-.rail-btn > .label { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx2; }
+.rail-btn > .label { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx2; }
 .rail-btn:hover { -fx-background-color: -rw-ln2, -rw-raised; }
 .rail-btn:hover > .label { -fx-text-fill: -rw-tx; }
 .rail-active { -fx-background-color: -rw-tx, -rw-g1; }
@@ -152,7 +156,7 @@
 .side-face { visibility: hidden; -fx-padding: 0 10 0 10; -fx-spacing: 12; }
 .folder-open, .rail-active .folder-shut { visibility: hidden; }
 .rail-active .folder-open { visibility: visible; }
-.side-name  { -fx-font-family: "Sora"; -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
+.side-name  { -fx-font-family: "IBM Plex Sans"; -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 .side-count { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 
 .rail-wide .rail-head { -fx-padding: 14 12 8 12; }
@@ -173,7 +177,7 @@
     -fx-background-insets: 0, 0 0 0 2;
     -fx-background-radius: 0;
 }
-.rail-wide .rail-active .side-name { -fx-font-family: "Sora SemiBold"; -fx-text-fill: -rw-tx; }
+.rail-wide .rail-active .side-name { -fx-font-family: "IBM Plex Sans SmBld"; -fx-text-fill: -rw-tx; }
 .rail-wide .rail-spine { -fx-border-color: transparent; }
 .rail-foot { -fx-padding: 0; }
 .rail-wide .rail-foot {
@@ -191,7 +195,7 @@
 .rail-wide .rail-foot .rail-active { -fx-background-color: -rw-tx, -rw-raised; }
 .rail-wide .rail-foot .rail-btn:focus-visible { -fx-background-color: -rw-act, -rw-raised; }
 
-/* ── buttons (Button.jsx): Sora 600 13px, 34 tall, square ───────── */
+/* ── buttons (Button.jsx): Plex Sans 600 13px, 34 tall, square ───────── */
 .button {
     -fx-background-insets: 0;
     -fx-background-radius: 0;
@@ -199,7 +203,7 @@
     -fx-focus-color: -rw-act;
     -fx-faint-focus-color: transparent;
     -fx-cursor: hand;
-    -fx-font-family: "Sora SemiBold";
+    -fx-font-family: "IBM Plex Sans SmBld";
     -fx-font-size: 13px;
     -fx-padding: 0 14 0 14;
     -fx-graphic-text-gap: 8;
@@ -211,7 +215,7 @@
     -fx-pref-height: 34; -fx-min-height: 34;
 }
 .btn-secondary:hover, .btn-secondary:armed { -fx-background-color: -rw-hover; }
-.side-new { -fx-pref-height: 40; -fx-min-height: 40; -fx-font-family: "Sora"; -fx-font-weight: bold; }
+.side-new { -fx-pref-height: 40; -fx-min-height: 40; -fx-font-family: "IBM Plex Sans"; -fx-font-weight: bold; }
 
 .btn-checkpoint {
     -fx-background-color: -rw-ck;
@@ -219,6 +223,15 @@
 }
 .btn-checkpoint:hover, .btn-checkpoint:armed { -fx-background-color: -rw-ckt; -fx-text-fill: -rw-g; }
 .btn-checkpoint:hover .ico, .btn-checkpoint:armed .ico { -fx-stroke: -rw-g; }
+
+/* The neutral main action: bone, not a verb colour, for a press that neither checkpoints nor
+   resumes (New project, a plain Create, a Retry that rewrites a note). Ink on it is 15:1. */
+.btn-primary {
+    -fx-background-color: -rw-tx;
+    -fx-text-fill: -rw-g1;
+}
+.btn-primary .ico { -fx-stroke: -rw-g1; }
+.btn-primary:hover, .btn-primary:armed { -fx-background-color: -rw-tx-h; }
 
 .btn-danger {
     -fx-background-color: -rw-brick-btn;
@@ -242,11 +255,11 @@
    so a clipped edge is simply cut, borders included, as the handoff draws it. */
 .resume { -fx-background-color: -rw-go; -fx-cursor: hand; }
 .resume:hover { -fx-background-color: -rw-go2; }
-.resume-word { -fx-font-size: 34px; -fx-font-family: "Sora ExtraBold"; -fx-text-fill: -rw-goi; }
+.resume-word { -fx-font-size: 34px; -fx-font-family: "IBM Plex Sans"; -fx-font-weight: bold; -fx-text-fill: -rw-goi; }
 /* the shortcut that does the same as a press: mono caps in the block's ink */
-.resume-hint { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-goi; -fx-opacity: 0.85; }
+.resume-hint { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-goi; -fx-opacity: 0.85; }
 .resume-key {
-    -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-goi;
+    -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-goi;
     -fx-border-color: rgba(26, 10, 0, 0.38);
     -fx-border-radius: 0;
     -fx-background-color: rgba(26, 10, 0, 0.06);
@@ -259,18 +272,18 @@
 .resume:disabled .resume-key { -fx-border-color: -rw-ln2; -fx-background-color: transparent; }
 .resume:disabled .ico { -fx-stroke: -rw-tx3; }
 
-/* The checkpoint block, in the same 5a blue as every other checkpoint surface: -rw-ck for the
-   edge and the confirmation bar, -rw-ckt for the sub-line, "Saved" and the ring (6.2:1 on
+/* The checkpoint block: -rw-ck-edge for its edge (3.4:1, lit to -rw-ckt under the pointer),
+   -rw-ck for the confirmation bar, -rw-ckt for the sub-line, "Saved" and the ring (6.2:1 on
    -rw-g2). A fixed 264 x 104, so -fx-shape lands exactly and the 1px edge follows the notch;
    the controller's clip keeps the ring inside it too. */
 .checkpoint {
-    -fx-background-color: -rw-ck, -rw-g2;
+    -fx-background-color: -rw-ck-edge, -rw-g2;
     -fx-background-insets: 0, 1;
     -fx-shape: "M0 0 L250 0 L264 14 L264 104 L14 104 L0 90 Z";
     -fx-padding: 1;
     -fx-cursor: hand;
 }
-.checkpoint:hover { -fx-background-color: -rw-ck, -rw-g3; }
+.checkpoint:hover { -fx-background-color: -rw-ckt, -rw-g3; }
 .checkpoint-word { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .checkpoint-sub  { -fx-font-size: 12px; -fx-text-fill: -rw-ckt; }
 .ck-done-word    { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-ckt; }
@@ -304,7 +317,7 @@
    Disabled only to stay out of hover and focus, so it opts back out of Modena's fade. */
 .menu-item.menu-head:disabled { -fx-opacity: 1; -fx-padding: 6 12 2 12; }
 .menu-item.menu-head:focused, .menu-item.menu-head:hover { -fx-background-color: transparent; }
-.menu-head .label { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.menu-head .label { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .menu .arrow { -fx-background-color: -rw-tx2; }
 
 /* ── what gets saved ───────────────────────────────────────────────── */
@@ -315,7 +328,7 @@
     -fx-border-radius: 0;
 }
 /* the NEXT note: the card's ground, one line; the field inside is borderless, the strip
-   takes the focus ring. The note is prose, so Sora like .input-name, not the mono field default */
+   takes the focus ring. The note is prose, so Plex Sans like .input-name, not the mono field default */
 /* the card's ground, so it reads as part of the card above it; a step brighter border than
    the card's so it is not lost under it. Neutral: orange is only RESUME, blue only CHECKPOINT */
 .note-strip {
@@ -333,7 +346,7 @@
     -fx-border-color: -rw-ln2;
     -fx-border-radius: 0;
     -fx-text-fill: -rw-tx2;
-    -fx-font-family: "Sora";
+    -fx-font-family: "IBM Plex Sans";
     -fx-font-size: 14px;
     -fx-padding: 0 14 0 14;
     -fx-alignment: center-left;
@@ -349,10 +362,11 @@
     -fx-background-insets: 0;
 }
 .text-area.note-input {
-    -fx-font-family: "Sora";
+    -fx-font-family: "IBM Plex Sans";
     -fx-font-size: 14px;
     -fx-text-fill: -rw-tx;
-    -fx-highlight-fill: -rw-ck;
+    -fx-highlight-fill: -rw-ln2;
+    -fx-highlight-text-fill: -rw-tx;
     -fx-padding: 0;
 }
 .text-area.note-input .content { -fx-padding: 0 8 0 0; }
@@ -394,13 +408,13 @@
 }
 .tabs-scroll, .tabs-scroll > .viewport { -fx-background-color: transparent; -fx-padding: 0; }
 /* blue is only ever Checkpoint, so a browser's name is ink */
-.browser-name { -fx-font-size: 11px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.tab-title    { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+.browser-name { -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.tab-title    { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 
 /* the stage is undecorated, so the app draws its own outer edge */
 .shell { -fx-border-color: -rw-ln; -fx-border-width: 1; }
 
-.empty-title { -fx-font-size: 20px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.empty-title { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .empty-body  { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
 
 /* ── scrollbars: thin, trackless, thumb only ───────────────────────── */
@@ -461,9 +475,10 @@
     -fx-border-radius: 0;
     -fx-text-fill: -rw-tx;
     -fx-prompt-text-fill: -rw-tx3t;
-    -fx-font-family: "Space Mono";
+    -fx-font-family: "IBM Plex Mono";
     -fx-font-size: 12px;
-    -fx-highlight-fill: -rw-ck;
+    -fx-highlight-fill: -rw-ln2;
+    -fx-highlight-text-fill: -rw-tx;
     -fx-pref-height: 34;
 }
 .text-field:focused { -fx-border-color: -rw-act; }
@@ -478,7 +493,7 @@
     -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.65), 32, 0.16, 0, 12);
 }
 .dialog-title { -fx-font-size: 17px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.dialog-sub   { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; -fx-font-family: "Space Mono"; }
+.dialog-sub   { -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; -fx-font-family: "IBM Plex Mono"; }
 
 .inset-row {
     -fx-background-color: -rw-g;
@@ -488,7 +503,7 @@
 }
 
 /* the name is prose, not a path, so it opts out of the mono .text-field default */
-.input-name { -fx-font-family: "Sora"; -fx-font-size: 13px; }
+.input-name { -fx-font-family: "IBM Plex Sans"; -fx-font-size: 13px; }
 .divider-top {
     -fx-border-color: -rw-ln transparent transparent transparent;
     -fx-border-width: 1 0 0 0;
@@ -496,30 +511,30 @@
 
 /* ── resume in progress · resume done ───────────────────────────────── */
 .dot-go { -fx-background-color: -rw-go; -fx-background-radius: 999; }
-.title-verb { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-go; }
-.title-name { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
+.title-verb { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-go; }
+.title-name { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 
 .strip {
     -fx-background-color: -rw-g1;
     -fx-border-color: transparent transparent -rw-ln transparent;
     -fx-border-width: 0 0 1 0;
 }
-.strip-count { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx; }
+.strip-count { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx; }
 /* muted: the meter's fill already says how far in orange; the figure only reads it out */
-.strip-pct   { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
-.strip-took  { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
+.strip-pct   { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
+.strip-took  { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 .meter-track { -fx-background-color: -rw-raised; -fx-background-radius: 0; }
 .meter-fill  { -fx-background-color: -rw-go; -fx-background-radius: 0; }
 .meter-fail  { -fx-background-color: -rw-brick; -fx-background-radius: 0; }
 /* no sheen: the meter moves when a process starts, and that movement is the only motion it
    needs. An animated gradient across it was the one decoration DESIGN.md rules out. */
 
-.hero-word { -fx-font-family: "Sora ExtraBold"; -fx-font-size: 44px; -fx-text-fill: -rw-tx; }
-.hero-name { -fx-font-family: "Sora ExtraBold"; -fx-font-size: 44px; -fx-text-fill: -rw-go; }
-.hero-spec { -fx-font-family: "Space Mono"; -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
-/* the note is prose, so Sora; the rule on its left marks it as the user's words, not ours */
+.hero-word { -fx-font-family: "IBM Plex Sans"; -fx-font-weight: bold; -fx-font-size: 44px; -fx-text-fill: -rw-tx; }
+.hero-name { -fx-font-family: "IBM Plex Sans"; -fx-font-weight: bold; -fx-font-size: 44px; -fx-text-fill: -rw-go; }
+.hero-spec { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+/* the note is prose, so Plex Sans; the rule on its left marks it as the user's words, not ours */
 .hero-note {
-    -fx-font-size: 18px;
+    -fx-font-size: 17px;
     -fx-text-fill: -rw-tx;
     -fx-border-color: transparent transparent transparent -rw-ln2;
     -fx-border-width: 0 0 0 3;
@@ -536,8 +551,8 @@
 /* the ring alone at rest; the bloom is one beat, flashed from code when the launch starts */
 .step-row:launching { -fx-border-color: -rw-go; }
 .step-row:failed { -fx-border-color: -rw-bad; }
-.step-label { -fx-font-family: "Space Mono"; -fx-font-size: 13px; -fx-text-fill: -rw-tx; }
-.step-cmd   { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
+.step-label { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 13px; -fx-text-fill: -rw-tx; }
+.step-cmd   { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 .step-row:launching .step-cmd { -fx-text-fill: -rw-go; }
 .step-row:failed    .step-cmd { -fx-text-fill: -rw-bad; }
 
@@ -548,8 +563,8 @@
     -fx-border-color: -rw-ln;
     -fx-border-radius: 0;
 }
-.fold-title { -fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.fold-meta  { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
+.fold-title { -fx-font-size: 13px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.fold-meta  { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 
 /* a failure stays visible, on the danger wash, with a Retry */
 .fail-row {
@@ -558,9 +573,9 @@
     -fx-border-color: -rw-bad;
     -fx-border-radius: 0;
 }
-.fail-why { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-bad; }
+.fail-why { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-bad; }
 
-.foot-note { -fx-font-family: "Space Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
+.foot-note { -fx-font-family: "IBM Plex Sans"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 .countdown-track { -fx-background-color: -rw-raised; }
 .countdown-fill  { -fx-background-color: -rw-tx3; }   /* time passing, not a checkpoint */
 
@@ -579,7 +594,8 @@
     -fx-background-insets: 0, 4, 6;
 }
 .resume:hover:focus-visible { -fx-background-color: -rw-go2, -rw-goi, -rw-go2; }
-.checkpoint:focus-visible { -fx-background-color: -rw-act, -rw-g2; -fx-background-insets: 0, 2; }
+.checkpoint:focus-visible { -fx-background-color: -rw-act, -rw-ck-edge, -rw-g2; -fx-background-insets: 0, 2, 3; }
+.checkpoint:hover:focus-visible { -fx-background-color: -rw-act, -rw-ckt, -rw-g3; -fx-background-insets: 0, 2, 3; }
 .ck-menu:focus-visible { -fx-background-color: -rw-act, -rw-ckh; -fx-background-insets: 0, 2; }
 /* the remove x shows itself when Tab reaches it, not only under the pointer */
 .rm:focus-visible {

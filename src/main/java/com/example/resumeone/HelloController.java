@@ -311,6 +311,11 @@ public class HelloController {
         btnNpBrowse.setAccessibleText("Browse for the project folder");
         btnNpCreate.textProperty().bind(Bindings.when(npCapture.selectedProperty())
                 .then("Create + checkpoint").otherwise("Create"));
+        // blue is only ever Checkpoint: a create that will not checkpoint is the neutral bone
+        // action, and drops the bookmark glyph with the blue
+        btnNpCreate.contentDisplayProperty().bind(Bindings.when(npCapture.selectedProperty())
+                .then(ContentDisplay.LEFT).otherwise(ContentDisplay.TEXT_ONLY));
+        npCapture.selectedProperty().addListener((o, was, on) -> styleAs(btnNpCreate, on ? "btn-checkpoint" : "btn-primary"));
         btnResumeStop.setGraphic(Icons.node(Icons.CLOSE, 16, TX2));
         Icons.animate(btnResumeStop, btnResumeStop.getGraphic());
         btnResumeStop.setOnAction(e -> stopRequested = true);
@@ -357,6 +362,14 @@ public class HelloController {
         Tooltip.install(btnDelete, tip("Delete project"));
         refreshStatusDot();
         refreshCount();
+        // ages are relative, so they go stale on their own: without this tick a row read "now"
+        // for hours, and the rail and the Checkpoint block showed one checkpoint as 15h and 18h
+        Timeline ages = new Timeline(new KeyFrame(Duration.minutes(1), e -> {
+            refreshCount();
+            if (activeProject != null) checkpointSub.setText(idleLine(activeProject));
+        }));
+        ages.setCycleCount(Animation.INDEFINITE);
+        ages.play();
         if (projects.isEmpty()) {
             showEmpty(true);
         } else {
@@ -927,6 +940,9 @@ public class HelloController {
         resumeCounts.setText(apps > 0 || tabs > 0 ? resumeCountLine(apps, tabs)
                 : countApps(projectObj) > 0 ? "NOTHING TO RELAUNCH" : "NOTHING SAVED YET");
         checkpointSub.setText(idleLine(projectObj));
+        // the same age, computed at the same moment, on the project's rail row
+        StackPane railRow = rowsByProject.get(projectObj.projectName);
+        if (railRow != null) railTip(railRow, projectObj);
         tabsCount.setText(String.valueOf(tabs));
 
         renderCategories(projectObj);
@@ -1002,7 +1018,7 @@ public class HelloController {
         // the measured block, not rows * line: a second line also brings the gap above it.
         // 8 of slack, or the TextArea clipped the last row's descenders
         double target = (rows == 1 ? line : twoLines) + 8;
-        // compared on height, not rows: the first fit can run before CSS sets Sora 14, and a
+        // compared on height, not rows: the first fit can run before CSS sets Plex Sans 14, and a
         // row count that did not change then kept the default font's shorter rows
         if (target == noteField.getPrefHeight()) return;
         noteField.setPrefHeight(target);
@@ -1113,7 +1129,8 @@ public class HelloController {
 
             String note = trailingNote(category, projectObj);
             if (note != null) {
-                Label arg = styled(new Label(note), "cat-arg");
+                // "reopens chats" is a phrase, the IDE note a path: the face follows which
+                Label arg = styled(new Label(note), note.startsWith("…\\") ? "project-path" : "cat-arg");
                 arg.setMinWidth(Region.USE_PREF_SIZE);   // white-space: nowrap
                 row.getChildren().add(arg);
             }
@@ -1572,7 +1589,7 @@ public class HelloController {
         clickable(log, logOpen ? "Hide the resume log" : "Show the resume log", () -> { logOpen = !logOpen; renderRestored(r); });
         restoredRows.getChildren().add(log);
         if (logOpen) {
-            Label lines = styled(new Label(String.join("\n", r.log)), "foot-note");
+            Label lines = styled(new Label(String.join("\n", r.log)), "step-cmd");
             lines.setWrapText(true);
             ScrollPane scroll = new ScrollPane(lines);
             scroll.getStyleClass().add("tabs-scroll");
@@ -1982,7 +1999,7 @@ public class HelloController {
             confirm("Checkpoint not written", projectsFile().getPath(),
                     (captureError != null ? "The open apps could not be listed. " : "")
                             + "Nothing changed on disk. " + ex.getMessage(),
-                    "Retry", () -> writeCheckpoint(projectObj, mode));
+                    "Retry", "btn-checkpoint", () -> writeCheckpoint(projectObj, mode));
             return;
         }
         if (replaceUndo(System.nanoTime(), ckBusyUntil, undoByProject.containsKey(projectObj.projectName))) {
@@ -1995,7 +2012,7 @@ public class HelloController {
 
         renderDetail(projectObj);
         // "just now" dropped: the block's column holds ~18 characters, and "Saved" already says it.
-        checkpointSaved(countApps(projectObj) + " apps · " + countTabs(projectObj) + " tabs");
+        checkpointSaved(resumeCountLine(countApps(projectObj), countTabs(projectObj)));
     }
 
     /** Add mode: every exe open now joins its category; nothing saved is dropped. */
@@ -2024,7 +2041,7 @@ public class HelloController {
           t=0     ring    rwCkRing  400ms standard  - 28px, 2px blue, scale .55 → 2.7, fading out
                   bar     rwCkBar   400ms snap      - the 3px strip rises into the bottom edge
                   idle    rwCkOut   160ms ease-in   - "Checkpoint / overwrite · …" lifts away
-                  done    rwCkIn    300ms snap, after 120ms - "Saved / 10 apps · 14 tabs · just now"
+                  done    rwCkIn    300ms snap, after 120ms - "Saved / 10 APPS · 14 TABS"
           t=2400  done    rwCkOut   200ms ease-in
                   bar     rwCkBarOut 260ms standard
                   idle    rwCkIn    260ms standard, after 140ms
@@ -2084,24 +2101,30 @@ public class HelloController {
         return kept;
     }
 
-    /** The generic confirm scrim. The verb button carries the caller's word and action. */
+    /** The generic confirm scrim. The verb button carries the caller's word and action, in the
+        neutral bone: a Retry that rewrites a note is not a checkpoint. */
     private void confirm(String title, String sub, String body, String verb, Runnable onOk) {
-        confirm(title, sub, body, verb, false, onOk);
+        confirm(title, sub, body, verb, "btn-primary", onOk);
     }
 
-    /** danger: the verb deletes, so it wears brick, not checkpoint blue. */
-    private void confirm(String title, String sub, String body, String verb, boolean danger, Runnable onOk) {
+    /** style: "btn-checkpoint" when the verb checkpoints, "btn-danger" when it deletes. */
+    private void confirm(String title, String sub, String body, String verb, String style, Runnable onOk) {
         confirmTitle.setText(title);
         confirmSub.setText(sub);
         confirmBody.setText(body);
         btnConfirmOk.setText(verb);
-        btnConfirmOk.getStyleClass().removeAll("btn-checkpoint", "btn-danger");
-        btnConfirmOk.getStyleClass().add(danger ? "btn-danger" : "btn-checkpoint");
+        styleAs(btnConfirmOk, style);
         btnConfirmOk.setOnAction(e -> {
             showOverlay(null);
             onOk.run();
         });
         showOverlay(confirmPane);
+    }
+
+    /** Swaps a main button between bone, checkpoint blue and brick, keeping its other classes. */
+    private static void styleAs(Button b, String style) {
+        b.getStyleClass().removeAll("btn-primary", "btn-checkpoint", "btn-danger");
+        b.getStyleClass().add(style);
     }
 
     private void deleteActive() {
@@ -2112,7 +2135,7 @@ public class HelloController {
             deleteProject(projectObj, rowsByProject.get(projectObj.projectName));
         } catch (IOException ex) {
             confirm("Project not deleted", projectsFile().getPath(),
-                    "Nothing changed on disk. " + ex.getMessage(), "Retry", true, this::deleteActive);
+                    "Nothing changed on disk. " + ex.getMessage(), "Retry", "btn-danger", this::deleteActive);
             return;
         }
         rowsByProject.remove(projectObj.projectName);
@@ -2894,7 +2917,7 @@ public class HelloController {
                         renderDetail(target);
                         // a reply that missed the checkpoint's wait still corrects the "Saved" line
                         if (System.nanoTime() < ckBusyUntil) {
-                            ckDoneSub.setText(countApps(target) + " apps · " + countTabs(target) + " tabs");
+                            ckDoneSub.setText(resumeCountLine(countApps(target), countTabs(target)));
                         }
                     });
                 }

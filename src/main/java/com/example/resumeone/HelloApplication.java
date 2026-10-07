@@ -110,8 +110,8 @@ public class HelloApplication extends Application {
     /** JavaFX CSS silently ignores @font-face, so the bundled faces are registered here
         instead — without this every -fx-font-family falls back to the system font. */
     private static void loadFonts() throws IOException {
-        for (String name : new String[]{"Sora-Regular", "Sora-Medium", "Sora-SemiBold", "Sora-Bold",
-                                        "Sora-ExtraBold", "SpaceMono-Regular", "SpaceMono-Bold"}) {
+        for (String name : new String[]{"IBMPlexSans-Regular", "IBMPlexSans-SemiBold", "IBMPlexSans-Bold",
+                                        "IBMPlexMono-Regular", "IBMPlexMono-Bold"}) {
             try (InputStream in = HelloApplication.class.getResourceAsStream("fonts/" + name + ".ttf")) {
                 Font.loadFont(in, 12);
             }
