@@ -47,6 +47,12 @@
     -rw-brick-btn-h: #A9352D;   /* ...and darker, not lighter, under the pointer: 5.9:1 */
     -rw-bad-tint: #2A1412;
     -rw-on-bad: #FFF1F0;
+    /* checkpoint & close (handoff 1d) */
+    -rw-ck-wash: #141B24;   /* the close offer's ground: the card's, washed toward checkpoint blue */
+    -rw-ck-fill: #1C2A3D;   /* the block's fill while Closing and Saved & closed show */
+    -rw-warn:   #E3C55A;    /* mustard: needs your attention, nothing failed (Unsaved work). Pushed
+                               toward yellow so it never reads as resume orange; brick stays failed */
+    -rw-warn-wash: #26230F; /* a chip holding unsaved work */
 
     -fx-background-color: -rw-g;
     -fx-font-family: "IBM Plex Sans";
@@ -56,7 +62,7 @@
    person reads are Plex Sans, footnotes and hints included: the face follows what the text
    is, never how small or muted it is. Nothing on the HUD is set below 12px. */
 .rail-label, .rail-count, .side-count, .project-path,
-.checkpoint-sub, .tab-title {
+.checkpoint-sub, .tab-title, .ck-offer-sub, .offer-key {
     -fx-font-family: "IBM Plex Mono";
 }
 
@@ -300,6 +306,34 @@
 }
 .ck-menu:hover { -fx-background-color: -rw-ckh; }
 .ck-glyph { -fx-stroke: -rw-tx; }
+/* checkpoint & close: Closing lights the edge and fills the block; Saved & closed keeps the
+   fill while it shows; Unsaved work says what to do in mustard and names the apps in tx2 */
+.checkpoint:closing, .checkpoint:closing:hover { -fx-background-color: -rw-ckt, -rw-ck-fill; }
+.checkpoint:filled, .checkpoint:filled:hover { -fx-background-color: -rw-ck-edge, -rw-ck-fill; }
+.ck-hint { -fx-font-size: 15px; -fx-text-fill: -rw-warn; }
+.checkpoint-sub:warn { -fx-text-fill: -rw-tx2; }
+
+/* the close offer in the note's place: checkpoint wash, slate edge, a neutral bone-ink
+   button (orange is resume, brick is delete), and a 2px slate countdown on its bottom edge */
+.ck-offer {
+    -fx-background-color: -rw-ck-wash;
+    -fx-border-color: -rw-ck-edge;
+    -fx-border-radius: 0;
+}
+.ck-offer-title { -fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.ck-offer-sub   { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
+.ck-offer-bar   { -fx-background-color: -rw-ckt; }
+.button.btn-offer {
+    -fx-background-color: -rw-raised;
+    -fx-background-radius: 0;
+    -fx-border-color: -rw-ln2;
+    -fx-border-radius: 0;
+    -fx-padding: 0 12 0 12;
+    -fx-cursor: hand;
+}
+.button.btn-offer:hover { -fx-background-color: -rw-hover; }
+.offer-word { -fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.offer-key  { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 
 .context-menu {
     -fx-background-color: -rw-ln, -rw-g2;
@@ -388,6 +422,12 @@
     -fx-min-height: 26; -fx-pref-height: 26; -fx-max-height: 26;
 }
 .chip .label { -fx-font-size: 12px; -fx-text-fill: -rw-tx; }
+/* checkpoint & close: a closed app goes dark and is struck through; one holding unsaved work
+   stays lit on the mustard wash (bone ink, so the wash rule holds) */
+.chip:closed { -fx-background-color: -rw-g1; }
+.chip:closed .label { -fx-text-fill: -rw-tx3; }
+.chip:closed .label .text { -fx-strikethrough: true; }
+.chip:stuck { -fx-background-color: -rw-warn-wash; }
 /* hover-only remove at the end of chips and tab rows. Opacity, never managed, so nothing
    shifts on hover. */
 /* 24x24 to hit (WCAG 2.5.8); remover() gives back 12 x 8 with a negative margin, so it lays
