@@ -66,6 +66,7 @@ import java.net.URI;
 import java.awt.*;
 import java.io.File;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -127,6 +128,7 @@ public class HelloController {
     @FXML public VBox detailPane, emptyPane, categoryRows, tabsList;
     @FXML public VBox deletePane, newProjectPane, confirmPane;
     @FXML public Label confirmTitle, confirmSub, confirmBody;
+    @FXML public VBox confirmList;
     private LaunchStep lastLaunching;   // the row whose beat already played
     @FXML public Button btnConfirmCancel, btnConfirmOk;
     // 1e / 1l (resume in progress, resume done) - see the resume section below
@@ -296,6 +298,8 @@ public class HelloController {
         btnSettingsBack.setOnAction(e -> backToProjects());
         btnNpCancel.setOnAction(e -> backToProjects());
         btnConfirmCancel.setOnAction(e -> showOverlay(null));
+        // empty, it would still add the dialog's 8px spacing twice
+        confirmList.managedProperty().bind(Bindings.isNotEmpty(confirmList.getChildren()));
         btnNpBrowse.setOnAction(e -> {
             String chosen = openFolder(e);          // returns the "NULL" sentinel on cancel
             if (!"NULL".equals(chosen)) npFolder.setText(chosen);
@@ -724,7 +728,8 @@ public class HelloController {
                     : confirmPane.isVisible() ? confirmPane : null;
             if (open == null || now == null || inside(now, open)) return;
             Node back = was != null && inside(was, open) ? was
-                    : open == deletePane ? btnDeleteCancel : open == newProjectPane ? npName : btnConfirmCancel;
+                    : open == deletePane ? btnDeleteCancel : open == newProjectPane ? npName
+                    : btnConfirmCancel.isVisible() ? btnConfirmCancel : btnConfirmOk;
             Platform.runLater(back::requestFocus);
         });
     }
@@ -830,6 +835,10 @@ public class HelloController {
     /** confirmPane / deletePane / newProjectPane are scrims stacked over whichever base is showing.
         Focus follows the scrim onto its safe button, so Enter cannot re-fire whatever opened it. */
     private void showOverlay(Node target) {
+        // the still-open list going away, however it goes (Escape too), ends its "closing…"
+        Project wasClosing = closing;
+        if (wasClosing != null && confirmPane.isVisible() && target != confirmPane
+                && STILL_OPEN.equals(confirmTitle.getText())) endClose(wasClosing, false);
         for (Node pane : List.of(deletePane, newProjectPane, confirmPane)) {
             boolean opening = pane == target && !pane.isVisible();
             pane.setVisible(pane == target);
@@ -1106,7 +1115,8 @@ public class HelloController {
     /** "2h ago" under Checkpoint: when the last one was taken. It used to read "overwrite \u00b7
         2h old", a warning on every press; a checkpoint is now one Ctrl+Z from undone. */
     private String idleLine(Project projectObj) {
-        return checkpointing == projectObj ? CHECKPOINTING : checkpointLine(projectObj.lastCheckpoint);
+        return checkpointing == projectObj ? CHECKPOINTING
+                : closing == projectObj ? CLOSING : checkpointLine(projectObj.lastCheckpoint);
     }
 
     static String checkpointLine(String lastCheckpoint) {
@@ -1954,7 +1964,11 @@ public class HelloController {
         }
         MenuItem undo = new MenuItem("Undo last checkpoint  ·  Ctrl+Z");
         undo.setOnAction(e -> undoCheckpoint());
-        menu.getItems().addAll(new SeparatorMenuItem(), undo);
+        // menu only, no key: one slip from Ctrl+S would close every window
+        MenuItem close = new MenuItem("Checkpoint & close");
+        close.setOnAction(e -> { if (activeProject != null) writeCheckpoint(activeProject, Checkpoint.OVERWRITE, true); });
+        close.disableProperty().bind(btnCheckpoint.disabledProperty());
+        menu.getItems().addAll(new SeparatorMenuItem(), undo, new SeparatorMenuItem(), close);
         menu.setOnShowing(e -> undo.setDisable(activeProject == null
                 || !undoByProject.containsKey(activeProject.projectName)));
         // consume, or the whole-button click handler fires an overwrite underneath the menu
@@ -2065,6 +2079,11 @@ public class HelloController {
     }
 
     private void writeCheckpoint(Project projectObj, Checkpoint mode) {
+        writeCheckpoint(projectObj, mode, false);
+    }
+
+    /** close: Checkpoint & close, which closes the project's apps once the save is on disk. */
+    private void writeCheckpoint(Project projectObj, Checkpoint mode, boolean close) {
         // a checkpoint mid-resume would record a half-launched desktop over the project, and a
         // second press while one is capturing would only race it to the disk
         if (resuming || checkpointing != null) return;
@@ -2097,7 +2116,7 @@ public class HelloController {
             HashMap<String, HashSet<String>> captured = now;
             AppFolders.Capture folders = dirs;
             IOException error = failed;
-            Platform.runLater(() -> finishCheckpoint(projectObj, mode, before, captured, folders, error));
+            Platform.runLater(() -> finishCheckpoint(projectObj, mode, close, before, captured, folders, error));
         }, "checkpoint");
         worker.setDaemon(true);
         worker.start();
@@ -2106,7 +2125,7 @@ public class HelloController {
     static final String CHECKPOINTING = "checkpointing…";
 
     /** The FX-thread half of writeCheckpoint, once the capture is back (or failed). */
-    private void finishCheckpoint(Project projectObj, Checkpoint mode, String before,
+    private void finishCheckpoint(Project projectObj, Checkpoint mode, boolean close, String before,
                                   HashMap<String, HashSet<String>> captured,
                                   AppFolders.Capture folders, IOException captureError) {
         checkpointing = null;
@@ -2141,9 +2160,10 @@ public class HelloController {
             confirm("Checkpoint not written", projectsFile().getPath(),
                     (captureError != null ? "The open apps could not be listed. " : "")
                             + "Nothing changed on disk. " + ex.getMessage(),
-                    "Retry", "btn-checkpoint", () -> writeCheckpoint(projectObj, mode));
-            return;
+                    "Retry", "btn-checkpoint", () -> writeCheckpoint(projectObj, mode, close));
+            return;   // nothing is closed over a save that did not happen
         }
+        if (close) closeProject(projectObj);
         if (replaceUndo(System.nanoTime(), ckBusyUntil, undoByProject.containsKey(projectObj.projectName))) {
             undoByProject.put(projectObj.projectName, before);
         }
@@ -2285,6 +2305,166 @@ public class HelloController {
         return kept;
     }
 
+    // == Checkpoint & close ==================================================
+    //   Once the checkpoint is on disk, every app it saved gets the close an X click sends
+    //   (WM_CLOSE), so an app with unsaved work asks about it itself - nothing is ever killed.
+    //   Browsers lose only the project's tabs, through their extension. After CLOSE_GRACE_MS
+    //   whatever still has a window is listed, and drops off the list as it goes.
+
+    static final String CLOSING = "closing…", STILL_OPEN = "Some apps are still open";
+    static final long CLOSE_GRACE_MS = 5_000, CLOSE_POLL_MS = 2_000;
+    // ponytail: a PowerShell listing every 2s while the list is up; capped so a list left
+    // open all afternoon stops polling
+    static final long CLOSE_WATCH_NANOS = 10L * 60 * 1_000_000_000L;
+
+    // never closed: a terminal ends whatever runs in it (claude, a dev server) without asking,
+    // Explorer is the taskbar too (only its folder windows close, see closeScript), browsers
+    // go tab by tab, and Other is never relaunched, so closing it would lose it
+    static final Set<String> KEEP_OPEN = Set.of("Terminal", "Browser", "Files", HelloController.OTHER);
+
+    /** The project being closed: its block reads "closing…" until the list is done with. */
+    private volatile Project closing;
+    /** The close being watched; null stops the poll. */
+    private volatile Object closeWatch;
+
+    static Set<String> appsToClose(Map<String, HashSet<String>> apps) {
+        Set<String> out = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        apps.forEach((category, exes) -> { if (!KEEP_OPEN.contains(category)) out.addAll(exes); });
+        out.remove("claude.exe");   // under AI, but it lives in a terminal tab
+        return out;
+    }
+
+    /** Sends WM_CLOSE to every top-level window of these exes - PostMessage, so a save prompt
+        never blocks the script - and quits Explorer windows that show a real folder. */
+    static String closeScript(Collection<String> exes, boolean explorerFolders) {
+        String names = exes.stream()
+                .map(e -> "'" + e.replaceFirst("(?i)\\.exe$", "").replace("'", "''") + "'")
+                .collect(java.util.stream.Collectors.joining(","));
+        return "Add-Type -AssemblyName UIAutomationClient; "
+                + "Add-Type -Namespace RW -Name U -MemberDefinition '[DllImport(\"user32.dll\")] "
+                + "public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);'; "
+                + "$n = @(" + names + "); $p = @{}; Get-Process | ForEach-Object { $p[$_.Id] = $_.ProcessName }; "
+                + "[Windows.Automation.AutomationElement]::RootElement.FindAll("
+                + "[Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition) | "
+                + "ForEach-Object { if ($n -contains $p[$_.Current.ProcessId]) { "
+                + "[void][RW.U]::PostMessage([IntPtr]$_.Current.NativeWindowHandle, 0x10, [IntPtr]::Zero, [IntPtr]::Zero) } }"
+                + (explorerFolders ? "; (New-Object -ComObject Shell.Application).Windows() | "
+                        + "Where-Object { $_.LocationURL -like 'file:*' } | ForEach-Object { $_.Quit() }" : "");
+    }
+
+    /** -EncodedCommand (base64 UTF-16LE) skips Windows' argument quoting, which breaks on the
+        double quotes closeScript needs (see captureRunningApps). */
+    static Process powershell(String script) throws IOException {
+        return new ProcessBuilder("powershell.exe", "-NoProfile", "-EncodedCommand",
+                Base64.getEncoder().encodeToString(script.getBytes(StandardCharsets.UTF_16LE)))
+                .redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
+    }
+
+    /** The closed apps that still have a window. */
+    static List<String> stillOpen(Set<String> closed, Set<String> running) {
+        return closed.stream().filter(app -> running.stream().anyMatch(app::equalsIgnoreCase)).toList();
+    }
+
+    private void closeProject(Project projectObj) {
+        Set<String> apps = appsToClose(projectObj.apps);
+        boolean folders = hasApp(projectObj, AppFolders.EXPLORER);
+        // each connected browser closes the tabs this checkpoint just saved for it
+        Set<String> handled = new HashSet<>();
+        for (WsContext s : wsSessions) {
+            List<String> urls = projectObj.urlsByBrowser.entrySet().stream()
+                    .filter(e -> sameBrowser(wsBrowser(s), e.getKey()))
+                    .flatMap(e -> e.getValue().stream()).toList();
+            String exe = BROWSER_EXE.get(brandOf(wsBrowser(s)).toLowerCase());
+            if (exe != null) handled.add(exe.toLowerCase());
+            if (!urls.isEmpty()) s.send(gson.toJson(Map.of("close", urls)));
+        }
+        // a browser with no extension keeps every tab: closing it whole would take tabs the
+        // checkpoint could not see
+        List<String> browsersLeft = projectObj.apps.getOrDefault("Browser", new HashSet<>()).stream()
+                .filter(exe -> !handled.contains(exe.toLowerCase())).sorted().toList();
+        Object watch = closeWatch = new Object();
+        closing = projectObj;   // renderDetail and the "Saved" hand-back read it through idleLine
+        Thread worker = new Thread(() -> {
+            try {
+                powershell(closeScript(apps, folders)).waitFor(20, TimeUnit.SECONDS);
+                Thread.sleep(CLOSE_GRACE_MS);
+                long until = System.nanoTime() + CLOSE_WATCH_NANOS;
+                for (boolean first = true; closeWatch == watch; first = false) {
+                    List<String> open = stillOpen(apps, captureRunningApps());
+                    boolean last = open.isEmpty() || System.nanoTime() > until, shown = !first;
+                    Platform.runLater(() -> showStillOpen(projectObj, watch, open, browsersLeft, shown));
+                    if (last) return;
+                    Thread.sleep(CLOSE_POLL_MS);
+                }
+            } catch (IOException | InterruptedException ex) {
+                System.err.println("close failed: " + ex.getMessage());
+                Platform.runLater(() -> { if (closeWatch == watch) endClose(projectObj, false); });
+            }
+        }, "close");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    /** The list of what did not close; shown: it is already up, so this only updates it. */
+    private void showStillOpen(Project projectObj, Object watch, List<String> open, List<String> browsers, boolean shown) {
+        if (closeWatch != watch) return;
+        boolean ours = confirmPane.isVisible() && STILL_OPEN.equals(confirmTitle.getText());
+        if (open.isEmpty() && browsers.isEmpty()) {
+            if (ours) showOverlay(null);
+            endClose(projectObj, true);
+            return;
+        }
+        if (shown && !ours) {   // dismissed with Escape, or another dialog took its place
+            endClose(projectObj, false);
+            return;
+        }
+        if (!ours) {
+            confirm(STILL_OPEN, "checkpoint saved",
+                    "Each one is waiting on you, usually to save. Answer it and it drops off this list. "
+                            + "Nothing is closed by force.",
+                    "Leave open", () -> endClose(projectObj, false));
+            btnConfirmCancel.setVisible(false);
+            btnConfirmCancel.setManaged(false);
+            btnConfirmOk.requestFocus();
+        }
+        List<Node> rows = new ArrayList<>();
+        open.forEach(exe -> rows.add(stillOpenRow(exe, null)));
+        browsers.forEach(exe -> rows.add(stillOpenRow(exe, "no extension, tabs left open")));
+        confirmList.getChildren().setAll(rows);
+    }
+
+    private HBox stillOpenRow(String exe, String note) {
+        Label name = styled(new Label(appName(exe)), "step-label");
+        Region gap = new Region();
+        HBox.setHgrow(gap, Priority.ALWAYS);
+        Button show = styled(new Button("Show"), "btn-ghost");
+        show.setAccessibleText("Show " + appName(exe));
+        show.setOnAction(e -> showApp(exe));
+        HBox row = new HBox(10, name);
+        if (note != null) row.getChildren().add(styled(new Label(note), "dialog-sub"));
+        row.getChildren().addAll(gap, show);
+        row.setAlignment(Pos.CENTER_LEFT);
+        return row;
+    }
+
+    /** Brings the app's window (and its save prompt) to the front. */
+    private static void showApp(String exe) {
+        String name = exe.replaceFirst("(?i)\\.exe$", "").replace("'", "''");
+        try {
+            powershell("$q = Get-Process -Name '" + name + "' -ErrorAction SilentlyContinue | "
+                    + "Where-Object { $_.MainWindowTitle } | Select-Object -First 1; "
+                    + "if ($q) { [void](New-Object -ComObject WScript.Shell).AppActivate($q.Id) }");
+        } catch (IOException ex) {
+            System.err.println("show " + exe + ": " + ex.getMessage());
+        }
+    }
+
+    private void endClose(Project projectObj, boolean all) {
+        closeWatch = null;
+        closing = null;
+        if (projectObj == activeProject) checkpointSub.setText(all ? "all closed" : idleLine(projectObj));
+    }
+
     /** The generic confirm scrim. The verb button carries the caller's word and action, in the
         neutral bone: a Retry that rewrites a note is not a checkpoint. */
     private void confirm(String title, String sub, String body, String verb, Runnable onOk) {
@@ -2296,6 +2476,10 @@ public class HelloController {
         confirmTitle.setText(title);
         confirmSub.setText(sub);
         confirmBody.setText(body);
+        // the still-open list hides Cancel and fills the list; every other dialog has neither
+        confirmList.getChildren().clear();
+        btnConfirmCancel.setVisible(true);
+        btnConfirmCancel.setManaged(true);
         btnConfirmOk.setText(verb);
         styleAs(btnConfirmOk, style);
         btnConfirmOk.setOnAction(e -> {
@@ -3241,7 +3425,8 @@ public class HelloController {
     }
     // == Embedded server (the contract with ResumeOneExtension) ============
     //   WS  /ws?browser=X&profile=email   extension keeps this open; app pushes "capture" to request tabs,
-    //                       or {"open":[urls]} on resume and the extension answers {"opened":n}
+    //                       or {"open":[urls]} on resume and the extension answers {"opened":n},
+    //                       or {"close":[urls]} on Checkpoint & close (no answer)
     //   GET /project        active project name ("" if none) - the popup's "is the app up?"
     //   POST /tabs          {browser, profile, urls[]} -> stored on the active project and saved
     //   Port 8765, CORS open, because the extension's fetch comes from a chrome-extension:// origin.

@@ -447,13 +447,16 @@
 
       <!-- Generic confirm. Copy and the verb button come from confirm() in the controller. -->
       <VBox fx:id="confirmPane" styleClass="scrim" alignment="CENTER" visible="false" managed="false">
-        <VBox styleClass="dialog" spacing="8.0" maxWidth="440.0" maxHeight="230.0">
+        <!-- maxHeight -Infinity (USE_PREF_SIZE): grows with the still-open list's rows -->
+        <VBox styleClass="dialog" spacing="8.0" maxWidth="440.0" maxHeight="-Infinity">
           <padding><Insets top="24.0" right="24.0" bottom="16.0" left="24.0"/></padding>
           <Label fx:id="confirmTitle" styleClass="dialog-title" text=""/>
           <Label fx:id="confirmSub" styleClass="dialog-sub" text=""/>
           <Label fx:id="confirmBody" styleClass="empty-body" wrapText="true" maxWidth="400.0">
             <VBox.margin><Insets top="8.0"/></VBox.margin>
           </Label>
+          <!-- Checkpoint & close: one row per app that did not close, filled by the controller -->
+          <VBox fx:id="confirmList" spacing="4.0"/>
           <HBox alignment="CENTER_RIGHT" spacing="8.0">
             <VBox.margin><Insets top="8.0"/></VBox.margin>
             <Button fx:id="btnConfirmCancel" styleClass="btn-ghost" text="Cancel"
