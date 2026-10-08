@@ -1155,7 +1155,8 @@ public class HelloController {
             chips.setAlignment(Pos.CENTER_LEFT);
             chips.setMinWidth(0);
             for (String app : bucket) {
-                chips.getChildren().add(other ? otherChip(projectObj, app) : chip(projectObj, category, app));
+                chips.getChildren().add(other ? otherChip(projectObj, app)
+                        : category.equals(USER_APPS) ? appsChip(projectObj, app) : chip(projectObj, category, app));
             }
 
             HBox row = new HBox(10);
@@ -1334,17 +1335,32 @@ public class HelloController {
     }
 
     /** An Other chip: + relaunches the app on every resume from now on (it moves to Apps), x
-        hides it for good. Both are undone from Settings. */
+        hides it for good. The − on its Apps chip undoes the +; Settings undoes the x. */
     private HBox otherChip(Project projectObj, String app) {
         String name = appName(app);
-        String addText = "Relaunch " + name + " on every resume", hideText = "Hide " + name + ": stop capturing it";
-        StackPane add = chipButton(Icons.NEW, addText, () -> relaunchApp(app), projectObj, 12);
-        StackPane hide = chipButton(Icons.CLOSE, hideText, () -> hideApp(projectObj, app), projectObj, 12);
-        // two buttons on one chip: each says what it does, the x here is not a plain remove
-        Tooltip.install(add, tip(addText));
-        Tooltip.install(hide, tip(hideText));
+        StackPane add = chipButton(Icons.NEW, "Relaunch " + name + " on every resume", () -> relaunchApp(app), projectObj, 12);
         add.getStyleClass().add("rm-add");
-        HBox chip = new HBox(2, new Label(name), add, hide);
+        return actionChip(app, add,
+                chipButton(Icons.CLOSE, "Hide " + name + ": stop capturing it", () -> hideApp(projectObj, app), projectObj, 12));
+    }
+
+    /** An Apps chip: − takes back the + that put it here (back to Other, not relaunched); x
+        removes it from this project like any chip. */
+    private HBox appsChip(Project projectObj, String app) {
+        String name = appName(app);
+        // the minimize glyph is a plain minus; not red on hover, it is an undo, not a removal
+        StackPane back = chipButton(Icons.MINIMIZE, "Stop relaunching " + name + ": back to Other",
+                () -> unrelaunchApp(app), projectObj, 12);
+        back.getStyleClass().add("rm-add");
+        return actionChip(app, back, remover(() -> removeApp(projectObj, USER_APPS, app), projectObj, 12, name));
+    }
+
+    /** A chip with two hover buttons. Each says what it does on hover - the x on an Other chip
+        is not a plain remove - and they sit 12px apart so their 24px targets meet, not overlap. */
+    private HBox actionChip(String app, StackPane first, StackPane second) {
+        for (StackPane b : List.of(first, second)) Tooltip.install(b, tip(b.getAccessibleText()));
+        HBox.setMargin(second, new Insets(-4, -6, -4, 4));
+        HBox chip = new HBox(2, new Label(appName(app)), first, second);
         Tooltip.install(chip, tip(app));
         chip.getStyleClass().addAll("chip", "cut");
         chip.setAlignment(Pos.CENTER_LEFT);
@@ -2362,6 +2378,13 @@ public class HelloController {
         on disk do when they load (recategorizeOther). */
     private void relaunchApp(String app) {
         relaunched.add(app.toLowerCase());
+        storeUserApps();
+        projects.forEach(HelloController::recategorizeOther);
+    }
+
+    /** − on an Apps chip: the + taken back. Every open project moves it to Other again. */
+    private void unrelaunchApp(String app) {
+        relaunched.remove(app.toLowerCase());
         storeUserApps();
         projects.forEach(HelloController::recategorizeOther);
     }
