@@ -254,6 +254,23 @@ class HelloControllerSegregateAppsTest {
     }
 
     @Test
+    void onlyCapturedAppsKeepAnExePath() {
+        // what the window listing hands back on this machine: the overlay is an ignored window,
+        // java.exe is ResumeOne itself, explorer.exe the desktop - none of them were captured
+        java.util.Map<String, String> exePaths = new HashMap<>(java.util.Map.of(
+                "idea64.exe", "C:\\JetBrains\\bin\\idea64.exe",
+                "NVIDIA Overlay.exe", "C:\\NVIDIA\\NVIDIA Overlay.exe",
+                "java.exe", "C:\\jdk\\bin\\java.exe",
+                "explorer.exe", "C:\\WINDOWS\\Explorer.EXE"));
+        HashMap<String, HashSet<String>> apps = new HashMap<>();
+        apps.put("IDE", new HashSet<>(java.util.Set.of("idea64.exe")));
+
+        HelloController.keepCapturedExePaths(exePaths, apps);
+
+        assertEquals(java.util.Set.of("idea64.exe"), exePaths.keySet());
+    }
+
+    @Test
     void copilotAppIsAiAndRelaunchesByItsStoreId() {
         // the Windows Copilot app runs as mscopilot.exe, which is on neither PATH nor App Paths
         var result = new HelloController().segregateApps(new java.util.HashSet<>(java.util.List.of("mscopilot.exe")));

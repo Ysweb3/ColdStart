@@ -2186,7 +2186,15 @@ public class HelloController {
             return null;
         }
         addFolderApps(apps, found.folders());
+        keepCapturedExePaths(found.exePaths(), apps);
         return found;
+    }
+
+    /** The window listing has every titled window's exe - ResumeOne's own java.exe, the
+        desktop's explorer.exe, overlays the capture ignores, apps the user hid. Only the apps
+        this checkpoint kept need a path to relaunch from. */
+    static void keepCapturedExePaths(Map<String, String> exePaths, Map<String, HashSet<String>> apps) {
+        exePaths.keySet().removeIf(exe -> apps.values().stream().flatMap(Set::stream).noneMatch(exe::equalsIgnoreCase));
     }
 
     static void addFolderApps(Map<String, HashSet<String>> apps, Map<String, ArrayList<String>> folders) {
