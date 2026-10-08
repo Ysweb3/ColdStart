@@ -3137,13 +3137,75 @@ public class HelloController {
     // because brave reports itself as chrome there
     static String wsBrowser(WsContext ctx) {
         String browser = ctx.queryParam("browser");
-        return browserKey(browser == null || browser.isEmpty() ? "unknown browser" : browser, ctx.queryParam("profile"));
+        String brand = browser == null || browser.isEmpty() ? "unknown browser" : browser;
+        return browserKey(brand, profilePart(brand, ctx.queryParam("profile"), ctx.queryParam("pid")));
     }
 
     // each profile runs its own extension, so with the brand alone two chrome profiles
-    // overwrote each other's tabs. a signed-in profile rides along as "Chrome · me@x.com";
-    // one signed in to nothing sends no email and stays plain "Chrome".
+    // overwrote each other's tabs. a profile rides along as "Chrome · me@x.com" when the
+    // browser gives its email, else by its name, "Chrome · Yash" (profilePart). Only one the
+    // app cannot tell (no email, no id it can find) stays plain "Chrome".
     static final String PROFILE_SEP = " · ";
+
+    /** The profile half of a bucket key: the email when the browser gives one; else the name of
+        the profile folder holding the extension's id (pidDir) - a profile can be signed in
+        and still hand an extension no email; else null, plain "Chrome". */
+    static String profilePart(String brand, String email, String pid) {
+        if (email != null && !email.isEmpty()) return email;
+        String data = USER_DATA.get(brand.toLowerCase());
+        if (data == null) return null;
+        File userData = new File(System.getenv("LOCALAPPDATA"), data);
+        String dir = pidDir(userData, pid);
+        if (dir == null) return null;
+        String name = nameOf(profileEntry(new File(userData, "Local State"), dir));
+        return name != null ? name : dir;
+    }
+
+    /** pid -> profile folder; "" when no folder held it. */
+    private static final Map<String, String> PID_DIRS = new ConcurrentHashMap<>();
+
+    /** The profile folder ("Default", "Profile 1") whose extension storage holds this id. The
+        extension writes it once to chrome.storage.local, which every profile keeps apart under
+        <folder>\Local Extension Settings\<extension>\, a LevelDB whose fresh writes sit as plain
+        text in its .log; a random id stays a literal when compacted into .ldb.
+        ponytail: a byte search of those files, remembered per id, misses included; read the
+        LevelDB properly if an id ever goes unfound. */
+    static String pidDir(File userData, String pid) {
+        if (pid == null || !pid.matches("[0-9a-fA-F-]{36}")) return null;
+        String known = PID_DIRS.get(pid);
+        if (known != null) return known.isEmpty() ? null : known;
+        byte[] needle = pid.getBytes(StandardCharsets.US_ASCII);
+        String found = "";
+        File[] profiles = userData.listFiles(File::isDirectory);
+        search:
+        for (File profile : profiles == null ? new File[0] : profiles) {
+            File[] stores = new File(profile, "Local Extension Settings").listFiles(File::isDirectory);
+            for (File store : stores == null ? new File[0] : stores) {
+                File[] files = store.listFiles((d, n) -> n.endsWith(".log") || n.endsWith(".ldb"));
+                for (File f : files == null ? new File[0] : files) {
+                    try {
+                        if (f.length() < 8_000_000 && indexOf(Files.readAllBytes(f.toPath()), needle) >= 0) {
+                            found = profile.getName();
+                            break search;
+                        }
+                    } catch (IOException ex) {
+                        // a file the browser holds or just compacted away: the next one may have it
+                    }
+                }
+            }
+        }
+        PID_DIRS.put(pid, found);
+        return found.isEmpty() ? null : found;
+    }
+
+    static int indexOf(byte[] hay, byte[] needle) {
+        outer:
+        for (int i = 0; i <= hay.length - needle.length; i++) {
+            for (int j = 0; j < needle.length; j++) if (hay[i + j] != needle[j]) continue outer;
+            return i;
+        }
+        return -1;
+    }
 
     static String browserKey(String browser, String profile) {
         return profile == null || profile.isEmpty() ? browser : browser + PROFILE_SEP + profile;
@@ -3196,24 +3258,44 @@ public class HelloController {
     }
 
     private static Map.Entry<String, Map<String, Object>> profileEntry(String key) {
-        String email = profileOf(key), data = USER_DATA.get(brandOf(key).toLowerCase());
-        if (email == null || data == null) return null;
-        return profileEntry(new File(System.getenv("LOCALAPPDATA"), data + "\\Local State"), email);
+        String who = profileOf(key), data = USER_DATA.get(brandOf(key).toLowerCase());
+        if (who == null || data == null) return null;
+        return profileEntry(new File(System.getenv("LOCALAPPDATA"), data + "\\Local State"), who);
     }
 
-    /** Local State's profile.info_cache maps each folder to its profile, user_name the email. */
-    private static Map.Entry<String, Map<String, Object>> profileEntry(File localState, String email) {
+    /** Local State's profile.info_cache maps each folder to its profile: user_name the email,
+        name what the browser calls it. who is any of the three, as profilePart keys them.
+        ponytail: two profiles with one name - the first wins */
+    private static Map.Entry<String, Map<String, Object>> profileEntry(File localState, String who) {
+        Map<String, Map<String, Object>> profiles = profiles(localState);
+        for (Map.Entry<String, Map<String, Object>> p : profiles.entrySet()) {
+            if (who.equalsIgnoreCase(String.valueOf(p.getValue().get("user_name")))) return p;
+        }
+        for (Map.Entry<String, Map<String, Object>> p : profiles.entrySet()) {
+            if (who.equals(p.getKey()) || who.equals(p.getValue().get("name"))) return p;
+        }
+        return null;
+    }
+
+    /** folder -> profile, empty when there is no Local State or it has a shape we do not know
+        (the browser then picks the profile itself). */
+    private static Map<String, Map<String, Object>> profiles(File localState) {
         try (Reader r = new FileReader(localState)) {
             Map<String, Object> state = new Gson().fromJson(r, Map.class);
             Map<String, Map<String, Object>> profiles =
                     (Map<String, Map<String, Object>>) ((Map<String, Object>) state.get("profile")).get("info_cache");
-            for (Map.Entry<String, Map<String, Object>> p : profiles.entrySet()) {
-                if (email.equalsIgnoreCase(String.valueOf(p.getValue().get("user_name")))) return p;
-            }
+            if (profiles != null) return profiles;
         } catch (IOException | RuntimeException ex) {
-            // no Local State, or a shape we do not know: let the browser pick the profile
+            // fall through
         }
-        return null;
+        return Map.of();
+    }
+
+    /** How many profiles the brand has; 1 when it keeps none we can read. */
+    static int profileCount(String brand) {
+        String data = USER_DATA.get(brand.toLowerCase());
+        if (data == null) return 1;
+        return Math.max(1, profiles(new File(System.getenv("LOCALAPPDATA"), data + "\\Local State")).size());
     }
 
     /** One profile's window of tabs: every url its own argument with no shell in between, as cmd
@@ -3483,7 +3565,9 @@ public class HelloController {
             }
             // check for open urls and skip them
             WsContext live = wsSessions.stream()
-                    .filter(s -> sameBrowser(wsBrowser(s), browser)).findFirst().orElse(null);
+                    .filter(s -> sameBrowser(wsBrowser(s), browser))
+                    // the bucket's own profile before any other of its brand
+                    .min(Comparator.comparing(s -> !wsBrowser(s).equalsIgnoreCase(browser))).orElse(null);
             if (live != null) {
                 steps.add(new LaunchStep(browser, urls.size() + " urls · via extension, open tabs skipped",
                         true, () -> {
@@ -3829,14 +3913,16 @@ public class HelloController {
             if (target != null && incoming != null) {
                 // browser is absent when getBrowserFromBrands() recognises no brand
                 String brand = browser != null ? browser.toString() : DEFAULT_BROWSER;
-                Object profile = data.get("profile");
-                String key = browserKey(brand, profile == null ? null : profile.toString());
+                Object profile = data.get("profile"), pid = data.get("pid");
+                String key = browserKey(brand, profilePart(brand, profile == null ? null : profile.toString(),
+                        pid == null ? null : pid.toString()));
                 List<String> pages = incoming.stream().filter(HelloController::isPageUrl).toList();
                 ArrayList<String> had = target.urlsByBrowser.getOrDefault(key, new ArrayList<>());
                 // the brand-only bucket from before the extension sent its profile is this
-                // profile's now - unless a profile signed in to nothing is on the socket as it
-                // ponytail: two signed-in profiles of one brand - whichever posts first takes it
-                if (!key.equals(brand) && wsSessions.stream().noneMatch(s -> wsBrowser(s).equals(brand))) {
+                // profile's now - but only when the browser has just the one profile: with two,
+                // the "Yash" profile's Pinterest tabs went into "ys"'s list this way
+                if (!key.equals(brand) && profileCount(brand) <= 1
+                        && wsSessions.stream().noneMatch(s -> wsBrowser(s).equals(brand))) {
                     List<String> legacy = target.urlsByBrowser.remove(brand);
                     if (legacy != null) had = mergeUrls(had, legacy);
                 }
