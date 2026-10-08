@@ -37,6 +37,8 @@ public class Project {
     // see AppFolders. Gson leaves it null for a project saved before it existed.
     public HashMap<String, ArrayList<String>> folders;
     public HashMap<String, String> exePaths;
+    // exe -> "state,x,y,w,h" per window (AppFolders.PLACE), so resume puts windows back
+    public HashMap<String, ArrayList<String>> windows;
     // legacy: url list from before capture recorded which browser the tabs came from.
     // still read so an existing projects.json is not silently emptied - see getProjectsJson().
     public ArrayList<String> urls;

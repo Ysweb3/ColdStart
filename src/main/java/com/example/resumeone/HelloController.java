@@ -537,6 +537,7 @@ public class HelloController {
                     if (dirs != null) {
                         projectObj.folders = dirs.folders();
                         projectObj.exePaths = dirs.exePaths();
+                        projectObj.windows = dirs.windows();
                     }
                 }
                 saveProject(projectObj);
@@ -1580,6 +1581,7 @@ public class HelloController {
                     r.plan = planResume(r.project, captureRunningApps(), liveFolders(r.project), r.log);
                     Platform.runLater(() -> renderResuming(r));
                 }
+                if (r.queued() > 0) placeWindows(r.project.windows);
                 for (LaunchStep step : r.plan.steps()) {
                     if (step.state != LaunchStep.State.QUEUED) continue;   // ran before the stop
                     if (stopRequested) {
@@ -2071,6 +2073,7 @@ public class HelloController {
         projectObj.apps = old.apps;
         projectObj.folders = old.folders;
         projectObj.exePaths = old.exePaths;
+        projectObj.windows = old.windows;
         projectObj.urlsByBrowser = old.urlsByBrowser;
         projectObj.lastCheckpoint = old.lastCheckpoint;
     }
@@ -2166,9 +2169,13 @@ public class HelloController {
                     mergeFolders(projectObj.folders, folders.folders());
                     if (projectObj.exePaths == null) projectObj.exePaths = new HashMap<>();
                     projectObj.exePaths.putAll(folders.exePaths());
+                    // an app open now is where it is now
+                    if (projectObj.windows == null) projectObj.windows = new HashMap<>();
+                    projectObj.windows.putAll(folders.windows());
                 } else {
                     projectObj.folders = folders.folders();
                     projectObj.exePaths = folders.exePaths();
+                    projectObj.windows = folders.windows();
                 }
             }
             projectObj.lastCheckpoint = Instant.now().toString();
@@ -2242,13 +2249,14 @@ public class HelloController {
         }
         addFolderApps(apps, found.folders());
         keepCapturedExePaths(found.exePaths(), apps);
+        keepCapturedExePaths(found.windows(), apps);
         return found;
     }
 
     /** The window listing has every titled window's exe - ResumeOne's own java.exe, the
         desktop's explorer.exe, overlays the capture ignores, apps the user hid. Only the apps
         this checkpoint kept need a path to relaunch from. */
-    static void keepCapturedExePaths(Map<String, String> exePaths, Map<String, HashSet<String>> apps) {
+    static void keepCapturedExePaths(Map<String, ?> exePaths, Map<String, HashSet<String>> apps) {
         exePaths.keySet().removeIf(exe -> apps.values().stream().flatMap(Set::stream).noneMatch(exe::equalsIgnoreCase));
     }
 
@@ -3129,13 +3137,75 @@ public class HelloController {
     // because brave reports itself as chrome there
     static String wsBrowser(WsContext ctx) {
         String browser = ctx.queryParam("browser");
-        return browserKey(browser == null || browser.isEmpty() ? "unknown browser" : browser, ctx.queryParam("profile"));
+        String brand = browser == null || browser.isEmpty() ? "unknown browser" : browser;
+        return browserKey(brand, profilePart(brand, ctx.queryParam("profile"), ctx.queryParam("pid")));
     }
 
     // each profile runs its own extension, so with the brand alone two chrome profiles
-    // overwrote each other's tabs. a signed-in profile rides along as "Chrome · me@x.com";
-    // one signed in to nothing sends no email and stays plain "Chrome".
+    // overwrote each other's tabs. a profile rides along as "Chrome · me@x.com" when the
+    // browser gives its email, else by its name, "Chrome · Yash" (profilePart). Only one the
+    // app cannot tell (no email, no id it can find) stays plain "Chrome".
     static final String PROFILE_SEP = " · ";
+
+    /** The profile half of a bucket key: the email when the browser gives one; else the name of
+        the profile folder holding the extension's id (pidDir) - a profile can be signed in
+        and still hand an extension no email; else null, plain "Chrome". */
+    static String profilePart(String brand, String email, String pid) {
+        if (email != null && !email.isEmpty()) return email;
+        String data = USER_DATA.get(brand.toLowerCase());
+        if (data == null) return null;
+        File userData = new File(System.getenv("LOCALAPPDATA"), data);
+        String dir = pidDir(userData, pid);
+        if (dir == null) return null;
+        String name = nameOf(profileEntry(new File(userData, "Local State"), dir));
+        return name != null ? name : dir;
+    }
+
+    /** pid -> profile folder; "" when no folder held it. */
+    private static final Map<String, String> PID_DIRS = new ConcurrentHashMap<>();
+
+    /** The profile folder ("Default", "Profile 1") whose extension storage holds this id. The
+        extension writes it once to chrome.storage.local, which every profile keeps apart under
+        <folder>\Local Extension Settings\<extension>\, a LevelDB whose fresh writes sit as plain
+        text in its .log; a random id stays a literal when compacted into .ldb.
+        ponytail: a byte search of those files, remembered per id, misses included; read the
+        LevelDB properly if an id ever goes unfound. */
+    static String pidDir(File userData, String pid) {
+        if (pid == null || !pid.matches("[0-9a-fA-F-]{36}")) return null;
+        String known = PID_DIRS.get(pid);
+        if (known != null) return known.isEmpty() ? null : known;
+        byte[] needle = pid.getBytes(StandardCharsets.US_ASCII);
+        String found = "";
+        File[] profiles = userData.listFiles(File::isDirectory);
+        search:
+        for (File profile : profiles == null ? new File[0] : profiles) {
+            File[] stores = new File(profile, "Local Extension Settings").listFiles(File::isDirectory);
+            for (File store : stores == null ? new File[0] : stores) {
+                File[] files = store.listFiles((d, n) -> n.endsWith(".log") || n.endsWith(".ldb"));
+                for (File f : files == null ? new File[0] : files) {
+                    try {
+                        if (f.length() < 8_000_000 && indexOf(Files.readAllBytes(f.toPath()), needle) >= 0) {
+                            found = profile.getName();
+                            break search;
+                        }
+                    } catch (IOException ex) {
+                        // a file the browser holds or just compacted away: the next one may have it
+                    }
+                }
+            }
+        }
+        PID_DIRS.put(pid, found);
+        return found.isEmpty() ? null : found;
+    }
+
+    static int indexOf(byte[] hay, byte[] needle) {
+        outer:
+        for (int i = 0; i <= hay.length - needle.length; i++) {
+            for (int j = 0; j < needle.length; j++) if (hay[i + j] != needle[j]) continue outer;
+            return i;
+        }
+        return -1;
+    }
 
     static String browserKey(String browser, String profile) {
         return profile == null || profile.isEmpty() ? browser : browser + PROFILE_SEP + profile;
@@ -3188,24 +3258,44 @@ public class HelloController {
     }
 
     private static Map.Entry<String, Map<String, Object>> profileEntry(String key) {
-        String email = profileOf(key), data = USER_DATA.get(brandOf(key).toLowerCase());
-        if (email == null || data == null) return null;
-        return profileEntry(new File(System.getenv("LOCALAPPDATA"), data + "\\Local State"), email);
+        String who = profileOf(key), data = USER_DATA.get(brandOf(key).toLowerCase());
+        if (who == null || data == null) return null;
+        return profileEntry(new File(System.getenv("LOCALAPPDATA"), data + "\\Local State"), who);
     }
 
-    /** Local State's profile.info_cache maps each folder to its profile, user_name the email. */
-    private static Map.Entry<String, Map<String, Object>> profileEntry(File localState, String email) {
+    /** Local State's profile.info_cache maps each folder to its profile: user_name the email,
+        name what the browser calls it. who is any of the three, as profilePart keys them.
+        ponytail: two profiles with one name - the first wins */
+    private static Map.Entry<String, Map<String, Object>> profileEntry(File localState, String who) {
+        Map<String, Map<String, Object>> profiles = profiles(localState);
+        for (Map.Entry<String, Map<String, Object>> p : profiles.entrySet()) {
+            if (who.equalsIgnoreCase(String.valueOf(p.getValue().get("user_name")))) return p;
+        }
+        for (Map.Entry<String, Map<String, Object>> p : profiles.entrySet()) {
+            if (who.equals(p.getKey()) || who.equals(p.getValue().get("name"))) return p;
+        }
+        return null;
+    }
+
+    /** folder -> profile, empty when there is no Local State or it has a shape we do not know
+        (the browser then picks the profile itself). */
+    private static Map<String, Map<String, Object>> profiles(File localState) {
         try (Reader r = new FileReader(localState)) {
             Map<String, Object> state = new Gson().fromJson(r, Map.class);
             Map<String, Map<String, Object>> profiles =
                     (Map<String, Map<String, Object>>) ((Map<String, Object>) state.get("profile")).get("info_cache");
-            for (Map.Entry<String, Map<String, Object>> p : profiles.entrySet()) {
-                if (email.equalsIgnoreCase(String.valueOf(p.getValue().get("user_name")))) return p;
-            }
+            if (profiles != null) return profiles;
         } catch (IOException | RuntimeException ex) {
-            // no Local State, or a shape we do not know: let the browser pick the profile
+            // fall through
         }
-        return null;
+        return Map.of();
+    }
+
+    /** How many profiles the brand has; 1 when it keeps none we can read. */
+    static int profileCount(String brand) {
+        String data = USER_DATA.get(brand.toLowerCase());
+        if (data == null) return 1;
+        return Math.max(1, profiles(new File(System.getenv("LOCALAPPDATA"), data + "\\Local State")).size());
     }
 
     /** One profile's window of tabs: every url its own argument with no shell in between, as cmd
@@ -3475,7 +3565,9 @@ public class HelloController {
             }
             // check for open urls and skip them
             WsContext live = wsSessions.stream()
-                    .filter(s -> sameBrowser(wsBrowser(s), browser)).findFirst().orElse(null);
+                    .filter(s -> sameBrowser(wsBrowser(s), browser))
+                    // the bucket's own profile before any other of its brand
+                    .min(Comparator.comparing(s -> !wsBrowser(s).equalsIgnoreCase(browser))).orElse(null);
             if (live != null) {
                 steps.add(new LaunchStep(browser, urls.size() + " urls · via extension, open tabs skipped",
                         true, () -> {
@@ -3647,6 +3739,77 @@ public class HelloController {
         });
     }
 
+    // == Window placement ====================================================
+    //   A launched app opens wherever it likes (Chrome came back half-size), so a script runs
+    //   beside the resume: it notes the windows already open, then gives each new window of a
+    //   saved app the next place the checkpoint saw that app's windows in - maximized on the
+    //   same monitor, or at the same position and size. Windows that were open before are
+    //   never moved.
+
+    /** How long the script waits for windows to appear: IntelliJ can take this long to load. */
+    static final int PLACE_SECONDS = 90;
+
+    /** The script for placeWindows. Prints "ready" once it knows which windows were open.
+        Places that are not AppFolders.PLACE (a hand-edited projects.json) are dropped here,
+        as they are pasted into the script.
+        ponytail: an app's windows take its places in capture order, so two VS Code windows
+        can come back swapped; matching on the folder in the title would fix that.
+        ponytail: UI Automation coordinates in a DPI-unaware PowerShell, read and written the
+        same way; monitors at different scales may land a little off. */
+    static String placeScript(Map<String, ArrayList<String>> windows) {
+        StringBuilder want = new StringBuilder();
+        windows.forEach((exe, places) -> {
+            List<String> ok = places.stream().filter(p -> AppFolders.PLACE.matcher(p).matches()).toList();
+            if (ok.isEmpty()) return;
+            want.append("'").append(exe.replaceFirst("(?i)\\.exe$", "").replace("'", "''")).append("' = ")
+                    .append("[Collections.ArrayList]@(").append(String.join(",", ok.stream().map(p -> "'" + p + "'").toList()))
+                    .append("); ");
+        });
+        return "$ErrorActionPreference = 'SilentlyContinue'; Add-Type -AssemblyName UIAutomationClient; "
+                + "$want = @{ " + want + "}; "
+                + "$root = [Windows.Automation.AutomationElement]::RootElement; "
+                + "$kids = [Windows.Automation.TreeScope]::Children; $any = [Windows.Automation.Condition]::TrueCondition; "
+                + "$seen = @{}; foreach ($w in $root.FindAll($kids, $any)) { $seen[$w.Current.NativeWindowHandle] = 1 }; "
+                + "'ready'; "
+                + "$end = (Get-Date).AddSeconds(" + PLACE_SECONDS + "); "
+                + "while ((Get-Date) -lt $end -and @($want.Values | Where-Object { $_.Count }).Count) { "
+                + "Start-Sleep -Milliseconds 500; $p = @{}; Get-Process | ForEach-Object { $p[$_.Id] = $_.ProcessName }; "
+                + "foreach ($w in $root.FindAll($kids, $any)) { "
+                + "$h = $w.Current.NativeWindowHandle; if ($seen[$h]) { continue }; "
+                + "$q = $want[$p[$w.Current.ProcessId]]; "
+                // untitled (still loading): looked at again next time round
+                + "if (-not $q -or -not $q.Count -or -not $w.Current.Name) { continue }; "
+                + "$seen[$h] = 1; "
+                + "try { $wp = $w.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern); "
+                // a splash screen or a dialog cannot maximize, and takes no place
+                + "if (-not $wp.Current.CanMaximize -or $wp.Current.IsModal) { continue }; "
+                + "$s, $x, $y, $cx, $cy = ($q[0] -split ','); $q.RemoveAt(0); "
+                + "$t = $w.GetCurrentPattern([Windows.Automation.TransformPattern]::Pattern); "
+                + "$wp.SetWindowVisualState('Normal'); "
+                // maximized: moved just inside the monitor it was on, then maximized there
+                + "if ($s -eq '1') { $t.Move([double]$x + 40, [double]$y + 40); $wp.SetWindowVisualState('Maximized') } "
+                + "else { $t.Move([double]$x, [double]$y); $t.Resize([double]$cx, [double]$cy) } "
+                + "} catch { } } }";
+    }
+
+    /** Starts the placement script and returns once it is ready, so the first launch cannot
+        open a window it would take for one that was already there. Never fails a resume. */
+    static void placeWindows(Map<String, ArrayList<String>> windows) {
+        if (windows == null || windows.isEmpty()) return;
+        try {
+            Process process = new ProcessBuilder("powershell.exe", "-NoProfile", "-Command", placeScript(windows))
+                    .redirectError(ProcessBuilder.Redirect.DISCARD).start();
+            CompletableFuture.runAsync(process::destroyForcibly,
+                    CompletableFuture.delayedExecutor(PLACE_SECONDS + 30, TimeUnit.SECONDS));
+            BufferedReader out = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            CompletableFuture.supplyAsync(() -> {
+                try { return out.readLine(); } catch (IOException ex) { return null; }
+            }).get(15, TimeUnit.SECONDS);
+        } catch (Exception ex) {
+            System.err.println("window placement skipped: " + ex);
+        }
+    }
+
     /** Native folder picker. Returns the absolute path, or the string "NULL" on cancel -
         callers compare against that sentinel. */
     public String openFolder(ActionEvent event) {
@@ -3750,14 +3913,16 @@ public class HelloController {
             if (target != null && incoming != null) {
                 // browser is absent when getBrowserFromBrands() recognises no brand
                 String brand = browser != null ? browser.toString() : DEFAULT_BROWSER;
-                Object profile = data.get("profile");
-                String key = browserKey(brand, profile == null ? null : profile.toString());
+                Object profile = data.get("profile"), pid = data.get("pid");
+                String key = browserKey(brand, profilePart(brand, profile == null ? null : profile.toString(),
+                        pid == null ? null : pid.toString()));
                 List<String> pages = incoming.stream().filter(HelloController::isPageUrl).toList();
                 ArrayList<String> had = target.urlsByBrowser.getOrDefault(key, new ArrayList<>());
                 // the brand-only bucket from before the extension sent its profile is this
-                // profile's now - unless a profile signed in to nothing is on the socket as it
-                // ponytail: two signed-in profiles of one brand - whichever posts first takes it
-                if (!key.equals(brand) && wsSessions.stream().noneMatch(s -> wsBrowser(s).equals(brand))) {
+                // profile's now - but only when the browser has just the one profile: with two,
+                // the "Yash" profile's Pinterest tabs went into "ys"'s list this way
+                if (!key.equals(brand) && profileCount(brand) <= 1
+                        && wsSessions.stream().noneMatch(s -> wsBrowser(s).equals(brand))) {
                     List<String> legacy = target.urlsByBrowser.remove(brand);
                     if (legacy != null) had = mergeUrls(had, legacy);
                 }
