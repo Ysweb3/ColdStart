@@ -529,6 +529,7 @@ public class HelloController {
                     if (dirs != null) {
                         projectObj.folders = dirs.folders();
                         projectObj.exePaths = dirs.exePaths();
+                        projectObj.windows = dirs.windows();
                     }
                 }
                 saveProject(projectObj);
@@ -1551,6 +1552,7 @@ public class HelloController {
                     r.plan = planResume(r.project, captureRunningApps(), liveFolders(r.project), r.log);
                     Platform.runLater(() -> renderResuming(r));
                 }
+                if (r.queued() > 0) placeWindows(r.project.windows);
                 for (LaunchStep step : r.plan.steps()) {
                     if (step.state != LaunchStep.State.QUEUED) continue;   // ran before the stop
                     if (stopRequested) {
@@ -2035,6 +2037,7 @@ public class HelloController {
         projectObj.apps = old.apps;
         projectObj.folders = old.folders;
         projectObj.exePaths = old.exePaths;
+        projectObj.windows = old.windows;
         projectObj.urlsByBrowser = old.urlsByBrowser;
         projectObj.lastCheckpoint = old.lastCheckpoint;
     }
@@ -2123,9 +2126,13 @@ public class HelloController {
                     mergeFolders(projectObj.folders, folders.folders());
                     if (projectObj.exePaths == null) projectObj.exePaths = new HashMap<>();
                     projectObj.exePaths.putAll(folders.exePaths());
+                    // an app open now is where it is now
+                    if (projectObj.windows == null) projectObj.windows = new HashMap<>();
+                    projectObj.windows.putAll(folders.windows());
                 } else {
                     projectObj.folders = folders.folders();
                     projectObj.exePaths = folders.exePaths();
+                    projectObj.windows = folders.windows();
                 }
             }
             projectObj.lastCheckpoint = Instant.now().toString();
@@ -2187,13 +2194,14 @@ public class HelloController {
         }
         addFolderApps(apps, found.folders());
         keepCapturedExePaths(found.exePaths(), apps);
+        keepCapturedExePaths(found.windows(), apps);
         return found;
     }
 
     /** The window listing has every titled window's exe - ResumeOne's own java.exe, the
         desktop's explorer.exe, overlays the capture ignores, apps the user hid. Only the apps
         this checkpoint kept need a path to relaunch from. */
-    static void keepCapturedExePaths(Map<String, String> exePaths, Map<String, HashSet<String>> apps) {
+    static void keepCapturedExePaths(Map<String, ?> exePaths, Map<String, HashSet<String>> apps) {
         exePaths.keySet().removeIf(exe -> apps.values().stream().flatMap(Set::stream).noneMatch(exe::equalsIgnoreCase));
     }
 
@@ -3217,6 +3225,77 @@ public class HelloController {
             new ProcessBuilder(cmd).redirectOutput(ProcessBuilder.Redirect.DISCARD)
                     .redirectError(ProcessBuilder.Redirect.DISCARD).start();
         });
+    }
+
+    // == Window placement ====================================================
+    //   A launched app opens wherever it likes (Chrome came back half-size), so a script runs
+    //   beside the resume: it notes the windows already open, then gives each new window of a
+    //   saved app the next place the checkpoint saw that app's windows in - maximized on the
+    //   same monitor, or at the same position and size. Windows that were open before are
+    //   never moved.
+
+    /** How long the script waits for windows to appear: IntelliJ can take this long to load. */
+    static final int PLACE_SECONDS = 90;
+
+    /** The script for placeWindows. Prints "ready" once it knows which windows were open.
+        Places that are not AppFolders.PLACE (a hand-edited projects.json) are dropped here,
+        as they are pasted into the script.
+        ponytail: an app's windows take its places in capture order, so two VS Code windows
+        can come back swapped; matching on the folder in the title would fix that.
+        ponytail: UI Automation coordinates in a DPI-unaware PowerShell, read and written the
+        same way; monitors at different scales may land a little off. */
+    static String placeScript(Map<String, ArrayList<String>> windows) {
+        StringBuilder want = new StringBuilder();
+        windows.forEach((exe, places) -> {
+            List<String> ok = places.stream().filter(p -> AppFolders.PLACE.matcher(p).matches()).toList();
+            if (ok.isEmpty()) return;
+            want.append("'").append(exe.replaceFirst("(?i)\\.exe$", "").replace("'", "''")).append("' = ")
+                    .append("[Collections.ArrayList]@(").append(String.join(",", ok.stream().map(p -> "'" + p + "'").toList()))
+                    .append("); ");
+        });
+        return "$ErrorActionPreference = 'SilentlyContinue'; Add-Type -AssemblyName UIAutomationClient; "
+                + "$want = @{ " + want + "}; "
+                + "$root = [Windows.Automation.AutomationElement]::RootElement; "
+                + "$kids = [Windows.Automation.TreeScope]::Children; $any = [Windows.Automation.Condition]::TrueCondition; "
+                + "$seen = @{}; foreach ($w in $root.FindAll($kids, $any)) { $seen[$w.Current.NativeWindowHandle] = 1 }; "
+                + "'ready'; "
+                + "$end = (Get-Date).AddSeconds(" + PLACE_SECONDS + "); "
+                + "while ((Get-Date) -lt $end -and @($want.Values | Where-Object { $_.Count }).Count) { "
+                + "Start-Sleep -Milliseconds 500; $p = @{}; Get-Process | ForEach-Object { $p[$_.Id] = $_.ProcessName }; "
+                + "foreach ($w in $root.FindAll($kids, $any)) { "
+                + "$h = $w.Current.NativeWindowHandle; if ($seen[$h]) { continue }; "
+                + "$q = $want[$p[$w.Current.ProcessId]]; "
+                // untitled (still loading): looked at again next time round
+                + "if (-not $q -or -not $q.Count -or -not $w.Current.Name) { continue }; "
+                + "$seen[$h] = 1; "
+                + "try { $wp = $w.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern); "
+                // a splash screen or a dialog cannot maximize, and takes no place
+                + "if (-not $wp.Current.CanMaximize -or $wp.Current.IsModal) { continue }; "
+                + "$s, $x, $y, $cx, $cy = ($q[0] -split ','); $q.RemoveAt(0); "
+                + "$t = $w.GetCurrentPattern([Windows.Automation.TransformPattern]::Pattern); "
+                + "$wp.SetWindowVisualState('Normal'); "
+                // maximized: moved just inside the monitor it was on, then maximized there
+                + "if ($s -eq '1') { $t.Move([double]$x + 40, [double]$y + 40); $wp.SetWindowVisualState('Maximized') } "
+                + "else { $t.Move([double]$x, [double]$y); $t.Resize([double]$cx, [double]$cy) } "
+                + "} catch { } } }";
+    }
+
+    /** Starts the placement script and returns once it is ready, so the first launch cannot
+        open a window it would take for one that was already there. Never fails a resume. */
+    static void placeWindows(Map<String, ArrayList<String>> windows) {
+        if (windows == null || windows.isEmpty()) return;
+        try {
+            Process process = new ProcessBuilder("powershell.exe", "-NoProfile", "-Command", placeScript(windows))
+                    .redirectError(ProcessBuilder.Redirect.DISCARD).start();
+            CompletableFuture.runAsync(process::destroyForcibly,
+                    CompletableFuture.delayedExecutor(PLACE_SECONDS + 30, TimeUnit.SECONDS));
+            BufferedReader out = new BufferedReader(new InputStreamReader(process.getInputStream()));
+            CompletableFuture.supplyAsync(() -> {
+                try { return out.readLine(); } catch (IOException ex) { return null; }
+            }).get(15, TimeUnit.SECONDS);
+        } catch (Exception ex) {
+            System.err.println("window placement skipped: " + ex);
+        }
     }
 
     /** Native folder picker. Returns the absolute path, or the string "NULL" on cancel -

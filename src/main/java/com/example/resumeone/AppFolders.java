@@ -35,13 +35,20 @@ final class AppFolders {
 
     /** exePath and commandLine are "" when unknown; the command line is only read for the
         apps that keep their document there (Unity, Blender). */
-    record Window(String exe, String exePath, String commandLine, String title) {
+    record Window(String exe, String exePath, String commandLine, String place, String title) {
+        Window(String exe, String exePath, String commandLine, String title) { this(exe, exePath, commandLine, "", title); }
         Window(String exe, String title) { this(exe, "", "", title); }
     }
 
-    /** What a capture found: exe -> its open folders/files, and exe -> the exe's full path
-        (Unity installs per version, Blender is rarely on PATH, so resume starts that file). */
-    record Capture(HashMap<String, ArrayList<String>> folders, HashMap<String, String> exePaths) {}
+    /** "state,x,y,width,height" from UI Automation: state 0 normal, 1 maximized. Minimized
+        windows and windows with no WindowPattern (the taskbar) are not placed. */
+    static final Pattern PLACE = Pattern.compile("[01],-?\\d+,-?\\d+,\\d+,\\d+");
+
+    /** What a capture found: exe -> its open folders/files, exe -> the exe's full path
+        (Unity installs per version, Blender is rarely on PATH, so resume starts that file),
+        and exe -> where each of its windows sat (see PLACE). */
+    record Capture(HashMap<String, ArrayList<String>> folders, HashMap<String, String> exePaths,
+                   HashMap<String, ArrayList<String>> windows) {}
 
     /** a VS Code build: its folder under %APPDATA% and the command that opens a folder in it */
     record VsCode(String dataDir, String cli) {}
@@ -87,6 +94,7 @@ final class AppFolders {
     static Capture resolve(List<Window> windows, File appData, String userHome) {
         HashMap<String, ArrayList<String>> out = new HashMap<>();
         HashMap<String, String> exePaths = new HashMap<>();
+        HashMap<String, ArrayList<String>> places = new HashMap<>();
         Map<String, List<String>> vscodeKnown = new HashMap<>();
         Map<String, String> jetbrainsKnown = null;   // read once, only when a JetBrains window is up
         List<String> blendRecent = null;
@@ -95,6 +103,7 @@ final class AppFolders {
             // every windowed app's, not only those with a folder: an app the user moves out of
             // Other is usually on neither PATH nor App Paths, and this is how resume finds it
             if (!w.exePath().isEmpty()) exePaths.put(w.exe(), w.exePath());
+            if (PLACE.matcher(w.place()).matches()) places.computeIfAbsent(w.exe(), k -> new ArrayList<>()).add(w.place());
             String folder = null;
             VsCode vs = VSCODE_FAMILY.get(lower);
             if (vs != null) {
@@ -120,7 +129,7 @@ final class AppFolders {
             ArrayList<String> list = out.computeIfAbsent(w.exe(), k -> new ArrayList<>());
             if (list.stream().noneMatch(folder::equalsIgnoreCase)) list.add(folder);
         }
-        return new Capture(out, exePaths);
+        return new Capture(out, exePaths, places);
     }
 
     // == Path in the title or on the command line ===========================
@@ -368,9 +377,12 @@ final class AppFolders {
                 "[Windows.Automation.AutomationElement]::RootElement.FindAll(" +
                 "[Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition) | " +
                 "ForEach-Object { $e = $_.Current; $q = $p[$e.ProcessId]; if ($e.Name -and $q) { " +
-                "$q.ProcessName + '.exe' + $t + $q.Path + $t + $c[$e.ProcessId] + $t + $e.Name } }; " +
+                // where the window sits, for resume to put it back (AppFolders.PLACE)
+                "$s = ''; try { $s = [int]$_.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern).Current.WindowVisualState } catch { }; " +
+                "$r = $e.BoundingRectangle; $w = '' + $s + ',' + [int]$r.X + ',' + [int]$r.Y + ',' + [int]$r.Width + ',' + [int]$r.Height; " +
+                "$q.ProcessName + '.exe' + $t + $q.Path + $t + $c[$e.ProcessId] + $t + $w + $t + $e.Name } }; " +
                 "(New-Object -ComObject Shell.Application).Windows() | " +
-                "ForEach-Object { 'explorer.exe' + $t + $t + $t + $_.LocationURL }; " +
+                "ForEach-Object { 'explorer.exe' + $t + $t + $t + $t + $_.LocationURL }; " +
                 // only apps already running: GetActiveObject never starts one. Adobe may not
                 // register there, so it gets New-Object, which attaches to the running copy.
                 // ponytail: an Adobe app quitting at that instant would start again; drop the
@@ -381,7 +393,7 @@ final class AppFolders {
                 "$q = Get-Process -Name $a[0] -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $q) { continue }; " +
                 "$o = $null; try { $o = [Runtime.InteropServices.Marshal]::GetActiveObject($a[1]) } catch { }; " +
                 "if (-not $o -and $a[0] -in @('Photoshop','Illustrator')) { try { $o = New-Object -ComObject $a[1] } catch { } }; " +
-                "if ($o) { foreach ($d in $o.($a[2])) { try { $q.ProcessName + '.exe' + $t + $q.Path + $t + $t + $d.FullName } catch { } } } }");
+                "if ($o) { foreach ($d in $o.($a[2])) { try { $q.ProcessName + '.exe' + $t + $q.Path + $t + $t + $t + $d.FullName } catch { } } } }");
         pb.redirectErrorStream(true);
         Process process = pb.start();
         // an Office app with a modal dialog up can leave a COM call waiting; the checkpoint
@@ -393,9 +405,9 @@ final class AppFolders {
                 new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
             String line;
             while ((line = reader.readLine()) != null) {
-                String[] f = line.replace("\uFEFF", "").split("\t", 4);
-                if (f.length == 4 && f[0].toLowerCase().endsWith(".exe")) {
-                    out.add(new Window(f[0].trim(), f[1].trim(), f[2].trim(), f[3].trim()));
+                String[] f = line.replace("\uFEFF", "").split("\t", 5);
+                if (f.length == 5 && f[0].toLowerCase().endsWith(".exe")) {
+                    out.add(new Window(f[0].trim(), f[1].trim(), f[2].trim(), f[3].trim(), f[4].trim()));
                 }
             }
         }
