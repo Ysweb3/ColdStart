@@ -34,6 +34,39 @@ class CheckpointCloseTest {
     }
 
     @Test
+    void titlesThatHoldUnsavedWork() {
+        for (String t : List.of("*notes.txt - Notepad", "\u25cf background.js - ResumeOneExtension - Visual Studio Code",
+                "Blender* [C:\\x\\scene.blend]", "Untitled - Paint", "*C:\\x\\a.txt - Notepad++", "scene.blend* - Blender 4.2")) {
+            assertTrue(AppFolders.looksUnsaved(t), t);
+        }
+        for (String t : List.of("notes.txt - Notepad", "background.js - ResumeOneExtension - Visual Studio Code",
+                "Blender [C:\\x\\scene.blend]", "photo.png - Paint", "ResumeOne \u2013 HelloController.java")) {
+            assertFalse(AppFolders.looksUnsaved(t), t);
+        }
+        // Word reports no marker in its title; a document with no folder was never saved
+        assertTrue(AppFolders.unsavedDocument("Document1"));
+        assertFalse(AppFolders.unsavedDocument("C:\\x\\report.docx"));
+        assertFalse(AppFolders.unsavedDocument("https://d.docs.live.net/abc/report.docx"));
+    }
+
+    @Test
+    void captureNamesTheAppsHoldingUnsavedWorkOnce() {
+        var found = AppFolders.resolve(List.of(
+                new AppFolders.Window("mspaint.exe", "Untitled - Paint"),
+                new AppFolders.Window("mspaint.exe", "*Untitled - Paint"),
+                new AppFolders.Window("Code.exe", "x.ts - proj - Visual Studio Code"),
+                new AppFolders.Window("WINWORD.EXE", "C:\\Office\\WINWORD.EXE", "", "Document1")),
+                new java.io.File("nowhere"), "nowhere");
+        assertEquals(List.of("mspaint.exe", "WINWORD.EXE"), found.unsaved());
+    }
+
+    @Test
+    void countLineReadsAsTheHandoffDoes() {
+        assertEquals("6 apps \u00b7 8 tabs", HelloController.countLine(6, 8));
+        assertEquals("1 app \u00b7 1 tab", HelloController.countLine(1, 1));
+    }
+
+    @Test
     void scriptQuotesNamesAndOnlyTouchesExplorerWhenAsked() {
         String s = HelloController.closeScript(List.of("Code.exe", "Bob's App.exe"), false);
         assertTrue(s.contains("$n = @('Code','Bob''s App')"), s);

@@ -87,7 +87,11 @@ final class Icons {
         CHECK = g("M20 6 L9 17 L4 12"),
         CHEVRON = g("M9 18 L15 12 L9 6"),
         BOOKMARK_PLUS = g("M19 21 L12 17 L5 21 V5 A2 2 0 0 1 7 3 H17 A2 2 0 0 1 19 5 Z M12 7 V13 M15 10 H9"),
-        APP_WINDOW = g("M2 6 A2 2 0 0 1 4 4 H20 A2 2 0 0 1 22 6 V18 A2 2 0 0 1 20 20 H4 A2 2 0 0 1 2 18 Z M10 4 V8 M2 8 H22 M6 4 V8");
+        APP_WINDOW = g("M2 6 A2 2 0 0 1 4 4 H20 A2 2 0 0 1 22 6 V18 A2 2 0 0 1 20 20 H4 A2 2 0 0 1 2 18 Z M10 4 V8 M2 8 H22 M6 4 V8"),
+        // the checkpoint & close handoff (1d): power = Closing / Close N apps, circle-alert =
+        // Unsaved work
+        POWER = g("M12 2 V12 M18.4 6.6 A9 9 0 1 1 5.63 6.64"),
+        CIRCLE_ALERT = new Glyph(new Part(circ(12, 12, 10)), new Part("M12 8 V12 M12 16 H12.01"));
 
     /** Project.apps keys → slide glyph; anything unlisted is "Other", which the handoff draws as
         app-window (the slide's OTHER folder reads as the project folder beside it). */

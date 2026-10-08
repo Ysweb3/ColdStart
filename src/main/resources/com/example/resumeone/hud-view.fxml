@@ -136,13 +136,19 @@
             </Region>
             <Region fx:id="ckBar" styleClass="ck-bar" StackPane.alignment="BOTTOM_CENTER" mouseTransparent="true"
                     minHeight="3.0" prefHeight="3.0" maxHeight="3.0" maxWidth="Infinity" translateY="3.0"/>
+            <!-- idle, and the close states (renderCkPanel swaps glyph, word, hint and sub):
+                 Closing · n of N apps, and Unsaved work / Save, then click again / names -->
             <HBox fx:id="ckIdle" alignment="CENTER_LEFT" spacing="16.0" mouseTransparent="true">
               <padding><Insets left="23.0" right="69.0"/></padding>
-              <SVGPath content="M4 2 H16 V21 L10 16 L4 21 Z M19 4 V10 M16 7 H22"
-                       fill="TRANSPARENT" stroke="#E9E3DF" strokeWidth="1.8"
-                       strokeLineCap="ROUND" strokeLineJoin="ROUND"/>
-              <VBox spacing="8.0" alignment="CENTER_LEFT">
-                <Label styleClass="checkpoint-word" text="Checkpoint"/>
+              <StackPane fx:id="ckGlyphBox" minWidth="24.0">
+                <SVGPath fx:id="ckBookmark" content="M4 2 H16 V21 L10 16 L4 21 Z M19 4 V10 M16 7 H22"
+                         fill="TRANSPARENT" stroke="#E9E3DF" strokeWidth="1.8"
+                         strokeLineCap="ROUND" strokeLineJoin="ROUND"/>
+              </StackPane>
+              <VBox fx:id="ckText" spacing="8.0" alignment="CENTER_LEFT" minWidth="0.0">
+                <Label fx:id="ckWord" styleClass="checkpoint-word" text="Checkpoint"/>
+                <Label fx:id="ckHint" styleClass="ck-hint" text="Save, then click again"
+                       visible="false" managed="false"/>
                 <Label fx:id="checkpointSub" styleClass="checkpoint-sub" text=""/>
               </VBox>
             </HBox>
@@ -150,7 +156,7 @@
               <padding><Insets left="23.0" right="69.0"/></padding>
               <StackPane fx:id="ckDoneGlyphBox"/>
               <VBox spacing="8.0" alignment="CENTER_LEFT">
-                <Label styleClass="ck-done-word" text="Saved"/>
+                <Label fx:id="ckDoneWord" styleClass="ck-done-word" text="Saved"/>
                 <Label fx:id="ckDoneSub" styleClass="checkpoint-sub" text=""/>
               </VBox>
             </HBox>
@@ -208,6 +214,25 @@
                     minHeight="20.0" prefHeight="20.0"/>
           <StackPane fx:id="btnNoteClose" styleClass="iconbtn" pickOnBounds="true"/>
         </HBox>
+        <!-- handoff 1d: once a checkpoint lands, the note's place offers to close what it saved,
+             for 6s (showOffer). The 2px bar on its bottom edge is the countdown. -->
+        <StackPane fx:id="ckOffer" styleClass="ck-offer" minHeight="72.0" prefHeight="72.0" maxHeight="72.0"
+                   visible="false" managed="false">
+          <HBox alignment="CENTER_LEFT" spacing="14.0">
+            <padding><Insets left="20.0" right="20.0"/></padding>
+            <StackPane fx:id="offerGlyphBox"/>
+            <VBox spacing="8.0" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS" minWidth="0.0">
+              <Label styleClass="ck-offer-title" text="Checkpoint saved. Done for now?"/>
+              <Label fx:id="offerSub" styleClass="ck-offer-sub" text=""/>
+            </VBox>
+            <Button fx:id="btnOfferClose" styleClass="btn-offer" graphicTextGap="10.0"
+                    minHeight="42.0" prefHeight="42.0" maxHeight="42.0" minWidth="-Infinity"/>
+            <StackPane fx:id="btnOfferDismiss" styleClass="iconbtn, offer-x" pickOnBounds="true"
+                       minWidth="42.0" prefWidth="42.0" maxWidth="42.0" minHeight="42.0" maxHeight="42.0"/>
+          </HBox>
+          <Region fx:id="offerBar" styleClass="ck-offer-bar" StackPane.alignment="BOTTOM_LEFT"
+                  mouseTransparent="true" minHeight="2.0" prefHeight="2.0" maxHeight="2.0"/>
+        </StackPane>
       </VBox>
 
       <!-- ══ nothing saved yet ═════════════════════════════════════════════ -->
@@ -447,16 +472,13 @@
 
       <!-- Generic confirm. Copy and the verb button come from confirm() in the controller. -->
       <VBox fx:id="confirmPane" styleClass="scrim" alignment="CENTER" visible="false" managed="false">
-        <!-- maxHeight -Infinity (USE_PREF_SIZE): grows with the still-open list's rows -->
-        <VBox styleClass="dialog" spacing="8.0" maxWidth="440.0" maxHeight="-Infinity">
+        <VBox styleClass="dialog" spacing="8.0" maxWidth="440.0" maxHeight="230.0">
           <padding><Insets top="24.0" right="24.0" bottom="16.0" left="24.0"/></padding>
           <Label fx:id="confirmTitle" styleClass="dialog-title" text=""/>
           <Label fx:id="confirmSub" styleClass="dialog-sub" text=""/>
           <Label fx:id="confirmBody" styleClass="empty-body" wrapText="true" maxWidth="400.0">
             <VBox.margin><Insets top="8.0"/></VBox.margin>
           </Label>
-          <!-- Checkpoint & close: one row per app that did not close, filled by the controller -->
-          <VBox fx:id="confirmList" spacing="4.0"/>
           <HBox alignment="CENTER_RIGHT" spacing="8.0">
             <VBox.margin><Insets top="8.0"/></VBox.margin>
             <Button fx:id="btnConfirmCancel" styleClass="btn-ghost" text="Cancel"
