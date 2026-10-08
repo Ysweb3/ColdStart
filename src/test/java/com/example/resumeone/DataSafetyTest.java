@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -70,15 +71,22 @@ class DataSafetyTest {
         p.apps.put("IDE", new HashSet<>(Set.of("idea64.exe")));
         p.urlsByBrowser.put("brave", new ArrayList<>(List.of("https://github.com")));
         p.lastCheckpoint = "2026-09-01T10:00:00Z";
+        p.folders = new HashMap<>(Map.of("idea64.exe", new ArrayList<>(List.of("C:\\atlas-api"))));
+        p.exePaths = new HashMap<>(Map.of("idea64.exe", "C:\\JetBrains\\idea64.exe"));
         String before = c.gson.toJson(p);
 
         p.apps = new HashMap<>();
         p.urlsByBrowser = new HashMap<>();
         p.lastCheckpoint = "2026-10-02T10:00:00Z";
+        // the undone checkpoint had IntelliJ on another folder: resume must not open that one
+        p.folders = new HashMap<>(Map.of("idea64.exe", new ArrayList<>(List.of("C:\\other"))));
+        p.exePaths = new HashMap<>();
         c.restore(p, before);
 
         assertEquals(Set.of("idea64.exe"), p.apps.get("IDE"));
         assertEquals(List.of("https://github.com"), p.urlsByBrowser.get("brave"));
         assertEquals("2026-09-01T10:00:00Z", p.lastCheckpoint);
+        assertEquals(List.of("C:\\atlas-api"), p.folders.get("idea64.exe"));
+        assertEquals("C:\\JetBrains\\idea64.exe", p.exePaths.get("idea64.exe"));
     }
 }

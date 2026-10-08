@@ -226,6 +226,8 @@ public class HelloController {
         running apps (only logged - proves capture works), start the server, wire buttons. */
     @FXML
     public void initialize() throws IOException {
+        // before the projects load: their Apps/Other rows are sorted by these lists
+        loadUserApps();
 
         for (Project project : getProjectsJson()) {
             createProjectUI(project, false);
@@ -521,7 +523,14 @@ public class HelloController {
             // A null lastCheckpoint is the dialog's "Checkpoint immediately" left unticked.
             activeProject = projectObj;
             try {
-                if (projectObj.lastCheckpoint != null) projectObj.apps = segregateApps(captureRunningApps());
+                if (projectObj.lastCheckpoint != null) {
+                    projectObj.apps = segregateApps(captureRunningApps());
+                    AppFolders.Capture dirs = captureFolders(projectObj.apps);
+                    if (dirs != null) {
+                        projectObj.folders = dirs.folders();
+                        projectObj.exePaths = dirs.exePaths();
+                    }
+                }
                 saveProject(projectObj);
             } catch (IOException ex) {
                 throw new RuntimeException(ex);
@@ -745,6 +754,24 @@ public class HelloController {
         String size = projectsFile().length() < 1024 ? "<1 KB" : kb + " KB";
         String storage = projects.size() + (projects.size() == 1 ? " project" : " projects") + " \u00b7 " + size + " \u00b7 ";
         List<String> ignored = IGNORED_WINDOWS.stream().sorted().toList();
+        // what the user sorted out of Other; clicking the row undoes it all
+        List<HBox> userRows = new ArrayList<>();
+        for (Set<String> list : List.of(relaunched, hidden)) {
+            if (list.isEmpty()) continue;
+            boolean keep = list == relaunched;
+            List<String> sorted = list.stream().sorted().toList();
+            HBox row = statRow(Icons.APP_WINDOW, keep ? "Relaunched from Other" : "Hidden apps",
+                    names(sorted) + (keep ? " · click to stop" : " · click to show again"), String.join("\n", sorted));
+            row.getChildren().add(Icons.node(Icons.CHEVRON, 14, TX3));
+            row.getStyleClass().add("stat-link");
+            clickable(row, keep ? "Stop relaunching these" : "Capture these again", () -> {
+                list.clear();
+                storeUserApps();
+                projects.forEach(HelloController::recategorizeOther);
+                renderSettingsRows();
+            });
+            userRows.add(row);
+        }
         HBox storageRow = statRow(Icons.DATABASE, "Storage", storage + shown, storage + path);
         // the one row that acts: open the data folder. Chevron + hand say so; the other two stay flat.
         storageRow.getChildren().add(Icons.node(Icons.CHEVRON, 14, TX3));
@@ -764,6 +791,7 @@ public class HelloController {
                                              + " connected", null),
                 statRow(Icons.APP_WINDOW, "Ignored processes", names(ignored), String.join("\n", ignored)),
                 storageRow);
+        settingsRows.getChildren().addAll(userRows);
     }
 
     /** detailPane / emptyPane / settingsPane are the base views: exactly one shows. */
@@ -1073,7 +1101,7 @@ public class HelloController {
     // built, so every non-empty category is listed rather than hidden behind a dead link
     private static final List<String> CATEGORY_ORDER = List.of(
             "IDE", "AI", "Terminal", "Browser", "Database", "API", "Containers",
-            "VersionControl", "Design", "Video", "Office", "Communication", "Notes", "Music");
+            "VersionControl", "Design", "Video", "Office", "Communication", "Notes", "Files", "Music", "Apps");
 
     /** "2h ago" under Checkpoint: when the last one was taken. It used to read "overwrite \u00b7
         2h old", a warning on every press; a checkpoint is now one Ctrl+Z from undone. */
@@ -1096,11 +1124,11 @@ public class HelloController {
         categoryRows.getChildren().clear();
         if (projectObj.apps == null) return;
 
-        List<String> filled = CATEGORY_ORDER.stream()
-                .filter(c -> projectObj.apps.get(c) != null && !projectObj.apps.get(c).isEmpty()).toList();
+        List<String> filled = new ArrayList<>(CATEGORY_ORDER);
+        filled.removeIf(c -> visibleApps(projectObj, c).isEmpty());
         // every category is listed: the column scrolls, so nothing hides behind a "+n more"
         for (String category : filled) {
-            HashSet<String> bucket = projectObj.apps.get(category);
+            Set<String> bucket = visibleApps(projectObj, category);
 
             // a 120px label column: 12px glyph + the 12px label; "Communication" is the widest
             HBox labelBox = new HBox(6);
@@ -1111,19 +1139,9 @@ public class HelloController {
             labelBox.getChildren().addAll(categoryIcon(category),
                     styled(new Label(categoryLabel(category)), "cat-label"));
 
-            // flex-wrap: as wide as its chips, wrapping only when the row runs out. FlowPane
-            // otherwise asks for a fixed 400px, which pushed the note off its chip.
-            FlowPane chips = new FlowPane(5, 5) {
-                @Override protected double computePrefWidth(double height) {
-                    double w = -getHgap();
-                    for (Node n : getManagedChildren()) w += n.prefWidth(-1) + getHgap();
-                    return Math.max(0, w) + snappedLeftInset() + snappedRightInset();
-                }
-            };
-            chips.setAlignment(Pos.CENTER_LEFT);
-            chips.setMinWidth(0);
-            for (String app : new TreeSet<>(bucket)) {
-                chips.getChildren().add(chip(projectObj, category, app));
+            FlowPane chips = chipFlow();
+            for (String app : bucket) {
+                chips.getChildren().add(category.equals(USER_APPS) ? appsChip(projectObj, app) : chip(projectObj, category, app));
             }
 
             HBox row = new HBox(10);
@@ -1135,26 +1153,73 @@ public class HelloController {
                 // "reopens chats" is a phrase, the IDE note a path: the face follows which
                 Label arg = styled(new Label(note), note.startsWith("…\\") ? "project-path" : "cat-arg");
                 arg.setMinWidth(Region.USE_PREF_SIZE);   // white-space: nowrap
+                // "…\Downloads +1" is short on purpose; hovering shows every full path, as the
+                // project path does
+                String full = trailingTip(category, projectObj);
+                if (full != null) Tooltip.install(arg, tip(full));
                 row.getChildren().add(arg);
             }
 
             categoryRows.getChildren().add(row);
         }
-        // "Other" is captured but never relaunched, which the design calls out by name
-        HashSet<String> other = projectObj.apps.get(OTHER);
-        if (other != null && !other.isEmpty()) {
-            String first = appName(new TreeSet<>(other).first());
-            String rest = other.size() > 1 ? " (+" + (other.size() - 1) + ")" : "";
-            HBox foot = new HBox(9, Icons.node(Icons.APP_WINDOW, 12, TX3),
-                    styled(new Label(first + rest + " under Other \u2014 captured, not relaunched"), "cat-foot"));
-            foot.setAlignment(Pos.CENTER_LEFT);
-            categoryRows.getChildren().add(foot);
+
+        // "Other" is captured but never relaunched, which the design calls out by name: the
+        // greyed line it always was, now a fold. Opened, its chips sit under the line and each
+        // app can be sorted out of it with + or x. Hidden apps (from any project) are left out.
+        Set<String> other = visibleApps(projectObj, OTHER);
+        if (other.isEmpty()) return;
+        String first = appName(other.iterator().next());
+        String rest = other.size() > 1 ? " (+" + (other.size() - 1) + ")" : "";
+        Pane chevron = Icons.node(Icons.CHEVRON, 12, TX3);
+        chevron.setRotate(otherOpen ? 90 : 0);
+        HBox foot = new HBox(9, Icons.node(Icons.APP_WINDOW, 12, TX3),
+                styled(new Label(first + rest + " under Other — captured, not relaunched"), "cat-foot"), chevron);
+        foot.setAlignment(Pos.CENTER_LEFT);
+        foot.getStyleClass().add("other-fold");
+        clickable(foot, otherOpen ? "Fold the apps under Other" : "Show the apps under Other", () -> {
+            otherOpen = !otherOpen;
+            renderCategories(projectObj);
+        });
+        categoryRows.getChildren().add(foot);
+        if (otherOpen) {
+            FlowPane chips = chipFlow();
+            other.forEach(app -> chips.getChildren().add(otherChip(projectObj, app)));
+            // under the words, past the 12px glyph and the 9px gap
+            VBox.setMargin(chips, new Insets(0, 0, 0, 21));
+            categoryRows.getChildren().add(chips);
         }
+    }
+
+    /** Whether the Other fold is open. Per run, not saved: it starts folded, as Other always
+        read before it could be acted on. */
+    private boolean otherOpen;
+
+    /** flex-wrap: as wide as its chips, wrapping only when the row runs out. FlowPane otherwise
+        asks for a fixed 400px, which pushed the note off its chip. */
+    private static FlowPane chipFlow() {
+        FlowPane chips = new FlowPane(5, 5) {
+            @Override protected double computePrefWidth(double height) {
+                double w = -getHgap();
+                for (Node n : getManagedChildren()) w += n.prefWidth(-1) + getHgap();
+                return Math.max(0, w) + snappedLeftInset() + snappedRightInset();
+            }
+        };
+        chips.setAlignment(Pos.CENTER_LEFT);
+        chips.setMinWidth(0);
+        return chips;
+    }
+
+    /** The category's apps in chip order; for Other, without the ones the user hid. */
+    static Set<String> visibleApps(Project projectObj, String category) {
+        TreeSet<String> out = new TreeSet<>(projectObj.apps.getOrDefault(category, new HashSet<>()));
+        if (category.equals(OTHER)) out.removeIf(app -> hidden.contains(app.toLowerCase()));
+        return out;
     }
 
     // only where the exe name is not the app's name; everything else is the exe, capitalised
     private static final Map<String, String> APP_NAMES = Map.ofEntries(
             Map.entry("code", "VS Code"), Map.entry("code - insiders", "VS Code Insiders"),
+            Map.entry("explorer", "File Explorer"), Map.entry("mscopilot", "Copilot"),
             Map.entry("idea", "IntelliJ IDEA"), Map.entry("pycharm", "PyCharm"), Map.entry("webstorm", "WebStorm"),
             Map.entry("phpstorm", "PhpStorm"), Map.entry("clion", "CLion"), Map.entry("goland", "GoLand"),
             Map.entry("rubymine", "RubyMine"), Map.entry("datagrip", "DataGrip"), Map.entry("studio", "Android Studio"),
@@ -1198,15 +1263,36 @@ public class HelloController {
     }
 
     /** The extra argument resumeProject() will actually use for this category: claude opens its
-        agent view, VS Code opens the project folder ("…\atlas-api"). */
+        agent view, any app its saved folders or files ("…\atlas-api +1"), else VS Code the
+        project folder. */
     static String trailingNote(String category, Project projectObj) {
         if ("AI".equals(category) && hasApp(projectObj, "claude.exe")) {
             return "reopens chats";
         }
-        if ("IDE".equals(category) && hasApp(projectObj, "Code.exe") && projectObj.folderPath != null) {
-            return "…\\" + new File(projectObj.folderPath).getName();
+        List<String> paths = notePaths(category, projectObj);
+        if (paths.isEmpty()) return null;
+        List<String> names = paths.stream().map(p -> new File(p).getName()).distinct().toList();
+        return "…\\" + names.get(0) + (names.size() > 1 ? " +" + (names.size() - 1) : "");
+    }
+
+    /** The full paths behind trailingNote's "…\name +1", one per line: its hover label. */
+    static String trailingTip(String category, Project projectObj) {
+        List<String> paths = notePaths(category, projectObj);
+        return paths.isEmpty() ? null : String.join("\n", paths);
+    }
+
+    /** The saved folders and files of this category's apps, else VS Code's project folder. */
+    private static List<String> notePaths(String category, Project projectObj) {
+        if (projectObj.folders != null) {
+            List<String> paths = projectObj.folders.entrySet().stream()
+                    .filter(e -> category.equals(categoryOf(e.getKey())))
+                    .flatMap(e -> e.getValue().stream()).distinct().toList();
+            if (!paths.isEmpty()) return paths;
         }
-        return null;
+        if ("IDE".equals(category) && hasApp(projectObj, "Code.exe") && projectObj.folderPath != null) {
+            return List.of(projectObj.folderPath);
+        }
+        return List.of();
     }
 
     /** The column scrolls; every header and tab row is always in it. */
@@ -1278,23 +1364,62 @@ public class HelloController {
         return chip;
     }
 
+    /** An Other chip: + relaunches the app on every resume from now on (it moves to Apps), x
+        hides it for good. The − on its Apps chip undoes the +; Settings undoes the x. */
+    private HBox otherChip(Project projectObj, String app) {
+        String name = appName(app);
+        StackPane add = chipButton(Icons.NEW, "Relaunch " + name + " on every resume", () -> relaunchApp(app), projectObj, 12);
+        add.getStyleClass().add("rm-add");
+        return actionChip(app, add,
+                chipButton(Icons.CLOSE, "Hide " + name + ": stop capturing it", () -> hideApp(projectObj, app), projectObj, 12));
+    }
+
+    /** An Apps chip: − takes back the + that put it here (back to Other, not relaunched); x
+        removes it from this project like any chip. */
+    private HBox appsChip(Project projectObj, String app) {
+        String name = appName(app);
+        // the minimize glyph is a plain minus; not red on hover, it is an undo, not a removal
+        StackPane back = chipButton(Icons.MINIMIZE, "Stop relaunching " + name + ": back to Other",
+                () -> unrelaunchApp(app), projectObj, 12);
+        back.getStyleClass().add("rm-add");
+        return actionChip(app, back, remover(() -> removeApp(projectObj, USER_APPS, app), projectObj, 12, name));
+    }
+
+    /** A chip with two hover buttons. Each says what it does on hover - the x on an Other chip
+        is not a plain remove - and they sit 12px apart so their 24px targets meet, not overlap. */
+    private HBox actionChip(String app, StackPane first, StackPane second) {
+        for (StackPane b : List.of(first, second)) Tooltip.install(b, tip(b.getAccessibleText()));
+        HBox.setMargin(second, new Insets(-4, -6, -4, 4));
+        HBox chip = new HBox(2, new Label(appName(app)), first, second);
+        Tooltip.install(chip, tip(app));
+        chip.getStyleClass().addAll("chip", "cut");
+        chip.setAlignment(Pos.CENTER_LEFT);
+        return chip;
+    }
+
     /** The x on chips and tab rows, shown on hover or keyboard focus. Opacity, not managed, so
         nothing shifts. No undo: the next checkpoint brings anything back. */
     private StackPane remover(Runnable edit, Project projectObj, double size, String what) {
+        return chipButton(Icons.CLOSE, "Remove " + what, edit, projectObj, size);
+    }
+
+    /** A hover button on a chip or tab row that edits the project, redraws and saves it. The
+        action is its accessible text and, beside a chip's own tooltip, its hover label. */
+    private StackPane chipButton(Icons.Glyph shape, String action, Runnable edit, Project projectObj, double size) {
         StackPane x = new StackPane();
         x.getStyleClass().add("rm");
         // a 24px target (WCAG 2.5.8) that still lays out as the glyph's 12x16: the negative
         // margin hands the extra back, so rows and chips keep their size
         x.setPickOnBounds(true);
         HBox.setMargin(x, new Insets(-4, -6, -4, -6));
-        Pane glyph = Icons.node(Icons.CLOSE, size, TX3);
+        Pane glyph = Icons.node(shape, size, TX3);
         glyph.getStyleClass().add("rm-glyph");
         x.getChildren().add(glyph);
         Icons.animate(x, glyph);
         // in the Tab order and shown on focus (hud.css), so it is not mouse-only
         x.setFocusTraversable(true);
         x.setAccessibleRole(AccessibleRole.BUTTON);
-        x.setAccessibleText("Remove " + what);
+        x.setAccessibleText(action);
         Runnable remove = () -> {
             edit.run();
             renderDetail(projectObj);
@@ -1423,7 +1548,7 @@ public class HelloController {
             try {
                 if (plan) {
                     // the PowerShell capture takes seconds: off the FX thread it no longer freezes the HUD
-                    r.plan = planResume(r.project, captureRunningApps(), r.log);
+                    r.plan = planResume(r.project, captureRunningApps(), liveFolders(r.project), r.log);
                     Platform.runLater(() -> renderResuming(r));
                 }
                 for (LaunchStep step : r.plan.steps()) {
@@ -1902,10 +2027,14 @@ public class HelloController {
         and is not waited for; its saved tabs stay and a late reply still updates the card. */
     static final long TAB_WAIT_MILLIS = 3_000;
 
-    /** Puts back what a checkpoint changes (apps, tabs, its time) from a gson snapshot. */
+    /** Puts back what a checkpoint changes (apps, their folders and exe paths, tabs, its time)
+        from a gson snapshot. A field a checkpoint starts writing must be added here, or undo
+        leaves the newer value behind. */
     void restore(Project projectObj, String snapshot) {
         Project old = gson.fromJson(snapshot, Project.class);
         projectObj.apps = old.apps;
+        projectObj.folders = old.folders;
+        projectObj.exePaths = old.exePaths;
         projectObj.urlsByBrowser = old.urlsByBrowser;
         projectObj.lastCheckpoint = old.lastCheckpoint;
     }
@@ -1951,9 +2080,13 @@ public class HelloController {
         // the block can say what it is doing
         Thread worker = new Thread(() -> {
             HashMap<String, HashSet<String>> now = null;
+            AppFolders.Capture dirs = null;
             IOException failed = null;
             try {
-                if (mode.apps()) now = segregateApps(captureRunningApps());
+                if (mode.apps()) {
+                    now = segregateApps(captureRunningApps());
+                    dirs = captureFolders(now);
+                }
                 // still "checkpointing…": the browsers usually answered while PowerShell ran,
                 // so this rarely waits, and "Saved" can always give the tab count
                 replies.await(TAB_WAIT_MILLIS, TimeUnit.MILLISECONDS);
@@ -1962,8 +2095,9 @@ public class HelloController {
             } catch (InterruptedException ignored) {
             }
             HashMap<String, HashSet<String>> captured = now;
+            AppFolders.Capture folders = dirs;
             IOException error = failed;
-            Platform.runLater(() -> finishCheckpoint(projectObj, mode, before, captured, error));
+            Platform.runLater(() -> finishCheckpoint(projectObj, mode, before, captured, folders, error));
         }, "checkpoint");
         worker.setDaemon(true);
         worker.start();
@@ -1973,7 +2107,8 @@ public class HelloController {
 
     /** The FX-thread half of writeCheckpoint, once the capture is back (or failed). */
     private void finishCheckpoint(Project projectObj, Checkpoint mode, String before,
-                                  HashMap<String, HashSet<String>> captured, IOException captureError) {
+                                  HashMap<String, HashSet<String>> captured,
+                                  AppFolders.Capture folders, IOException captureError) {
         checkpointing = null;
         boolean onScreen = projectObj == activeProject;
         try {
@@ -1981,6 +2116,17 @@ public class HelloController {
             if (captured != null) {
                 if (mode.merge()) mergeApps(projectObj.apps, captured);
                 else projectObj.apps = captured;
+            }
+            // null: the window listing failed, so the folders saved last time are kept
+            if (folders != null) {
+                if (mode.merge() && projectObj.folders != null) {
+                    mergeFolders(projectObj.folders, folders.folders());
+                    if (projectObj.exePaths == null) projectObj.exePaths = new HashMap<>();
+                    projectObj.exePaths.putAll(folders.exePaths());
+                } else {
+                    projectObj.folders = folders.folders();
+                    projectObj.exePaths = folders.exePaths();
+                }
             }
             projectObj.lastCheckpoint = Instant.now().toString();
             saveProject(projectObj);
@@ -2014,6 +2160,48 @@ public class HelloController {
     /** Add mode: every exe open now joins its category; nothing saved is dropped. */
     static void mergeApps(Map<String, HashSet<String>> into, Map<String, HashSet<String>> from) {
         from.forEach((category, exes) -> into.computeIfAbsent(category, k -> new HashSet<>()).addAll(exes));
+    }
+
+    /** Add mode: a folder open now joins its app's list; nothing saved is dropped. */
+    static void mergeFolders(Map<String, ArrayList<String>> into, Map<String, ArrayList<String>> from) {
+        from.forEach((exe, dirs) -> {
+            ArrayList<String> saved = into.computeIfAbsent(exe, k -> new ArrayList<>());
+            for (String dir : dirs) {
+                if (saved.stream().noneMatch(dir::equalsIgnoreCase)) saved.add(dir);
+            }
+        });
+    }
+
+    /** Folders and files the open apps have up (see AppFolders). An app only seen through its
+        windows - Explorer, whose folder windows Get-Process does not report - joins its
+        category in apps, so the card shows what resume will open. Null when the window
+        listing failed, so the caller keeps what it had instead of forgetting every folder. */
+    static AppFolders.Capture captureFolders(Map<String, HashSet<String>> apps) {
+        AppFolders.Capture found;
+        try {
+            // always run, ~0.5s: Explorer windows never show up in apps to gate on
+            found = AppFolders.capture();
+        } catch (IOException ex) {
+            System.err.println("could not list window folders: " + ex.getMessage());
+            return null;
+        }
+        addFolderApps(apps, found.folders());
+        keepCapturedExePaths(found.exePaths(), apps);
+        return found;
+    }
+
+    /** The window listing has every titled window's exe - ResumeOne's own java.exe, the
+        desktop's explorer.exe, overlays the capture ignores, apps the user hid. Only the apps
+        this checkpoint kept need a path to relaunch from. */
+    static void keepCapturedExePaths(Map<String, String> exePaths, Map<String, HashSet<String>> apps) {
+        exePaths.keySet().removeIf(exe -> apps.values().stream().flatMap(Set::stream).noneMatch(exe::equalsIgnoreCase));
+    }
+
+    static void addFolderApps(Map<String, HashSet<String>> apps, Map<String, ArrayList<String>> folders) {
+        for (String exe : folders.keySet()) {
+            boolean listed = apps.values().stream().flatMap(Set::stream).anyMatch(exe::equalsIgnoreCase);
+            if (!listed) apps.computeIfAbsent(categoryOf(exe), k -> new HashSet<>()).add(exe);
+        }
     }
 
     /** Add mode: saved order first, then the incoming urls that were not already there. */
@@ -2206,7 +2394,49 @@ public class HelloController {
         // misfired and we must not persist its output as an app
         if (!lower.endsWith(".exe")) return true;
         // PowerToys surfaces (QuickAccess, WorkspacesEditor, ...) are transient UI, not apps to resume
-        return IGNORED_WINDOWS.contains(lower) || lower.startsWith("powertoys.");
+        return IGNORED_WINDOWS.contains(lower) || lower.startsWith("powertoys.") || hidden.contains(lower);
+    }
+
+    // == Apps the user sorted out of Other ==================================
+    //   + on an Other chip relaunches that app from then on, in every project, under "Apps";
+    //   x hides it: it is never captured again. Both are the user's, not a project's, so they
+    //   live in PREFS (lowercase exe names), loaded by initialize() - empty in tests.
+    static final String USER_APPS = "Apps";
+    private static final String RELAUNCH_KEY = "relaunchApps", HIDDEN_KEY = "hiddenApps";
+    // read by the capture worker while the FX thread edits them
+    static final Set<String> relaunched = ConcurrentHashMap.newKeySet(), hidden = ConcurrentHashMap.newKeySet();
+
+    private static void loadUserApps() {
+        for (String exe : PREFS.get(RELAUNCH_KEY, "").split("\n")) if (!exe.isBlank()) relaunched.add(exe);
+        for (String exe : PREFS.get(HIDDEN_KEY, "").split("\n")) if (!exe.isBlank()) hidden.add(exe);
+    }
+
+    private static void storeUserApps() {
+        PREFS.put(RELAUNCH_KEY, String.join("\n", relaunched));
+        PREFS.put(HIDDEN_KEY, String.join("\n", hidden));
+    }
+
+    /** + on an Other chip. Every open project that captured it moves it to Apps now; the ones
+        on disk do when they load (recategorizeOther). */
+    private void relaunchApp(String app) {
+        relaunched.add(app.toLowerCase());
+        storeUserApps();
+        projects.forEach(HelloController::recategorizeOther);
+    }
+
+    /** − on an Apps chip: the + taken back. Every open project moves it to Other again. */
+    private void unrelaunchApp(String app) {
+        relaunched.remove(app.toLowerCase());
+        storeUserApps();
+        projects.forEach(HelloController::recategorizeOther);
+    }
+
+    /** x on an Other chip: gone from this card now, never captured again. Other projects that
+        still list it stop showing it (renderCategories). */
+    private void hideApp(Project projectObj, String app) {
+        hidden.add(app.toLowerCase());
+        storeUserApps();
+        removeApp(projectObj, OTHER, app);
     }
 
     /**
@@ -2246,6 +2476,11 @@ public class HelloController {
 
     static final String OTHER = "Other";
 
+    /** exe -> Store app id, for packaged apps `start` cannot find (no PATH alias, no App Paths).
+        ponytail: one entry per app; look the id up with Get-StartApps if more turn up. */
+    static final Map<String, String> STORE_APPS = Map.of(
+            "mscopilot.exe", "Microsoft.Copilot_8wekyb3d8bbwe!App");
+
     // purely for labelling: an app missing from this map is still captured, under OTHER
     private static final Map<String, List<String>> KNOWN_APPS = Map.ofEntries(
             Map.entry("Browser", List.of("chrome.exe", "brave.exe", "firefox.exe", "msedge.exe",
@@ -2263,7 +2498,7 @@ public class HelloController {
             Map.entry("Terminal", List.of("WindowsTerminal.exe", "alacritty.exe", "wezterm-gui.exe",
                     "Hyper.exe", "ConEmu64.exe", "mintty.exe", "Tabby.exe", "warp.exe")),
             Map.entry("AI", List.of("claude.exe", "ChatGPT.exe", "Perplexity.exe", "LM Studio.exe",
-                    "ollama app.exe", "Copilot.exe", "Msty.exe", "Jan.exe", "AnythingLLM.exe",
+                    "ollama app.exe", "Copilot.exe", "mscopilot.exe", "Msty.exe", "Jan.exe", "AnythingLLM.exe",
                     "Cherry Studio.exe")),
             Map.entry("Database", List.of("dbeaver.exe", "datagrip64.exe", "pgAdmin4.exe", "Ssms.exe",
                     "MySQLWorkbench.exe", "TablePlus.exe", "MongoDBCompass.exe", "redisinsight.exe",
@@ -2291,6 +2526,9 @@ public class HelloController {
             Map.entry("Notes", List.of("notion.exe", "obsidian.exe", "onenote.exe", "Logseq.exe",
                     "Typora.exe", "Joplin.exe", "anytype.exe", "notepad.exe", "Evernote.exe",
                     "Zettlr.exe", "Todoist.exe", "AFFiNE.exe", "xournalpp.exe")),
+            // only its folder windows count (AppFolders); with none saved it is always running,
+            // so resume never starts a bare one
+            Map.entry("Files", List.of("explorer.exe")),
             Map.entry("Music", List.of("spotify.exe", "amazonmusic.exe", "AppleMusic.exe", "Tidal.exe",
                     "MusicBee.exe", "foobar2000.exe", "vlc.exe", "iTunes.exe", "Deezer.exe", "AIMP.exe",
                     "Audacity.exe", "reaper.exe", "FL64.exe"))
@@ -2306,6 +2544,7 @@ public class HelloController {
             result.put(category, new HashSet<>());
         }
         result.put(OTHER, new HashSet<>());
+        result.put(USER_APPS, new HashSet<>());
 
         for (String app : appset) {
             result.get(categoryOf(app)).add(app);
@@ -2317,16 +2556,21 @@ public class HelloController {
     }
 
     /** Apps saved under Other before KNOWN_APPS learned them (mspaint, Word, ...) move to their
-        category, or they'd never relaunch and an add-mode checkpoint would list them twice. */
+        category, or they'd never relaunch and an add-mode checkpoint would list them twice.
+        Same for Apps both ways: one the user just added leaves Other, one they stopped
+        relaunching goes back to it. */
     static void recategorizeOther(Project projectObj) {
-        HashSet<String> other = projectObj.apps == null ? null : projectObj.apps.get(OTHER);
-        if (other == null) return;
-        other.removeIf(app -> {
-            String category = categoryOf(app);
-            if (category.equals(OTHER)) return false;
-            projectObj.apps.computeIfAbsent(category, k -> new HashSet<>()).add(app);
-            return true;
-        });
+        if (projectObj.apps == null) return;
+        for (String from : List.of(OTHER, USER_APPS)) {
+            HashSet<String> bucket = projectObj.apps.get(from);
+            if (bucket == null) continue;
+            bucket.removeIf(app -> {
+                String category = categoryOf(app);
+                if (category.equals(from)) return false;
+                projectObj.apps.computeIfAbsent(category, k -> new HashSet<>()).add(app);
+                return true;
+            });
+        }
     }
 
     // windows reports real executable casing (WindowsTerminal.exe, Spotify.exe), so match lowercased
@@ -2338,7 +2582,8 @@ public class HelloController {
                 }
             }
         }
-        return OTHER;
+        // a known category wins, so an app that KNOWN_APPS learns later gets its real row
+        return relaunched.contains(app.toLowerCase()) ? USER_APPS : OTHER;
     }
     /** Writes the project to projects.json (replacing any entry with the same name). Both the
         in-memory list and the on-disk list are updated. It does not make the project active:
@@ -2752,13 +2997,30 @@ public class HelloController {
     /** Brings a saved project back: browsers with their tabs, then every other captured app.
         Synchronous - the HUD's Resume runs the same plan staggered on its own thread. */
     public void resumeProject(Project projectObj) throws IOException {
-        for (LaunchStep step : planResume(projectObj, captureRunningApps(), new ArrayList<>()).steps()) {
+        for (LaunchStep step : planResume(projectObj, captureRunningApps(), liveFolders(projectObj), new ArrayList<>()).steps()) {
             step.run();
         }
     }
 
-    /** Decides what to launch, in order, without starting anything. */
+    /** What the project's saved IDEs have open right now, so resume skips only those folders.
+        Empty when no folder was saved or the listing failed: asking VS Code or a JetBrains IDE
+        for a folder it already has open just brings that window forward. */
+    static Map<String, ArrayList<String>> liveFolders(Project projectObj) {
+        if (projectObj.folders == null || projectObj.folders.isEmpty()) return Map.of();
+        try {
+            return AppFolders.capture().folders();
+        } catch (IOException ex) {
+            return Map.of();
+        }
+    }
+
     ResumePlan planResume(Project projectObj, Set<String> running, List<String> log) {
+        return planResume(projectObj, running, Map.of(), log);
+    }
+
+    /** Decides what to launch, in order, without starting anything. */
+    ResumePlan planResume(Project projectObj, Set<String> running,
+                          Map<String, ArrayList<String>> openFolders, List<String> log) {
         //TODO:add multiple apps checking for path list
         System.out.println("projectName:" + projectObj.projectName);
         migrateLegacyUrls(projectObj);
@@ -2841,6 +3103,23 @@ public class HelloController {
                     log.add("skipping " + app + ": opens with its tabs");
                     continue;
                 }
+                List<String> dirs = projectObj.folders == null ? null : projectObj.folders.get(app);
+                if (dirs != null && !dirs.isEmpty()) {
+                    // one window per saved folder: the app being up only rules out the folders
+                    // it already has open, not the rest
+                    List<String> open = openFolders.getOrDefault(app, new ArrayList<>());
+                    boolean any = false;
+                    for (String dir : dirs) {
+                        if (open.stream().anyMatch(dir::equalsIgnoreCase)) {
+                            log.add("skipping " + app + ": already open on " + dir);
+                            continue;
+                        }
+                        steps.add(folderStep(app, dir, projectObj.exePaths == null ? null : projectObj.exePaths.get(app)));
+                        any = true;
+                    }
+                    if (!any) skipped.add(app);
+                    continue;
+                }
                 if (!shouldLaunch(app, running, handledBrowsers)) {
                     skipped.add(app);
                     log.add("skipping (already open or handled): " + app);
@@ -2877,15 +3156,28 @@ public class HelloController {
                     steps.add(new LaunchStep(appName(app), "start wt", false, () ->
                             new ProcessBuilder("cmd.exe", "/c", "start", "wt").start()));
 
+                } else if (STORE_APPS.containsKey(app.toLowerCase())) {
+                    // a Store app with no exe on PATH or in App Paths: started by its app id,
+                    // the way the Start menu does it
+                    String id = STORE_APPS.get(app.toLowerCase());
+                    steps.add(new LaunchStep(appName(app), "start " + appName(app), false, () ->
+                            new ProcessBuilder("explorer.exe", "shell:AppsFolder\\" + id).start()));
+
                 } else {
                     // no folder needed: this used to sit under the folderPath guard too, so a
                     // project without a folder relaunched nothing at all
                     // `start` reports nothing back when windows cannot find the exe - it shows its
                     // own dialog and the step would read as launched - so look first, the way
                     // start does: PATH, then the App Paths keys
+                    String exePath = projectObj.exePaths == null ? null : projectObj.exePaths.get(app);
                     steps.add(new LaunchStep(appName(app), "start " + appName, false, () -> {
                         if (!onPath(app, System.getenv("PATH")) && appPath(app) == null) {
-                            throw new IOException("cannot find " + app);
+                            // not findable by name (most apps moved out of Other): the exe the
+                            // last checkpoint saw it run from
+                            if (exePath == null || !new File(exePath).isFile()) throw new IOException("cannot find " + app);
+                            new ProcessBuilder(exePath).redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                                    .redirectError(ProcessBuilder.Redirect.DISCARD).start();
+                            return;
                         }
                         // the "" is start's window title: without it, a name with a space
                         // ("Adobe Premiere Pro") arrives quoted and start takes it as the title,
@@ -2896,6 +3188,35 @@ public class HelloController {
             }
         }
         return new ResumePlan(steps, skipped);
+    }
+
+    /** Opens one saved folder or file in the app that had it: a VS Code build through its own
+        command, anything else from the exe it ran from last time (the same Unity version, a
+        Blender that is not on PATH), or else through `start` like any other app. */
+    static LaunchStep folderStep(String app, String dir, String exePath) {
+        String label = appName(app) + " · " + new File(dir).getName();
+        AppFolders.VsCode vs = AppFolders.VSCODE_FAMILY.get(app.toLowerCase());
+        String name = vs != null ? vs.cli() : app.replaceFirst("(?i)\\.exe$", "");
+        List<String> args = AppFolders.openArgs(app, dir);
+        return new LaunchStep(label, name + " " + String.join(" ", args), false, () -> {
+            // moved or deleted since: VS Code would open an empty window and read as restored
+            if (!new File(dir).exists()) throw new IOException("no longer there: " + dir);
+            List<String> cmd = new ArrayList<>();
+            if (vs != null) {
+                cmd.addAll(List.of("cmd.exe", "/c", vs.cli()));
+            } else if (exePath != null && new File(exePath).isFile()) {
+                cmd.add(exePath);
+            } else if (onPath(app, System.getenv("PATH")) || appPath(app) != null) {
+                cmd.addAll(List.of("cmd.exe", "/c", "start", "", name));
+            } else {
+                throw new IOException("cannot find " + app);
+            }
+            cmd.addAll(args);
+            // nothing reads the child's output, and a chatty one (Blender logs to stdout)
+            // would stall on a full pipe
+            new ProcessBuilder(cmd).redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                    .redirectError(ProcessBuilder.Redirect.DISCARD).start();
+        });
     }
 
     /** Native folder picker. Returns the absolute path, or the string "NULL" on cancel -

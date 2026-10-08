@@ -21,7 +21,7 @@ class HelloControllerSegregateAppsTest {
         HashMap<String, HashSet<String>> result = controller.segregateApps(new HashSet<>());
 
         assertEquals(java.util.Set.of("IDE", "Browser", "Music", "Communication", "Notes", "Terminal",
-                "AI", "Database", "API", "Containers", "VersionControl", "Design", "Video", "Office", "Other"),
+                "AI", "Database", "API", "Containers", "VersionControl", "Design", "Video", "Office", "Files", "Other", "Apps"),
                 result.keySet());
         result.values().forEach(bucket -> assertTrue(bucket.isEmpty()));
     }
@@ -223,6 +223,63 @@ class HelloControllerSegregateAppsTest {
 
         assertEquals(java.util.Set.of("Figma.exe", "mspaint.exe"), p.apps.get("Design"));
         assertEquals(java.util.Set.of("NVIDIA App.exe"), p.apps.get("Other"), "still unknown, stays");
+    }
+
+    @Test
+    void otherAppsCanBeRelaunchedOrHidden() {
+        HashMap<String, HashSet<String>> apps = new HashMap<>();
+        apps.put("Other", new HashSet<>(java.util.Set.of("Tool.exe", "NVIDIA App.exe")));
+        Project p = new Project("P", null, apps, new java.util.ArrayList<>());
+        try {
+            // + : Tool moves to Apps and comes back on resume, in every project
+            HelloController.relaunched.add("tool.exe");
+            HelloController.recategorizeOther(p);
+            assertEquals(java.util.Set.of("Tool.exe"), p.apps.get("Apps"));
+            var plan = new HelloController().planResume(p, java.util.Set.of(), new java.util.ArrayList<>());
+            assertEquals(java.util.List.of("Tool"), plan.steps().stream().map(s -> s.label).toList());
+
+            // x : NVIDIA App is off the card here and never captured again
+            HelloController.hidden.add("nvidia app.exe");
+            assertTrue(HelloController.isIgnoredWindow("NVIDIA App.exe"));
+            assertTrue(HelloController.visibleApps(p, "Other").isEmpty());
+
+            // Settings' undo: Tool goes back to Other on the next sort
+            HelloController.relaunched.clear();
+            HelloController.recategorizeOther(p);
+            assertEquals(java.util.Set.of("Tool.exe", "NVIDIA App.exe"), p.apps.get("Other"));
+        } finally {
+            HelloController.relaunched.clear();
+            HelloController.hidden.clear();
+        }
+    }
+
+    @Test
+    void onlyCapturedAppsKeepAnExePath() {
+        // what the window listing hands back on this machine: the overlay is an ignored window,
+        // java.exe is ResumeOne itself, explorer.exe the desktop - none of them were captured
+        java.util.Map<String, String> exePaths = new HashMap<>(java.util.Map.of(
+                "idea64.exe", "C:\\JetBrains\\bin\\idea64.exe",
+                "NVIDIA Overlay.exe", "C:\\NVIDIA\\NVIDIA Overlay.exe",
+                "java.exe", "C:\\jdk\\bin\\java.exe",
+                "explorer.exe", "C:\\WINDOWS\\Explorer.EXE"));
+        HashMap<String, HashSet<String>> apps = new HashMap<>();
+        apps.put("IDE", new HashSet<>(java.util.Set.of("idea64.exe")));
+
+        HelloController.keepCapturedExePaths(exePaths, apps);
+
+        assertEquals(java.util.Set.of("idea64.exe"), exePaths.keySet());
+    }
+
+    @Test
+    void copilotAppIsAiAndRelaunchesByItsStoreId() {
+        // the Windows Copilot app runs as mscopilot.exe, which is on neither PATH nor App Paths
+        var result = new HelloController().segregateApps(new java.util.HashSet<>(java.util.List.of("mscopilot.exe")));
+        assertEquals(java.util.Set.of("mscopilot.exe"), result.get("AI"));
+        assertEquals("Copilot", HelloController.appName("mscopilot.exe"));
+
+        Project p = new Project("P", null, result, new java.util.ArrayList<>());
+        var plan = new HelloController().planResume(p, java.util.Set.of(), new java.util.ArrayList<>());
+        assertEquals(java.util.List.of("Copilot"), plan.steps().stream().map(s -> s.label).toList());
     }
 
     @Test
