@@ -98,7 +98,9 @@ final class Icons {
             Map.entry("Video", VIDEO), Map.entry("Office", OFFICE), Map.entry("Communication", COMMS),
             Map.entry("Notes", NOTES), Map.entry("Music", MUSIC),
             // Explorer's folder windows: the slide's folder, otherwise unused
-            Map.entry("Files", OTHER));
+            Map.entry("Files", OTHER),
+            // apps the user moved out of Other: the same app-window Other is drawn with
+            Map.entry("Apps", APP_WINDOW));
 
     /** A size×size node. Parts carry the style class "ico" so CSS hover rules can recolour
         them (author CSS beats the colour set here, as it does everywhere in JavaFX). */

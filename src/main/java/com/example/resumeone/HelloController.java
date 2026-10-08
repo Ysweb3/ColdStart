@@ -226,6 +226,8 @@ public class HelloController {
         running apps (only logged - proves capture works), start the server, wire buttons. */
     @FXML
     public void initialize() throws IOException {
+        // before the projects load: their Apps/Other rows are sorted by these lists
+        loadUserApps();
 
         for (Project project : getProjectsJson()) {
             createProjectUI(project, false);
@@ -752,6 +754,24 @@ public class HelloController {
         String size = projectsFile().length() < 1024 ? "<1 KB" : kb + " KB";
         String storage = projects.size() + (projects.size() == 1 ? " project" : " projects") + " \u00b7 " + size + " \u00b7 ";
         List<String> ignored = IGNORED_WINDOWS.stream().sorted().toList();
+        // what the user sorted out of Other; clicking the row undoes it all
+        List<HBox> userRows = new ArrayList<>();
+        for (Set<String> list : List.of(relaunched, hidden)) {
+            if (list.isEmpty()) continue;
+            boolean keep = list == relaunched;
+            List<String> sorted = list.stream().sorted().toList();
+            HBox row = statRow(Icons.APP_WINDOW, keep ? "Relaunched from Other" : "Hidden apps",
+                    names(sorted) + (keep ? " · click to stop" : " · click to show again"), String.join("\n", sorted));
+            row.getChildren().add(Icons.node(Icons.CHEVRON, 14, TX3));
+            row.getStyleClass().add("stat-link");
+            clickable(row, keep ? "Stop relaunching these" : "Capture these again", () -> {
+                list.clear();
+                storeUserApps();
+                projects.forEach(HelloController::recategorizeOther);
+                renderSettingsRows();
+            });
+            userRows.add(row);
+        }
         HBox storageRow = statRow(Icons.DATABASE, "Storage", storage + shown, storage + path);
         // the one row that acts: open the data folder. Chevron + hand say so; the other two stay flat.
         storageRow.getChildren().add(Icons.node(Icons.CHEVRON, 14, TX3));
@@ -771,6 +791,7 @@ public class HelloController {
                                              + " connected", null),
                 statRow(Icons.APP_WINDOW, "Ignored processes", names(ignored), String.join("\n", ignored)),
                 storageRow);
+        settingsRows.getChildren().addAll(userRows);
     }
 
     /** detailPane / emptyPane / settingsPane are the base views: exactly one shows. */
@@ -1080,7 +1101,7 @@ public class HelloController {
     // built, so every non-empty category is listed rather than hidden behind a dead link
     private static final List<String> CATEGORY_ORDER = List.of(
             "IDE", "AI", "Terminal", "Browser", "Database", "API", "Containers",
-            "VersionControl", "Design", "Video", "Office", "Communication", "Notes", "Files", "Music");
+            "VersionControl", "Design", "Video", "Office", "Communication", "Notes", "Files", "Music", "Apps");
 
     /** "2h ago" under Checkpoint: when the last one was taken. It used to read "overwrite \u00b7
         2h old", a warning on every press; a checkpoint is now one Ctrl+Z from undone. */
@@ -1103,11 +1124,15 @@ public class HelloController {
         categoryRows.getChildren().clear();
         if (projectObj.apps == null) return;
 
-        List<String> filled = CATEGORY_ORDER.stream()
-                .filter(c -> projectObj.apps.get(c) != null && !projectObj.apps.get(c).isEmpty()).toList();
+        // Other comes last, without the apps the user hid (another project hid them; this one
+        // still has them saved): captured, never relaunched, and each one sortable out of it
+        List<String> filled = new ArrayList<>(CATEGORY_ORDER);
+        filled.add(OTHER);
+        filled.removeIf(c -> visibleApps(projectObj, c).isEmpty());
         // every category is listed: the column scrolls, so nothing hides behind a "+n more"
         for (String category : filled) {
-            HashSet<String> bucket = projectObj.apps.get(category);
+            boolean other = category.equals(OTHER);
+            Set<String> bucket = visibleApps(projectObj, category);
 
             // a 120px label column: 12px glyph + the 12px label; "Communication" is the widest
             HBox labelBox = new HBox(6);
@@ -1129,15 +1154,15 @@ public class HelloController {
             };
             chips.setAlignment(Pos.CENTER_LEFT);
             chips.setMinWidth(0);
-            for (String app : new TreeSet<>(bucket)) {
-                chips.getChildren().add(chip(projectObj, category, app));
+            for (String app : bucket) {
+                chips.getChildren().add(other ? otherChip(projectObj, app) : chip(projectObj, category, app));
             }
 
             HBox row = new HBox(10);
             row.setAlignment(Pos.CENTER_LEFT);
             row.getChildren().addAll(labelBox, chips);
 
-            String note = trailingNote(category, projectObj);
+            String note = other ? "not relaunched" : trailingNote(category, projectObj);
             if (note != null) {
                 // "reopens chats" is a phrase, the IDE note a path: the face follows which
                 Label arg = styled(new Label(note), note.startsWith("…\\") ? "project-path" : "cat-arg");
@@ -1151,16 +1176,13 @@ public class HelloController {
 
             categoryRows.getChildren().add(row);
         }
-        // "Other" is captured but never relaunched, which the design calls out by name
-        HashSet<String> other = projectObj.apps.get(OTHER);
-        if (other != null && !other.isEmpty()) {
-            String first = appName(new TreeSet<>(other).first());
-            String rest = other.size() > 1 ? " (+" + (other.size() - 1) + ")" : "";
-            HBox foot = new HBox(9, Icons.node(Icons.APP_WINDOW, 12, TX3),
-                    styled(new Label(first + rest + " under Other \u2014 captured, not relaunched"), "cat-foot"));
-            foot.setAlignment(Pos.CENTER_LEFT);
-            categoryRows.getChildren().add(foot);
-        }
+    }
+
+    /** The category's apps in chip order; for Other, without the ones the user hid. */
+    static Set<String> visibleApps(Project projectObj, String category) {
+        TreeSet<String> out = new TreeSet<>(projectObj.apps.getOrDefault(category, new HashSet<>()));
+        if (category.equals(OTHER)) out.removeIf(app -> hidden.contains(app.toLowerCase()));
+        return out;
     }
 
     // only where the exe name is not the app's name; everything else is the exe, capitalised
@@ -1311,23 +1333,47 @@ public class HelloController {
         return chip;
     }
 
+    /** An Other chip: + relaunches the app on every resume from now on (it moves to Apps), x
+        hides it for good. Both are undone from Settings. */
+    private HBox otherChip(Project projectObj, String app) {
+        String name = appName(app);
+        String addText = "Relaunch " + name + " on every resume", hideText = "Hide " + name + ": stop capturing it";
+        StackPane add = chipButton(Icons.NEW, addText, () -> relaunchApp(app), projectObj, 12);
+        StackPane hide = chipButton(Icons.CLOSE, hideText, () -> hideApp(projectObj, app), projectObj, 12);
+        // two buttons on one chip: each says what it does, the x here is not a plain remove
+        Tooltip.install(add, tip(addText));
+        Tooltip.install(hide, tip(hideText));
+        add.getStyleClass().add("rm-add");
+        HBox chip = new HBox(2, new Label(name), add, hide);
+        Tooltip.install(chip, tip(app));
+        chip.getStyleClass().addAll("chip", "cut");
+        chip.setAlignment(Pos.CENTER_LEFT);
+        return chip;
+    }
+
     /** The x on chips and tab rows, shown on hover or keyboard focus. Opacity, not managed, so
         nothing shifts. No undo: the next checkpoint brings anything back. */
     private StackPane remover(Runnable edit, Project projectObj, double size, String what) {
+        return chipButton(Icons.CLOSE, "Remove " + what, edit, projectObj, size);
+    }
+
+    /** A hover button on a chip or tab row that edits the project, redraws and saves it. The
+        action is its accessible text and, beside a chip's own tooltip, its hover label. */
+    private StackPane chipButton(Icons.Glyph shape, String action, Runnable edit, Project projectObj, double size) {
         StackPane x = new StackPane();
         x.getStyleClass().add("rm");
         // a 24px target (WCAG 2.5.8) that still lays out as the glyph's 12x16: the negative
         // margin hands the extra back, so rows and chips keep their size
         x.setPickOnBounds(true);
         HBox.setMargin(x, new Insets(-4, -6, -4, -6));
-        Pane glyph = Icons.node(Icons.CLOSE, size, TX3);
+        Pane glyph = Icons.node(shape, size, TX3);
         glyph.getStyleClass().add("rm-glyph");
         x.getChildren().add(glyph);
         Icons.animate(x, glyph);
         // in the Tab order and shown on focus (hud.css), so it is not mouse-only
         x.setFocusTraversable(true);
         x.setAccessibleRole(AccessibleRole.BUTTON);
-        x.setAccessibleText("Remove " + what);
+        x.setAccessibleText(action);
         Runnable remove = () -> {
             edit.run();
             renderDetail(projectObj);
@@ -2290,7 +2336,42 @@ public class HelloController {
         // misfired and we must not persist its output as an app
         if (!lower.endsWith(".exe")) return true;
         // PowerToys surfaces (QuickAccess, WorkspacesEditor, ...) are transient UI, not apps to resume
-        return IGNORED_WINDOWS.contains(lower) || lower.startsWith("powertoys.");
+        return IGNORED_WINDOWS.contains(lower) || lower.startsWith("powertoys.") || hidden.contains(lower);
+    }
+
+    // == Apps the user sorted out of Other ==================================
+    //   + on an Other chip relaunches that app from then on, in every project, under "Apps";
+    //   x hides it: it is never captured again. Both are the user's, not a project's, so they
+    //   live in PREFS (lowercase exe names), loaded by initialize() - empty in tests.
+    static final String USER_APPS = "Apps";
+    private static final String RELAUNCH_KEY = "relaunchApps", HIDDEN_KEY = "hiddenApps";
+    // read by the capture worker while the FX thread edits them
+    static final Set<String> relaunched = ConcurrentHashMap.newKeySet(), hidden = ConcurrentHashMap.newKeySet();
+
+    private static void loadUserApps() {
+        for (String exe : PREFS.get(RELAUNCH_KEY, "").split("\n")) if (!exe.isBlank()) relaunched.add(exe);
+        for (String exe : PREFS.get(HIDDEN_KEY, "").split("\n")) if (!exe.isBlank()) hidden.add(exe);
+    }
+
+    private static void storeUserApps() {
+        PREFS.put(RELAUNCH_KEY, String.join("\n", relaunched));
+        PREFS.put(HIDDEN_KEY, String.join("\n", hidden));
+    }
+
+    /** + on an Other chip. Every open project that captured it moves it to Apps now; the ones
+        on disk do when they load (recategorizeOther). */
+    private void relaunchApp(String app) {
+        relaunched.add(app.toLowerCase());
+        storeUserApps();
+        projects.forEach(HelloController::recategorizeOther);
+    }
+
+    /** x on an Other chip: gone from this card now, never captured again. Other projects that
+        still list it stop showing it (renderCategories). */
+    private void hideApp(Project projectObj, String app) {
+        hidden.add(app.toLowerCase());
+        storeUserApps();
+        removeApp(projectObj, OTHER, app);
     }
 
     /**
@@ -2398,6 +2479,7 @@ public class HelloController {
             result.put(category, new HashSet<>());
         }
         result.put(OTHER, new HashSet<>());
+        result.put(USER_APPS, new HashSet<>());
 
         for (String app : appset) {
             result.get(categoryOf(app)).add(app);
@@ -2409,16 +2491,21 @@ public class HelloController {
     }
 
     /** Apps saved under Other before KNOWN_APPS learned them (mspaint, Word, ...) move to their
-        category, or they'd never relaunch and an add-mode checkpoint would list them twice. */
+        category, or they'd never relaunch and an add-mode checkpoint would list them twice.
+        Same for Apps both ways: one the user just added leaves Other, one they stopped
+        relaunching goes back to it. */
     static void recategorizeOther(Project projectObj) {
-        HashSet<String> other = projectObj.apps == null ? null : projectObj.apps.get(OTHER);
-        if (other == null) return;
-        other.removeIf(app -> {
-            String category = categoryOf(app);
-            if (category.equals(OTHER)) return false;
-            projectObj.apps.computeIfAbsent(category, k -> new HashSet<>()).add(app);
-            return true;
-        });
+        if (projectObj.apps == null) return;
+        for (String from : List.of(OTHER, USER_APPS)) {
+            HashSet<String> bucket = projectObj.apps.get(from);
+            if (bucket == null) continue;
+            bucket.removeIf(app -> {
+                String category = categoryOf(app);
+                if (category.equals(from)) return false;
+                projectObj.apps.computeIfAbsent(category, k -> new HashSet<>()).add(app);
+                return true;
+            });
+        }
     }
 
     // windows reports real executable casing (WindowsTerminal.exe, Spotify.exe), so match lowercased
@@ -2430,7 +2517,8 @@ public class HelloController {
                 }
             }
         }
-        return OTHER;
+        // a known category wins, so an app that KNOWN_APPS learns later gets its real row
+        return relaunched.contains(app.toLowerCase()) ? USER_APPS : OTHER;
     }
     /** Writes the project to projects.json (replacing any entry with the same name). Both the
         in-memory list and the on-disk list are updated. It does not make the project active:
@@ -3016,9 +3104,15 @@ public class HelloController {
                     // `start` reports nothing back when windows cannot find the exe - it shows its
                     // own dialog and the step would read as launched - so look first, the way
                     // start does: PATH, then the App Paths keys
+                    String exePath = projectObj.exePaths == null ? null : projectObj.exePaths.get(app);
                     steps.add(new LaunchStep(appName(app), "start " + appName, false, () -> {
                         if (!onPath(app, System.getenv("PATH")) && appPath(app) == null) {
-                            throw new IOException("cannot find " + app);
+                            // not findable by name (most apps moved out of Other): the exe the
+                            // last checkpoint saw it run from
+                            if (exePath == null || !new File(exePath).isFile()) throw new IOException("cannot find " + app);
+                            new ProcessBuilder(exePath).redirectOutput(ProcessBuilder.Redirect.DISCARD)
+                                    .redirectError(ProcessBuilder.Redirect.DISCARD).start();
+                            return;
                         }
                         // the "" is start's window title: without it, a name with a space
                         // ("Adobe Premiere Pro") arrives quoted and start takes it as the title,

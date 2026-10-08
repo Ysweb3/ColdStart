@@ -92,6 +92,9 @@ final class AppFolders {
         List<String> blendRecent = null;
         for (Window w : windows) {
             String lower = w.exe().toLowerCase();
+            // every windowed app's, not only those with a folder: an app the user moves out of
+            // Other is usually on neither PATH nor App Paths, and this is how resume finds it
+            if (!w.exePath().isEmpty()) exePaths.put(w.exe(), w.exePath());
             String folder = null;
             VsCode vs = VSCODE_FAMILY.get(lower);
             if (vs != null) {
@@ -116,7 +119,6 @@ final class AppFolders {
             if (folder == null) continue;
             ArrayList<String> list = out.computeIfAbsent(w.exe(), k -> new ArrayList<>());
             if (list.stream().noneMatch(folder::equalsIgnoreCase)) list.add(folder);
-            if (!w.exePath().isEmpty()) exePaths.put(w.exe(), w.exePath());
         }
         return new Capture(out, exePaths);
     }

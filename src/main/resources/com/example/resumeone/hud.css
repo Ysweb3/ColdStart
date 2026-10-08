@@ -397,6 +397,8 @@
       -fx-min-height: 24; -fx-pref-height: 24; -fx-max-height: 24; }
 .chip:hover .rm, .tab-row:hover .rm { -fx-opacity: 1; }
 .rm:hover .ico { -fx-stroke: -rw-bad; }
+/* the + on an Other chip keeps the app, so it brightens rather than warns like the x */
+.rm.rm-add:hover .ico { -fx-stroke: -rw-tx; }
 
 .tabs-col {
     -fx-border-color: transparent transparent transparent -rw-ln;

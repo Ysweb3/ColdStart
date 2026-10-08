@@ -21,7 +21,7 @@ class HelloControllerSegregateAppsTest {
         HashMap<String, HashSet<String>> result = controller.segregateApps(new HashSet<>());
 
         assertEquals(java.util.Set.of("IDE", "Browser", "Music", "Communication", "Notes", "Terminal",
-                "AI", "Database", "API", "Containers", "VersionControl", "Design", "Video", "Office", "Files", "Other"),
+                "AI", "Database", "API", "Containers", "VersionControl", "Design", "Video", "Office", "Files", "Other", "Apps"),
                 result.keySet());
         result.values().forEach(bucket -> assertTrue(bucket.isEmpty()));
     }
@@ -223,6 +223,34 @@ class HelloControllerSegregateAppsTest {
 
         assertEquals(java.util.Set.of("Figma.exe", "mspaint.exe"), p.apps.get("Design"));
         assertEquals(java.util.Set.of("NVIDIA App.exe"), p.apps.get("Other"), "still unknown, stays");
+    }
+
+    @Test
+    void otherAppsCanBeRelaunchedOrHidden() {
+        HashMap<String, HashSet<String>> apps = new HashMap<>();
+        apps.put("Other", new HashSet<>(java.util.Set.of("Tool.exe", "NVIDIA App.exe")));
+        Project p = new Project("P", null, apps, new java.util.ArrayList<>());
+        try {
+            // + : Tool moves to Apps and comes back on resume, in every project
+            HelloController.relaunched.add("tool.exe");
+            HelloController.recategorizeOther(p);
+            assertEquals(java.util.Set.of("Tool.exe"), p.apps.get("Apps"));
+            var plan = new HelloController().planResume(p, java.util.Set.of(), new java.util.ArrayList<>());
+            assertEquals(java.util.List.of("Tool"), plan.steps().stream().map(s -> s.label).toList());
+
+            // x : NVIDIA App is off the card here and never captured again
+            HelloController.hidden.add("nvidia app.exe");
+            assertTrue(HelloController.isIgnoredWindow("NVIDIA App.exe"));
+            assertTrue(HelloController.visibleApps(p, "Other").isEmpty());
+
+            // Settings' undo: Tool goes back to Other on the next sort
+            HelloController.relaunched.clear();
+            HelloController.recategorizeOther(p);
+            assertEquals(java.util.Set.of("Tool.exe", "NVIDIA App.exe"), p.apps.get("Other"));
+        } finally {
+            HelloController.relaunched.clear();
+            HelloController.hidden.clear();
+        }
     }
 
     @Test
