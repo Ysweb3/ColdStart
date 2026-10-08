@@ -2308,12 +2308,12 @@ public class HelloController {
     // == Checkpoint & close ==================================================
     //   Once the checkpoint is on disk, every app it saved gets the close an X click sends
     //   (WM_CLOSE), so an app with unsaved work asks about it itself - nothing is ever killed.
-    //   Browsers lose only the project's tabs, through their extension. After CLOSE_GRACE_MS
-    //   whatever still has a window is listed, and drops off the list as it goes.
+    //   Browsers lose only the project's tabs, through their extension. Once the rest have
+    //   gone, whatever still has a window is listed, and drops off the list as it goes.
 
     static final String CLOSING = "closing…", STILL_OPEN = "Some apps are still open";
-    static final long CLOSE_GRACE_MS = 5_000, CLOSE_POLL_MS = 2_000;
-    // ponytail: a PowerShell listing every 2s while the list is up; capped so a list left
+    static final long CLOSE_POLL_MS = 1_000;
+    // ponytail: a PowerShell listing every second while the list is up; capped so a list left
     // open all afternoon stops polling
     static final long CLOSE_WATCH_NANOS = 10L * 60 * 1_000_000_000L;
 
@@ -2387,14 +2387,22 @@ public class HelloController {
         Thread worker = new Thread(() -> {
             try {
                 powershell(closeScript(apps, folders)).waitFor(20, TimeUnit.SECONDS);
-                Thread.sleep(CLOSE_GRACE_MS);
                 long until = System.nanoTime() + CLOSE_WATCH_NANOS;
-                for (boolean first = true; closeWatch == watch; first = false) {
-                    List<String> open = stillOpen(apps, captureRunningApps());
-                    boolean last = open.isEmpty() || System.nanoTime() > until, shown = !first;
-                    Platform.runLater(() -> showStillOpen(projectObj, watch, open, browsersLeft, shown));
-                    if (last) return;
+                List<String> before = null;
+                boolean shown = false;
+                while (closeWatch == watch) {
                     Thread.sleep(CLOSE_POLL_MS);
+                    List<String> open = stillOpen(apps, captureRunningApps());
+                    // an app with nothing to save is gone within a look or two; a list that did
+                    // not shrink since the last look is the apps waiting on the user.
+                    // ponytail: an app slower than a look to quit is listed, then drops off
+                    if (shown || open.isEmpty() || open.equals(before)) {
+                        boolean update = shown;
+                        Platform.runLater(() -> showStillOpen(projectObj, watch, open, browsersLeft, update));
+                        shown = true;
+                        if (open.isEmpty() || System.nanoTime() > until) return;
+                    }
+                    before = open;
                 }
             } catch (IOException | InterruptedException ex) {
                 System.err.println("close failed: " + ex.getMessage());
