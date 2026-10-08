@@ -1142,6 +1142,10 @@ public class HelloController {
                 // "reopens chats" is a phrase, the IDE note a path: the face follows which
                 Label arg = styled(new Label(note), note.startsWith("…\\") ? "project-path" : "cat-arg");
                 arg.setMinWidth(Region.USE_PREF_SIZE);   // white-space: nowrap
+                // "…\Downloads +1" is short on purpose; hovering shows every full path, as the
+                // project path does
+                String full = trailingTip(category, projectObj);
+                if (full != null) Tooltip.install(arg, tip(full));
                 row.getChildren().add(arg);
             }
 
@@ -1212,19 +1216,30 @@ public class HelloController {
         if ("AI".equals(category) && hasApp(projectObj, "claude.exe")) {
             return "reopens chats";
         }
+        List<String> paths = notePaths(category, projectObj);
+        if (paths.isEmpty()) return null;
+        List<String> names = paths.stream().map(p -> new File(p).getName()).distinct().toList();
+        return "…\\" + names.get(0) + (names.size() > 1 ? " +" + (names.size() - 1) : "");
+    }
+
+    /** The full paths behind trailingNote's "…\name +1", one per line: its hover label. */
+    static String trailingTip(String category, Project projectObj) {
+        List<String> paths = notePaths(category, projectObj);
+        return paths.isEmpty() ? null : String.join("\n", paths);
+    }
+
+    /** The saved folders and files of this category's apps, else VS Code's project folder. */
+    private static List<String> notePaths(String category, Project projectObj) {
         if (projectObj.folders != null) {
-            List<String> names = projectObj.folders.entrySet().stream()
+            List<String> paths = projectObj.folders.entrySet().stream()
                     .filter(e -> category.equals(categoryOf(e.getKey())))
-                    .flatMap(e -> e.getValue().stream())
-                    .map(dir -> new File(dir).getName()).distinct().toList();
-            if (!names.isEmpty()) {
-                return "…\\" + names.get(0) + (names.size() > 1 ? " +" + (names.size() - 1) : "");
-            }
+                    .flatMap(e -> e.getValue().stream()).distinct().toList();
+            if (!paths.isEmpty()) return paths;
         }
         if ("IDE".equals(category) && hasApp(projectObj, "Code.exe") && projectObj.folderPath != null) {
-            return "…\\" + new File(projectObj.folderPath).getName();
+            return List.of(projectObj.folderPath);
         }
-        return null;
+        return List.of();
     }
 
     /** The column scrolls; every header and tab row is always in it. */

@@ -5,6 +5,7 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URI;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -15,6 +16,8 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -25,8 +28,8 @@ import java.util.regex.Pattern;
  * IDEs only put a name in the title ("ResumeOne – Main.java", "x.ts - ResumeOneExtension -
  * Visual Studio Code"), so the name is looked up in the app's own list of folders it has
  * opened. Notepad++, Premiere, After Effects and older Blender put the whole path there,
- * Unity has it on its command line, and Explorer is asked through Shell.Application. A
- * window whose folder can't be told is left out; that app relaunches as before.
+ * Unity has it on its command line, and Explorer, Office and Photoshop/Illustrator are asked
+ * over COM. A window whose folder can't be told is left out; that app relaunches as before.
  */
 final class AppFolders {
 
@@ -59,10 +62,15 @@ final class AppFolders {
     static final List<String> TITLE_PATH = List.of("notepad++.exe", "adobe premiere pro.exe", "afterfx.exe");
     static final String BLENDER = "blender.exe", UNITY = "unity.exe", EXPLORER = "explorer.exe";
 
+    // asked over COM for every open document (see captureWindows); each comes back as its own
+    // line with the document's FullName standing in for the title
+    static final List<String> COM_DOCS = List.of("winword.exe", "excel.exe", "powerpnt.exe",
+            "photoshop.exe", "illustrator.exe");
+
     static boolean knows(String exe) {
         String lower = exe.toLowerCase();
         return VSCODE_FAMILY.containsKey(lower) || JETBRAINS.contains(lower) || TITLE_PATH.contains(lower)
-                || List.of(BLENDER, UNITY, EXPLORER).contains(lower);
+                || COM_DOCS.contains(lower) || List.of(BLENDER, UNITY, EXPLORER).contains(lower);
     }
 
     /** The arguments that reopen dir in app: Unity takes it as -projectPath, the rest bare. */
@@ -102,6 +110,8 @@ final class AppFolders {
                 folder = unityProject(w.commandLine());
             } else if (lower.equals(EXPLORER)) {
                 folder = explorerFolder(w.title());
+            } else if (COM_DOCS.contains(lower)) {
+                folder = documentPath(w.title(), System.getenv("OneDrive"), System.getenv("OneDriveCommercial"));
             }
             if (folder == null) continue;
             ArrayList<String> list = out.computeIfAbsent(w.exe(), k -> new ArrayList<>());
@@ -202,6 +212,30 @@ final class AppFolders {
         }
         File f = new File(path);
         return f.isAbsolute() && f.isDirectory() ? f.getPath() : null;
+    }
+
+    // == Office and Adobe, over COM =========================================
+    //   FullName is a path, a bare name for an unsaved "Document1" (left out), or for a file in
+    //   a synced OneDrive folder its web address - the same file is on disk under the OneDrive
+    //   root, path for path.
+
+    private static final Pattern ONEDRIVE_PERSONAL = Pattern.compile("(?i)https://d\\.docs\\.live\\.net/[0-9a-f]+/(.+)");
+    private static final Pattern ONEDRIVE_WORK = Pattern.compile("(?i)https://[^/]+-my\\.sharepoint\\.com/personal/[^/]+/Documents/(.+)");
+
+    static String documentPath(String fullName, String oneDrive, String oneDriveWork) {
+        String path = fullName;
+        Matcher personal = ONEDRIVE_PERSONAL.matcher(fullName), work = ONEDRIVE_WORK.matcher(fullName);
+        if (personal.matches() && oneDrive != null) path = oneDrive + "\\" + urlPath(personal.group(1));
+        else if (work.matches() && oneDriveWork != null) path = oneDriveWork + "\\" + urlPath(work.group(1));
+        File f = new File(path);
+        // Excel's startup folder (PERSONAL.XLSB) opens by itself, hidden; it is not the user's work
+        if (!f.isAbsolute() || !f.isFile() || path.toUpperCase().contains("\\XLSTART\\")) return null;
+        return f.getPath();
+    }
+
+    private static String urlPath(String s) {
+        // a literal '+' is part of the name, not an encoded space
+        return URLDecoder.decode(s.replace("+", "%2B"), StandardCharsets.UTF_8).replace('/', '\\');
     }
 
     // == VS Code family =====================================================
@@ -334,9 +368,24 @@ final class AppFolders {
                 "ForEach-Object { $e = $_.Current; $q = $p[$e.ProcessId]; if ($e.Name -and $q) { " +
                 "$q.ProcessName + '.exe' + $t + $q.Path + $t + $c[$e.ProcessId] + $t + $e.Name } }; " +
                 "(New-Object -ComObject Shell.Application).Windows() | " +
-                "ForEach-Object { 'explorer.exe' + $t + $t + $t + $_.LocationURL }");
+                "ForEach-Object { 'explorer.exe' + $t + $t + $t + $_.LocationURL }; " +
+                // only apps already running: GetActiveObject never starts one. Adobe may not
+                // register there, so it gets New-Object, which attaches to the running copy.
+                // ponytail: an Adobe app quitting at that instant would start again; drop the
+                // New-Object fallback if that is ever seen
+                "foreach ($a in @(@('WINWORD','Word.Application','Documents'), @('EXCEL','Excel.Application','Workbooks'), " +
+                "@('POWERPNT','PowerPoint.Application','Presentations'), @('Photoshop','Photoshop.Application','Documents'), " +
+                "@('Illustrator','Illustrator.Application','Documents'))) { " +
+                "$q = Get-Process -Name $a[0] -ErrorAction SilentlyContinue | Select-Object -First 1; if (-not $q) { continue }; " +
+                "$o = $null; try { $o = [Runtime.InteropServices.Marshal]::GetActiveObject($a[1]) } catch { }; " +
+                "if (-not $o -and $a[0] -in @('Photoshop','Illustrator')) { try { $o = New-Object -ComObject $a[1] } catch { } }; " +
+                "if ($o) { foreach ($d in $o.($a[2])) { try { $q.ProcessName + '.exe' + $t + $q.Path + $t + $t + $d.FullName } catch { } } } }");
         pb.redirectErrorStream(true);
         Process process = pb.start();
+        // an Office app with a modal dialog up can leave a COM call waiting; the checkpoint
+        // must not wait with it. Killed, the stream ends and what was read so far is kept.
+        CompletableFuture.runAsync(process::destroyForcibly,
+                CompletableFuture.delayedExecutor(15, TimeUnit.SECONDS));
         List<Window> out = new ArrayList<>();
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {

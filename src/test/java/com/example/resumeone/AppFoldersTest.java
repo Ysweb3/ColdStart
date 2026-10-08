@@ -38,6 +38,29 @@ class AppFoldersTest {
     }
 
     @Test
+    void officeDocumentsResolveFromComFullNames() throws IOException {
+        File oneDrive = new File(home, "OneDrive");
+        File deck = new File(oneDrive, "Desktop\\Q3 plan+notes.pptx");
+        File startup = new File(home, "AppData\\Microsoft\\Excel\\XLSTART\\PERSONAL.XLSB");
+        assertTrue(deck.getParentFile().mkdirs() && startup.getParentFile().mkdirs());
+        Files.writeString(deck.toPath(), "");
+        Files.writeString(startup.toPath(), "");
+
+        assertEquals(deck.getPath(), AppFolders.documentPath(deck.getPath(), null, null));
+        // a synced OneDrive file comes back as its web address; '+' stays a '+'
+        assertEquals(deck.getPath(), AppFolders.documentPath(
+                "https://d.docs.live.net/9a3f0c12be4d7e61/Desktop/Q3%20plan+notes.pptx", oneDrive.getPath(), null));
+        assertNull(AppFolders.documentPath("Document1", oneDrive.getPath(), null));   // never saved
+        assertNull(AppFolders.documentPath(startup.getPath(), null, null));            // Excel opens it itself
+
+        // the COM line carries the exe path, so resume starts that Office install with the file
+        var found = AppFolders.resolve(List.of(new AppFolders.Window("POWERPNT.exe",
+                "C:\\Office16\\POWERPNT.EXE", "", deck.getPath())), new File(home, "AppData"), home.getPath());
+        assertEquals(List.of(deck.getPath()), found.folders().get("POWERPNT.exe"));
+        assertEquals("C:\\Office16\\POWERPNT.EXE", found.exePaths().get("POWERPNT.exe"));
+    }
+
+    @Test
     void pathsInTitlesCommandLinesAndExplorerResolve() throws IOException {
         File work = new File(home, "My Work (2026)");
         File txt = new File(work, "a - notes.txt");
@@ -74,6 +97,11 @@ class AppFoldersTest {
         HashMap<String, HashSet<String>> apps = new HashMap<>();
         HelloController.addFolderApps(apps, Map.of("explorer.exe", new ArrayList<>(List.of(work.getPath()))));
         assertEquals(Set.of("explorer.exe"), apps.get("Files"));
+        // the Files note is short; its hover label has every full path, one per line
+        Project p = new Project("files", null, apps, new ArrayList<>());
+        p.folders = new HashMap<>(Map.of("explorer.exe", new ArrayList<>(List.of(work.getPath(), unity.getPath()))));
+        assertEquals("…\\My Work (2026) +1", HelloController.trailingNote("Files", p));
+        assertEquals(work.getPath() + "\n" + unity.getPath(), HelloController.trailingTip("Files", p));
         assertEquals("File Explorer · My Work (2026)",
                 HelloController.folderStep("explorer.exe", work.getPath(), null).label);
     }
