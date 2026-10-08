@@ -215,20 +215,22 @@
           <StackPane fx:id="btnNoteClose" styleClass="iconbtn" pickOnBounds="true"/>
         </HBox>
         <!-- handoff 1d: once a checkpoint lands, the note's place offers to close what it saved,
-             for 6s (showOffer). The 2px bar on its bottom edge is the countdown. -->
-        <StackPane fx:id="ckOffer" styleClass="ck-offer" minHeight="72.0" prefHeight="72.0" maxHeight="72.0"
-                   visible="false" managed="false">
-          <HBox alignment="CENTER_LEFT" spacing="14.0">
-            <padding><Insets left="20.0" right="20.0"/></padding>
+             for 6s (showOffer). It takes exactly the space of what it stands in for (the strip
+             or "Add a note") and the strip's padding, so nothing on the card moves and its
+             check sits where the note's pencil was. The 2px bar on its bottom edge is the
+             countdown. -->
+        <StackPane fx:id="ckOffer" styleClass="ck-offer" visible="false" managed="false">
+          <HBox alignment="CENTER_LEFT" spacing="12.0">
+            <padding><Insets left="14.0" right="4.0"/></padding>
             <StackPane fx:id="offerGlyphBox"/>
-            <VBox spacing="8.0" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS" minWidth="0.0">
-              <Label styleClass="ck-offer-title" text="Checkpoint saved. Done for now?"/>
-              <Label fx:id="offerSub" styleClass="ck-offer-sub" text=""/>
-            </VBox>
+            <HBox spacing="10.0" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS" minWidth="0.0">
+              <Label styleClass="ck-offer-title" text="Checkpoint saved. Done for now?" minWidth="-Infinity"/>
+              <Label fx:id="offerSub" styleClass="ck-offer-sub" text="" minWidth="0.0"/>
+            </HBox>
             <Button fx:id="btnOfferClose" styleClass="btn-offer" graphicTextGap="10.0"
-                    minHeight="42.0" prefHeight="42.0" maxHeight="42.0" minWidth="-Infinity"/>
+                    minHeight="30.0" prefHeight="30.0" maxHeight="30.0" minWidth="-Infinity"/>
             <StackPane fx:id="btnOfferDismiss" styleClass="iconbtn, offer-x" pickOnBounds="true"
-                       minWidth="42.0" prefWidth="42.0" maxWidth="42.0" minHeight="42.0" maxHeight="42.0"/>
+                       minWidth="32.0" prefWidth="32.0" maxWidth="32.0" minHeight="32.0" maxHeight="32.0"/>
           </HBox>
           <Region fx:id="offerBar" styleClass="ck-offer-bar" StackPane.alignment="BOTTOM_LEFT"
                   mouseTransparent="true" minHeight="2.0" prefHeight="2.0" maxHeight="2.0"/>

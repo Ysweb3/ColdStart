@@ -2453,7 +2453,7 @@ public class HelloController {
     }
 
     private void installOffer() {
-        offerGlyphBox.getChildren().add(Icons.node(Icons.CHECK, 20, CKT));
+        offerGlyphBox.getChildren().add(Icons.node(Icons.CHECK, 14, CKT));   // the note's sticky is 14
         offerWord = styled(new Label(), "offer-word");
         HBox content = new HBox(10, Icons.node(Icons.POWER, 16, TX), offerWord, styled(new Label("Enter"), "offer-key"));
         content.setAlignment(Pos.CENTER_LEFT);
@@ -2461,7 +2461,7 @@ public class HelloController {
         btnOfferClose.getStyleClass().add("cut");
         btnOfferClose.setOnAction(e -> acceptOffer());
         Motion.pressable(btnOfferClose);
-        Pane x = Icons.node(Icons.CLOSE, 18, TX2);
+        Pane x = Icons.node(Icons.CLOSE, 14, TX2);   // the note's own x
         btnOfferDismiss.getChildren().add(x);
         Icons.animate(btnOfferDismiss, x);
         clickable(btnOfferDismiss, "Dismiss", this::dismissOffer);
@@ -2480,6 +2480,12 @@ public class HelloController {
         offerWord.setText("Close " + apps + (apps == 1 ? " app" : " apps"));
         btnOfferClose.setAccessibleText(offerWord.getText());
         offerSub.setText(countLine(apps, countTabs(projectObj)) + " still open");
+        // the exact box of what it stands in for: a two-line note's strip, or the 40 of "Add a note"
+        Region spot = noteStrip.isVisible() ? noteStrip : btnAddNote;
+        double h = spot.getHeight() > 0 ? spot.getHeight() : 40;
+        ckOffer.setMinHeight(h);
+        ckOffer.setPrefHeight(h);
+        ckOffer.setMaxHeight(h);
         btnAddNote.setVisible(false);
         btnAddNote.setManaged(false);
         noteStrip.setVisible(false);

@@ -320,7 +320,7 @@
     -fx-border-color: -rw-ck-edge;
     -fx-border-radius: 0;
 }
-.ck-offer-title { -fx-font-size: 15px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.ck-offer-title { -fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .ck-offer-sub   { -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
 .ck-offer-bar   { -fx-background-color: -rw-ckt; }
 .button.btn-offer {
@@ -328,7 +328,7 @@
     -fx-background-radius: 0;
     -fx-border-color: -rw-ln2;
     -fx-border-radius: 0;
-    -fx-padding: 0 18 0 18;
+    -fx-padding: 0 12 0 12;
     -fx-cursor: hand;
 }
 .button.btn-offer:hover { -fx-background-color: -rw-hover; }
