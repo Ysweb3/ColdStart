@@ -2027,10 +2027,14 @@ public class HelloController {
         and is not waited for; its saved tabs stay and a late reply still updates the card. */
     static final long TAB_WAIT_MILLIS = 3_000;
 
-    /** Puts back what a checkpoint changes (apps, tabs, its time) from a gson snapshot. */
+    /** Puts back what a checkpoint changes (apps, their folders and exe paths, tabs, its time)
+        from a gson snapshot. A field a checkpoint starts writing must be added here, or undo
+        leaves the newer value behind. */
     void restore(Project projectObj, String snapshot) {
         Project old = gson.fromJson(snapshot, Project.class);
         projectObj.apps = old.apps;
+        projectObj.folders = old.folders;
+        projectObj.exePaths = old.exePaths;
         projectObj.urlsByBrowser = old.urlsByBrowser;
         projectObj.lastCheckpoint = old.lastCheckpoint;
     }
