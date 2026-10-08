@@ -226,6 +226,18 @@ class HelloControllerSegregateAppsTest {
     }
 
     @Test
+    void copilotAppIsAiAndRelaunchesByItsStoreId() {
+        // the Windows Copilot app runs as mscopilot.exe, which is on neither PATH nor App Paths
+        var result = new HelloController().segregateApps(new java.util.HashSet<>(java.util.List.of("mscopilot.exe")));
+        assertEquals(java.util.Set.of("mscopilot.exe"), result.get("AI"));
+        assertEquals("Copilot", HelloController.appName("mscopilot.exe"));
+
+        Project p = new Project("P", null, result, new java.util.ArrayList<>());
+        var plan = new HelloController().planResume(p, java.util.Set.of(), new java.util.ArrayList<>());
+        assertEquals(java.util.List.of("Copilot"), plan.steps().stream().map(s -> s.label).toList());
+    }
+
+    @Test
     void plainNotepadIsANotesAppNotOther() {
         var result = new HelloController().segregateApps(new java.util.HashSet<>(java.util.List.of("Notepad.exe")));
         assertEquals(java.util.Set.of("Notepad.exe"), result.get("Notes"));

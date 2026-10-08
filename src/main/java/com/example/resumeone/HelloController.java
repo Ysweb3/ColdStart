@@ -1166,7 +1166,7 @@ public class HelloController {
     // only where the exe name is not the app's name; everything else is the exe, capitalised
     private static final Map<String, String> APP_NAMES = Map.ofEntries(
             Map.entry("code", "VS Code"), Map.entry("code - insiders", "VS Code Insiders"),
-            Map.entry("explorer", "File Explorer"),
+            Map.entry("explorer", "File Explorer"), Map.entry("mscopilot", "Copilot"),
             Map.entry("idea", "IntelliJ IDEA"), Map.entry("pycharm", "PyCharm"), Map.entry("webstorm", "WebStorm"),
             Map.entry("phpstorm", "PhpStorm"), Map.entry("clion", "CLion"), Map.entry("goland", "GoLand"),
             Map.entry("rubymine", "RubyMine"), Map.entry("datagrip", "DataGrip"), Map.entry("studio", "Android Studio"),
@@ -2330,6 +2330,11 @@ public class HelloController {
 
     static final String OTHER = "Other";
 
+    /** exe -> Store app id, for packaged apps `start` cannot find (no PATH alias, no App Paths).
+        ponytail: one entry per app; look the id up with Get-StartApps if more turn up. */
+    static final Map<String, String> STORE_APPS = Map.of(
+            "mscopilot.exe", "Microsoft.Copilot_8wekyb3d8bbwe!App");
+
     // purely for labelling: an app missing from this map is still captured, under OTHER
     private static final Map<String, List<String>> KNOWN_APPS = Map.ofEntries(
             Map.entry("Browser", List.of("chrome.exe", "brave.exe", "firefox.exe", "msedge.exe",
@@ -2347,7 +2352,7 @@ public class HelloController {
             Map.entry("Terminal", List.of("WindowsTerminal.exe", "alacritty.exe", "wezterm-gui.exe",
                     "Hyper.exe", "ConEmu64.exe", "mintty.exe", "Tabby.exe", "warp.exe")),
             Map.entry("AI", List.of("claude.exe", "ChatGPT.exe", "Perplexity.exe", "LM Studio.exe",
-                    "ollama app.exe", "Copilot.exe", "Msty.exe", "Jan.exe", "AnythingLLM.exe",
+                    "ollama app.exe", "Copilot.exe", "mscopilot.exe", "Msty.exe", "Jan.exe", "AnythingLLM.exe",
                     "Cherry Studio.exe")),
             Map.entry("Database", List.of("dbeaver.exe", "datagrip64.exe", "pgAdmin4.exe", "Ssms.exe",
                     "MySQLWorkbench.exe", "TablePlus.exe", "MongoDBCompass.exe", "redisinsight.exe",
@@ -2997,6 +3002,13 @@ public class HelloController {
                     // launch command - "start WindowsTerminal" can't resolve it
                     steps.add(new LaunchStep(appName(app), "start wt", false, () ->
                             new ProcessBuilder("cmd.exe", "/c", "start", "wt").start()));
+
+                } else if (STORE_APPS.containsKey(app.toLowerCase())) {
+                    // a Store app with no exe on PATH or in App Paths: started by its app id,
+                    // the way the Start menu does it
+                    String id = STORE_APPS.get(app.toLowerCase());
+                    steps.add(new LaunchStep(appName(app), "start " + appName(app), false, () ->
+                            new ProcessBuilder("explorer.exe", "shell:AppsFolder\\" + id).start()));
 
                 } else {
                     // no folder needed: this used to sit under the folderPath guard too, so a
