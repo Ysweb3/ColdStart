@@ -66,6 +66,7 @@ import java.net.URI;
 import java.awt.*;
 import java.io.File;
 import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -127,6 +128,12 @@ public class HelloController {
     @FXML public VBox detailPane, emptyPane, categoryRows, tabsList;
     @FXML public VBox deletePane, newProjectPane, confirmPane;
     @FXML public Label confirmTitle, confirmSub, confirmBody;
+    // the checkpoint block's swappable parts, and the close offer under the card (handoff 1d)
+    @FXML public StackPane ckGlyphBox, ckOffer, offerGlyphBox, btnOfferDismiss;
+    @FXML public SVGPath ckBookmark;
+    @FXML public Label ckWord, ckHint, ckDoneWord, offerSub;
+    @FXML public Button btnOfferClose;
+    @FXML public Region offerBar;
     private LaunchStep lastLaunching;   // the row whose beat already played
     @FXML public Button btnConfirmCancel, btnConfirmOk;
     // 1e / 1l (resume in progress, resume done) - see the resume section below
@@ -296,6 +303,7 @@ public class HelloController {
         btnSettingsBack.setOnAction(e -> backToProjects());
         btnNpCancel.setOnAction(e -> backToProjects());
         btnConfirmCancel.setOnAction(e -> showOverlay(null));
+        installOffer();
         btnNpBrowse.setOnAction(e -> {
             String chosen = openFolder(e);          // returns the "NULL" sentinel on cancel
             if (!"NULL".equals(chosen)) npFolder.setText(chosen);
@@ -372,7 +380,7 @@ public class HelloController {
         // for hours, and the rail and the Checkpoint block showed one checkpoint as 15h and 18h
         Timeline ages = new Timeline(new KeyFrame(Duration.minutes(1), e -> {
             refreshCount();
-            if (activeProject != null) checkpointSub.setText(idleLine(activeProject));
+            renderCkPanel();
         }));
         ages.setCycleCount(Animation.INDEFINITE);
         ages.play();
@@ -687,6 +695,12 @@ public class HelloController {
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.B, KeyCombination.SHORTCUT_DOWN),
                 () -> { if (!overlayOpen()) setRailWide(!rail.getStyleClass().contains("rail-wide")); });
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
+            // the close offer takes Enter (close) and Esc (keep) while it is up
+            if (offerFor != null && !overlayOpen() && (e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.ESCAPE)) {
+                if (e.getCode() == KeyCode.ENTER) acceptOffer(); else dismissOffer();
+                e.consume();
+                return;
+            }
             if (e.getCode() != KeyCode.ESCAPE) return;
             if (resumingPane.isVisible()) {
                 stopRequested = true;
@@ -944,6 +958,11 @@ public class HelloController {
     private void selectProject(Project projectObj) {
         // another project under an already-open card is a change of subject, so it arrives too
         boolean switching = activeProject != projectObj && detailPane.isVisible();
+        // the offer and Unsaved work belong to the project that saved, not to the next one
+        if (activeProject != projectObj) {
+            dismissOffer();
+            endClose();
+        }
         activeProject = projectObj;
         rowsByProject.forEach((n, r) -> {
             r.getStyleClass().remove("rail-active");
@@ -973,7 +992,6 @@ public class HelloController {
         // matches the chips on the card, not everything captured (Other is never relaunched)
         resumeCounts.setText(apps > 0 || tabs > 0 ? resumeCountLine(apps, tabs)
                 : countApps(projectObj) > 0 ? "NOTHING TO RELAUNCH" : "NOTHING SAVED YET");
-        checkpointSub.setText(idleLine(projectObj));
         // the same age, computed at the same moment, on the project's rail row
         StackPane railRow = rowsByProject.get(projectObj.projectName);
         if (railRow != null) railTip(railRow, projectObj);
@@ -981,6 +999,8 @@ public class HelloController {
         renderCategories(projectObj);
         renderTabs(projectObj);
         fillNote(projectObj);
+        // last: it marks the chips and tab groups just drawn
+        renderCkPanel();
     }
 
     private void installNote() {
@@ -1306,6 +1326,7 @@ public class HelloController {
             if (!tabRows.isEmpty()) VBox.setMargin(head, new Insets(4, 0, 0, 0));
             Label name = styled(new Label(browserLabel(browser)), "browser-name");
             head.getChildren().addAll(name, styled(new Label(String.valueOf(urls.size())), "side-count"));
+            head.getProperties().put("browser", browser);   // markClosed dims the group
             tabRows.add(head);
 
             for (String url : urls) {
@@ -1319,6 +1340,7 @@ public class HelloController {
                 HBox row = new HBox(2, item, remover(() -> removeUrl(projectObj, browser, url), projectObj, 12, url));
                 row.getStyleClass().add("tab-row");
                 row.setAlignment(Pos.CENTER_LEFT);
+                row.getProperties().put("browser", browser);
                 tabRows.add(row);
             }
         });
@@ -1359,6 +1381,7 @@ public class HelloController {
         the kind). The exe it was captured as is on hover. */
     private HBox chip(Project projectObj, String category, String app) {
         HBox chip = new HBox(2, new Label(appName(app)), remover(() -> removeApp(projectObj, category, app), projectObj, 12, appName(app)));
+        chip.getProperties().put("exe", app);   // markClosed strikes it through once it closes
         Tooltip.install(chip, tip(app));
         chip.getStyleClass().addAll("chip","cut");
         chip.setAlignment(Pos.CENTER_LEFT);
@@ -1392,6 +1415,7 @@ public class HelloController {
         for (StackPane b : List.of(first, second)) Tooltip.install(b, tip(b.getAccessibleText()));
         HBox.setMargin(second, new Insets(-4, -6, -4, 4));
         HBox chip = new HBox(2, new Label(appName(app)), first, second);
+        chip.getProperties().put("exe", app);
         Tooltip.install(chip, tip(app));
         chip.getStyleClass().addAll("chip", "cut");
         chip.setAlignment(Pos.CENTER_LEFT);
@@ -1522,6 +1546,11 @@ public class HelloController {
     private void onResume() {
         // a resume during a checkpoint's capture would be recorded into that checkpoint
         if (activeProject == null || resuming || checkpointing != null || btnResume.isDisabled()) return;
+        // nor while its apps are being closed; Unsaved work is over once they come back
+        if (closeState == Close.CLOSING) return;
+        dismissOffer();
+        endClose();
+        unsavedByProject.remove(activeProject.projectName);
         startRun(new ResumeRun(activeProject), true);
     }
 
@@ -1901,7 +1930,7 @@ public class HelloController {
     /** Glyph colours, set from code (hud.css still re-colours them on hover): the 5a tokens. */
     private static final String TX = "#E9E3DF", TX2 = "#A8A29E", TX3 = "#77726E",
             GO = "#FF6500", GOI = "#1A0A00", BAD = "#EB7C73", HUD = "#A8A29E",
-            CK = "#2A5688", CKT = "#6E9BD1";
+            CK = "#2A5688", CKT = "#6E9BD1", WARN = "#E3C55A";
 
     static int countApps(Project projectObj) {
         if (projectObj == null || projectObj.apps == null) return 0;
@@ -1981,6 +2010,13 @@ public class HelloController {
         // No "are you sure" for an old checkpoint: whatever this replaces is one Ctrl+Z away
         // (undoCheckpoint). A press while "Saved" is still showing is taken too, not dropped.
         if (activeProject == null) return;
+        // Unsaved work after a close: "Save, then click again". The press saves again, adding
+        // to the checkpoint (the closed apps are not open to capture any more), so a file just
+        // saved is recorded, then asks only the apps still open to close.
+        if (closeState == Close.PARTIAL && closeProj == activeProject) {
+            writeCheckpoint(activeProject, Checkpoint.ADD_APPS, survivors);
+            return;
+        }
         writeCheckpoint(activeProject, Checkpoint.OVERWRITE);
     }
 
@@ -2068,9 +2104,16 @@ public class HelloController {
     }
 
     private void writeCheckpoint(Project projectObj, Checkpoint mode) {
+        writeCheckpoint(projectObj, mode, null);
+    }
+
+    /** retry: the apps a close left open (Unsaved work). Once this save lands - it records a
+        file the user has just saved - they are asked to close again, and nothing is offered. */
+    private void writeCheckpoint(Project projectObj, Checkpoint mode, List<String> retry) {
         // a checkpoint mid-resume would record a half-launched desktop over the project, and a
         // second press while one is capturing would only race it to the disk
-        if (resuming || checkpointing != null) return;
+        if (resuming || checkpointing != null || closeState == Close.CLOSING) return;
+        dismissOffer();
         checkpointing = projectObj;
         String before = gson.toJson(projectObj);
         // No bucket is ever dropped here: a browser that answers the capture push overwrites its
@@ -2078,7 +2121,7 @@ public class HelloController {
         // closed) keeps what it had. Stale beats gone.
         tabMode = mode;
         CountDownLatch replies = mode.tabs() ? askForTabs(projectObj) : new CountDownLatch(0);
-        if (projectObj == activeProject) checkpointSub.setText(CHECKPOINTING);
+        if (projectObj == activeProject) renderCkPanel();   // "checkpointing…"
         // the PowerShell capture takes seconds: off the FX thread the HUD keeps drawing and
         // the block can say what it is doing
         Thread worker = new Thread(() -> {
@@ -2100,7 +2143,7 @@ public class HelloController {
             HashMap<String, HashSet<String>> captured = now;
             AppFolders.Capture folders = dirs;
             IOException error = failed;
-            Platform.runLater(() -> finishCheckpoint(projectObj, mode, before, captured, folders, error));
+            Platform.runLater(() -> finishCheckpoint(projectObj, mode, retry, before, captured, folders, error));
         }, "checkpoint");
         worker.setDaemon(true);
         worker.start();
@@ -2109,7 +2152,7 @@ public class HelloController {
     static final String CHECKPOINTING = "checkpointing…";
 
     /** The FX-thread half of writeCheckpoint, once the capture is back (or failed). */
-    private void finishCheckpoint(Project projectObj, Checkpoint mode, String before,
+    private void finishCheckpoint(Project projectObj, Checkpoint mode, List<String> retry, String before,
                                   HashMap<String, HashSet<String>> captured,
                                   AppFolders.Capture folders, IOException captureError) {
         checkpointing = null;
@@ -2148,8 +2191,15 @@ public class HelloController {
             confirm("Checkpoint not written", projectsFile().getPath(),
                     (captureError != null ? "The open apps could not be listed. " : "")
                             + "Nothing changed on disk. " + ex.getMessage(),
-                    "Retry", "btn-checkpoint", () -> writeCheckpoint(projectObj, mode));
-            return;
+                    "Retry", "btn-checkpoint", () -> writeCheckpoint(projectObj, mode, retry));
+            return;   // nothing is offered or closed over a save that did not happen
+        }
+        // windows whose title says they hold unsaved work; null when the listing failed
+        if (folders != null) {
+            Set<String> closable = appsToClose(projectObj.apps);   // a browser's page title is not a document
+            List<String> dirty = folders.unsaved().stream().filter(closable::contains).toList();
+            if (dirty.isEmpty()) unsavedByProject.remove(projectObj.projectName);
+            else unsavedByProject.put(projectObj.projectName, dirty);
         }
         if (replaceUndo(System.nanoTime(), ckBusyUntil, undoByProject.containsKey(projectObj.projectName))) {
             undoByProject.put(projectObj.projectName, before);
@@ -2160,8 +2210,13 @@ public class HelloController {
         if (!onScreen) return;
 
         renderDetail(projectObj);
+        if (retry != null) {
+            closeApps(projectObj, retry);   // the block goes straight to Closing
+            return;
+        }
         // "just now" dropped: the block's column holds ~18 characters, and "Saved" already says it.
-        checkpointSaved(resumeCountLine(countApps(projectObj), countTabs(projectObj)));
+        checkpointSaved("Saved", resumeCountLine(countApps(projectObj), countTabs(projectObj)));
+        showOffer(projectObj);
     }
 
     /** Add mode: every exe open now joins its category; nothing saved is dropped. */
@@ -2238,8 +2293,9 @@ public class HelloController {
                   bar     rwCkBarOut 260ms standard
                   idle    rwCkIn    260ms standard, after 140ms
         A save before t=2860 only updates the line. Motion off: the words swap in place, no ring, no bar. */
-    private void checkpointSaved(String doneLine) {
+    private void checkpointSaved(String word, String doneLine) {
         if (!Motion.showing(btnCheckpoint)) return;
+        ckDoneWord.setText(word);
         if (System.nanoTime() < ckBusyUntil) {
             ckDoneSub.setText(doneLine);
             return;
@@ -2273,8 +2329,8 @@ public class HelloController {
         // renderDetail has already moved the idle line on to "just now", which flashed for the
         // 160ms before it lifted away: it keeps "checkpointing…" and changes while hidden
         checkpointSub.setText(CHECKPOINTING);
-        t.getKeyFrames().add(new KeyFrame(Duration.millis(2400),
-                e -> { if (activeProject != null) checkpointSub.setText(idleLine(activeProject)); }));
+        // and comes back as whatever the block is by then: idle, Closing, or Unsaved work
+        t.getKeyFrames().add(new KeyFrame(Duration.millis(2400), e -> renderCkPanel()));
         Motion.stop(btnCheckpoint);
         Motion.run(btnCheckpoint, t);
     }
@@ -2291,6 +2347,378 @@ public class HelloController {
             if (!connected.contains(browser) && !urls.isEmpty()) kept.add(browser);
         });
         return kept;
+    }
+
+    // == Checkpoint & close (handoff 1d) =======================================
+    //   Checkpoint stays one verb. Once a save lands, the note's place offers to close what it
+    //   captured, for 6s (showOffer). Taking it asks every saved app to close the way its X
+    //   does (WM_CLOSE), so an app holding unsaved work asks about it itself - nothing is ever
+    //   killed - and each connected browser closes the project's tabs through its extension.
+    //   The block counts the apps down as they really go (Closing · 3 of 6 apps); what is still
+    //   open once the count stops moving is Unsaved work, and a press there saves again (so a
+    //   file just saved is recorded) and retries only those. The result lands on the block.
+
+    /** DONE: Saved & closed is on the block, the struck chips with it, for its 2.4s */
+    enum Close { IDLE, CLOSING, PARTIAL, DONE }
+
+    static final long CLOSE_POLL_MS = 1_000;
+    static final int OFFER_SECONDS = 6;
+    // ponytail: a PowerShell listing every second while apps are left; capped so an Unsaved
+    // work left up all afternoon stops polling
+    static final long CLOSE_WATCH_NANOS = 10L * 60 * 1_000_000_000L;
+    /** the close cascade: chips go dark 90ms apart, starting 160ms after the click */
+    static final Duration CASCADE_START = Duration.millis(160), CASCADE_STEP = Duration.millis(90);
+
+    // never closed: a terminal ends whatever runs in it (claude, a dev server) without asking,
+    // Explorer is the taskbar too (only its folder windows close, see closeScript), browsers
+    // go tab by tab, and Other is never relaunched, so closing it would lose it
+    static final Set<String> KEEP_OPEN = Set.of("Terminal", "Browser", "Files", HelloController.OTHER);
+
+    private static final PseudoClass PC_CLOSING = PseudoClass.getPseudoClass("closing"),
+            PC_FILLED = PseudoClass.getPseudoClass("filled"), PC_WARN = PseudoClass.getPseudoClass("warn"),
+            PC_CLOSED = PseudoClass.getPseudoClass("closed"), PC_STUCK = PseudoClass.getPseudoClass("stuck");
+
+    /** FX thread only, except closeWatch, which the poll reads. */
+    private Close closeState = Close.IDLE;
+    private Project closeProj;
+    private volatile Object closeWatch;
+    private int closeDone, closeTotal;
+    /** struck-through chips (exe names) and dimmed tab groups (urlsByBrowser keys) */
+    private final Set<String> closedApps = new TreeSet<>(String.CASE_INSENSITIVE_ORDER),
+            closedBrowsers = new HashSet<>();
+    private List<String> survivors = List.of();
+    /** what a checkpoint saw with unsaved work in its title, per project (looksUnsaved) */
+    private final Map<String, List<String>> unsavedByProject = new HashMap<>();
+
+    private Project offerFor;
+    private Timeline offerTimer;
+    private final DoubleProperty offerLeft = new SimpleDoubleProperty(1);
+    private Label offerWord;
+    private Pane ckPower, ckAlert;
+
+    static Set<String> appsToClose(Map<String, HashSet<String>> apps) {
+        Set<String> out = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        apps.forEach((category, exes) -> { if (!KEEP_OPEN.contains(category)) out.addAll(exes); });
+        out.remove("claude.exe");   // under AI, but it lives in a terminal tab
+        return out;
+    }
+
+    /** Sends WM_CLOSE to every top-level window of these exes - PostMessage, so a save prompt
+        never blocks the script - and quits Explorer windows that show a real folder. */
+    static String closeScript(Collection<String> exes, boolean explorerFolders) {
+        String names = exes.stream()
+                .map(e -> "'" + e.replaceFirst("(?i)\\.exe$", "").replace("'", "''") + "'")
+                .collect(java.util.stream.Collectors.joining(","));
+        return "Add-Type -AssemblyName UIAutomationClient; "
+                + "Add-Type -Namespace RW -Name U -MemberDefinition '[DllImport(\"user32.dll\")] "
+                + "public static extern bool PostMessage(IntPtr h, uint m, IntPtr w, IntPtr l);'; "
+                + "$n = @(" + names + "); $p = @{}; Get-Process | ForEach-Object { $p[$_.Id] = $_.ProcessName }; "
+                + "[Windows.Automation.AutomationElement]::RootElement.FindAll("
+                + "[Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition) | "
+                + "ForEach-Object { if ($n -contains $p[$_.Current.ProcessId]) { "
+                + "[void][RW.U]::PostMessage([IntPtr]$_.Current.NativeWindowHandle, 0x10, [IntPtr]::Zero, [IntPtr]::Zero) } }"
+                + (explorerFolders ? "; (New-Object -ComObject Shell.Application).Windows() | "
+                        + "Where-Object { $_.LocationURL -like 'file:*' } | ForEach-Object { $_.Quit() }" : "");
+    }
+
+    /** -EncodedCommand (base64 UTF-16LE) skips Windows' argument quoting, which breaks on the
+        double quotes closeScript needs (see captureRunningApps). */
+    static Process powershell(String script) throws IOException {
+        return new ProcessBuilder("powershell.exe", "-NoProfile", "-EncodedCommand",
+                Base64.getEncoder().encodeToString(script.getBytes(StandardCharsets.UTF_16LE)))
+                .redirectErrorStream(true).redirectOutput(ProcessBuilder.Redirect.DISCARD).start();
+    }
+
+    /** The closed apps that still have a window. */
+    static List<String> stillOpen(Collection<String> closed, Set<String> running) {
+        return closed.stream().filter(app -> running.stream().anyMatch(app::equalsIgnoreCase)).toList();
+    }
+
+    /** "6 apps · 8 tabs" */
+    static String countLine(int apps, int tabs) {
+        return apps + (apps == 1 ? " app" : " apps") + " · " + tabs + (tabs == 1 ? " tab" : " tabs");
+    }
+
+    /** The connected browsers' sockets and the saved tabs each would close. */
+    private Map<WsContext, List<String>> tabsToClose(Project projectObj) {
+        Map<WsContext, List<String>> out = new LinkedHashMap<>();
+        for (WsContext s : wsSessions) {
+            List<String> urls = projectObj.urlsByBrowser.entrySet().stream()
+                    .filter(e -> sameBrowser(wsBrowser(s), e.getKey()))
+                    .flatMap(e -> e.getValue().stream()).toList();
+            if (!urls.isEmpty()) out.put(s, urls);
+        }
+        return out;
+    }
+
+    /** Apps the offer would close: the closable apps, plus each browser closing its tabs. A
+        browser with no extension is left whole and not counted: closing it would take tabs
+        the checkpoint could not see. */
+    private int closeCount(Project projectObj) {
+        Set<String> browsers = new HashSet<>();
+        tabsToClose(projectObj).keySet().forEach(s -> browsers.add(brandOf(wsBrowser(s)).toLowerCase()));
+        return appsToClose(projectObj.apps).size() + browsers.size();
+    }
+
+    private void installOffer() {
+        offerGlyphBox.getChildren().add(Icons.node(Icons.CHECK, 14, CKT));   // the note's sticky is 14
+        offerWord = styled(new Label(), "offer-word");
+        HBox content = new HBox(10, Icons.node(Icons.POWER, 16, TX), offerWord, styled(new Label("Enter"), "offer-key"));
+        content.setAlignment(Pos.CENTER_LEFT);
+        btnOfferClose.setGraphic(content);
+        btnOfferClose.getStyleClass().add("cut");
+        btnOfferClose.setOnAction(e -> acceptOffer());
+        Motion.pressable(btnOfferClose);
+        Pane x = Icons.node(Icons.CLOSE, 14, TX2);   // the note's own x
+        btnOfferDismiss.getChildren().add(x);
+        Icons.animate(btnOfferDismiss, x);
+        clickable(btnOfferDismiss, "Dismiss", this::dismissOffer);
+        offerBar.maxWidthProperty().bind(ckOffer.widthProperty().multiply(offerLeft));
+        offerBar.prefWidthProperty().bind(offerBar.maxWidthProperty());
+        ckPower = Icons.node(Icons.POWER, 26, TX);
+        ckAlert = Icons.node(Icons.CIRCLE_ALERT, 26, WARN);
+    }
+
+    /** "Checkpoint saved. Done for now?" in the note's place, for OFFER_SECONDS. Nothing to
+        close, no offer; ignoring it closes nothing. */
+    private void showOffer(Project projectObj) {
+        int apps = closeCount(projectObj);
+        if (apps == 0) return;
+        offerFor = projectObj;
+        offerWord.setText("Close " + apps + (apps == 1 ? " app" : " apps"));
+        btnOfferClose.setAccessibleText(offerWord.getText());
+        offerSub.setText(countLine(apps, countTabs(projectObj)) + " still open");
+        // the exact box of what it stands in for: a two-line note's strip, or the 40 of "Add a note"
+        Region spot = noteStrip.isVisible() ? noteStrip : btnAddNote;
+        double h = spot.getHeight() > 0 ? spot.getHeight() : 40;
+        ckOffer.setMinHeight(h);
+        ckOffer.setPrefHeight(h);
+        ckOffer.setMaxHeight(h);
+        btnAddNote.setVisible(false);
+        btnAddNote.setManaged(false);
+        noteStrip.setVisible(false);
+        noteStrip.setManaged(false);
+        ckOffer.setVisible(true);
+        ckOffer.setManaged(true);
+        // rwCkIn: up 5px into place; motion off swaps in place and the countdown bar hides
+        if (Motion.showing(ckOffer)) Motion.enter(ckOffer, 0, 5, 1, Motion.BASE, Motion.STANDARD);
+        offerBar.setVisible(!Motion.REDUCED);
+        offerLeft.set(1);
+        if (offerTimer != null) offerTimer.stop();
+        offerTimer = new Timeline();
+        for (int s = 1; s <= OFFER_SECONDS; s++) {
+            double left = 1 - s / (double) OFFER_SECONDS;   // 1s steps, not a smooth drain
+            offerTimer.getKeyFrames().add(new KeyFrame(Duration.seconds(s), e -> offerLeft.set(left)));
+        }
+        offerTimer.setOnFinished(e -> dismissOffer());
+        offerTimer.play();
+    }
+
+    /** x, Esc, the countdown, a new checkpoint, Resume or another project: the note comes back. */
+    private void dismissOffer() {
+        if (offerFor == null) return;
+        offerFor = null;
+        if (offerTimer != null) offerTimer.stop();
+        ckOffer.setVisible(false);
+        ckOffer.setManaged(false);
+        showNoteStrip(activeProject != null && activeProject.note != null);
+    }
+
+    private void acceptOffer() {
+        Project projectObj = offerFor;
+        if (projectObj == null) return;
+        dismissOffer();
+        closeApps(projectObj, null);
+    }
+
+    /** Closes the project's apps and tabs, or only these (a retry, which closes no tabs), and
+        watches them go. */
+    private void closeApps(Project projectObj, List<String> only) {
+        Set<String> apps = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
+        List<String> browsers = new ArrayList<>();
+        if (only == null) {
+            apps.addAll(appsToClose(projectObj.apps));
+            closedApps.clear();
+            closedBrowsers.clear();
+            tabsToClose(projectObj).forEach((s, urls) -> {
+                s.send(gson.toJson(Map.of("close", urls)));
+                String exe = BROWSER_EXE.get(brandOf(wsBrowser(s)).toLowerCase());
+                if (exe != null && !browsers.contains(exe)) browsers.add(exe);
+                projectObj.urlsByBrowser.keySet().stream()
+                        .filter(key -> sameBrowser(wsBrowser(s), key)).forEach(closedBrowsers::add);
+            });
+        } else {
+            apps.addAll(only);
+        }
+        boolean folders = only == null && hasApp(projectObj, AppFolders.EXPLORER);
+        Object watch = closeWatch = new Object();
+        closeProj = projectObj;
+        closeState = Close.CLOSING;
+        closeDone = 0;
+        closeTotal = apps.size() + browsers.size();
+        survivors = List.of();
+        // the browsers' tabs went with the message: their chips and tab groups go dark first
+        cascade(watch, browsers);
+        renderCkPanel();
+        Thread worker = new Thread(() -> {
+            try {
+                powershell(closeScript(apps, folders)).waitFor(20, TimeUnit.SECONDS);
+                long until = System.nanoTime() + CLOSE_WATCH_NANOS;
+                List<String> before = null;
+                boolean settled = false;
+                while (closeWatch == watch && System.nanoTime() < until) {
+                    Thread.sleep(CLOSE_POLL_MS);
+                    List<String> open = stillOpen(apps, captureRunningApps());
+                    // an app with nothing to save is gone within a look or two; a list that did
+                    // not shrink since the last look is the apps waiting on the user.
+                    // ponytail: an app slower than a look to quit is named, then drops off
+                    settled = settled || open.isEmpty() || open.equals(before);
+                    boolean done = settled;
+                    Platform.runLater(() -> closeTick(watch, apps, open, done));
+                    if (open.isEmpty()) return;
+                    before = open;
+                }
+            } catch (IOException | InterruptedException ex) {
+                System.err.println("close failed: " + ex.getMessage());
+                Platform.runLater(() -> { if (closeWatch == watch) closeTick(watch, apps, new ArrayList<>(apps), true); });
+            }
+        }, "close");
+        worker.setDaemon(true);
+        worker.start();
+    }
+
+    /** One look at what is still open: the newly gone go dark; once settled, what is left is
+        Unsaved work, and nothing left is Saved & closed. */
+    private void closeTick(Object watch, Set<String> apps, List<String> open, boolean settled) {
+        if (closeWatch != watch) return;
+        List<String> gone = apps.stream()
+                .filter(a -> !closedApps.contains(a) && open.stream().noneMatch(a::equalsIgnoreCase)).toList();
+        Duration end = cascade(watch, gone);
+        if (settled && !open.isEmpty()) {
+            closeState = Close.PARTIAL;
+            survivors = open;
+            renderCkPanel();
+        }
+        if (settled && open.isEmpty()) {
+            PauseTransition last = new PauseTransition(end.add(Duration.millis(120)));
+            last.setOnFinished(e -> { if (closeWatch == watch) finishClose(); });
+            last.play();
+        }
+    }
+
+    /** Strikes these through one by one, CASCADE_STEP apart; returns when the last lands. */
+    private Duration cascade(Object watch, List<String> exes) {
+        Timeline t = new Timeline();
+        Duration at = closeDone == 0 && closedApps.isEmpty() ? CASCADE_START : Duration.ZERO;
+        for (String exe : exes) {
+            Duration when = at;
+            t.getKeyFrames().add(new KeyFrame(when, e -> {
+                if (closeWatch != watch) return;
+                closedApps.add(exe);
+                closeDone++;
+                renderCkPanel();
+            }));
+            at = at.add(CASCADE_STEP);
+        }
+        t.play();
+        return at;
+    }
+
+    private void finishClose() {
+        Project projectObj = closeProj;
+        int apps = closedApps.size();   // a retry's too: everything this close put away
+        closeWatch = null;
+        closeState = Close.DONE;
+        survivors = List.of();
+        unsavedByProject.remove(projectObj.projectName);
+        if (projectObj != activeProject) {
+            endClose();
+            return;
+        }
+        renderCkPanel();
+        // the result lands on the block, as "Saved" does; the fill stays while it shows
+        btnCheckpoint.pseudoClassStateChanged(PC_FILLED, true);
+        ckWide(true);
+        checkpointSaved("Saved & closed", countLine(apps, countTabs(projectObj)) + " · just now");
+        PauseTransition back = new PauseTransition(Duration.millis(2400));
+        back.setOnFinished(e -> {
+            btnCheckpoint.pseudoClassStateChanged(PC_FILLED, false);
+            if (closeState == Close.DONE) endClose();
+            renderCkPanel();
+        });
+        back.play();
+    }
+
+    /** Resume, leaving the project, or Saved & closed running out: the close is over. One
+        still closing keeps going; the block shows it again on the way back. */
+    private void endClose() {
+        if (closeState == Close.CLOSING) return;
+        closeWatch = null;
+        closeState = Close.IDLE;
+        closeProj = null;
+        survivors = List.of();
+        closedApps.clear();
+        closedBrowsers.clear();
+    }
+
+    /** The block's own words for where it is: Closing · n of N apps; Unsaved work, what holds
+        it and "Save, then click again"; or Checkpoint and its age. */
+    private void renderCkPanel() {
+        Project projectObj = activeProject;
+        if (projectObj == null || ckPower == null) return;
+        boolean ours = closeProj == projectObj;
+        boolean closingNow = ours && closeState == Close.CLOSING;
+        List<String> warn = checkpointing == projectObj || closingNow ? List.of()
+                : ours && closeState == Close.PARTIAL ? survivors
+                : unsavedByProject.getOrDefault(projectObj.projectName, List.of());
+        boolean unsaved = !warn.isEmpty();
+        Node glyph = closingNow ? ckPower : unsaved ? ckAlert : ckBookmark;
+        if (ckGlyphBox.getChildren().size() != 1 || ckGlyphBox.getChildren().get(0) != glyph) {
+            ckGlyphBox.getChildren().setAll(glyph);
+        }
+        ckWord.setText(closingNow ? "Closing" : unsaved ? "Unsaved work" : "Checkpoint");
+        ckHint.setVisible(unsaved);
+        ckHint.setManaged(unsaved);
+        checkpointSub.setText(closingNow ? closeDone + " of " + closeTotal + " apps"
+                : unsaved ? String.join(" · ", warn.stream().map(HelloController::appName).toList())
+                : idleLine(projectObj));
+        checkpointSub.pseudoClassStateChanged(PC_WARN, unsaved);
+        btnCheckpoint.pseudoClassStateChanged(PC_CLOSING, closingNow);
+        ckWide(closingNow || unsaved);
+        markClosed(projectObj);
+    }
+
+    /** Closing and Unsaved work need the whole block for their words: the add-modes chevron
+        steps aside (right-click still opens its menu). */
+    private void ckWide(boolean wide) {
+        btnCheckpointMenu.setVisible(!wide);
+        Node divider = btnCheckpoint.lookup(".ck-divider");
+        if (divider != null) divider.setVisible(!wide);
+        Insets pad = new Insets(0, wide ? 23 : 69, 0, 23);
+        ckIdle.setPadding(pad);
+        ckDone.setPadding(pad);
+    }
+
+    /** Struck-through chips for what closed, mustard for what holds unsaved work, and dimmed
+        tab groups for the browsers that closed their tabs. Re-run on every render of the card. */
+    private void markClosed(Project projectObj) {
+        boolean ours = closeProj == projectObj && closeState != Close.IDLE;
+        List<String> stuck = ours && closeState == Close.PARTIAL ? survivors
+                : unsavedByProject.getOrDefault(projectObj.projectName, List.of());
+        for (Node chip : categoryRows.lookupAll(".chip")) {
+            Object exe = chip.getProperties().get("exe");
+            if (!(exe instanceof String app)) continue;
+            chip.pseudoClassStateChanged(PC_CLOSED, ours && closedApps.contains(app));
+            chip.pseudoClassStateChanged(PC_STUCK, stuck.stream().anyMatch(app::equalsIgnoreCase)
+                    && !(ours && closedApps.contains(app)));
+        }
+        for (Node row : tabsList.getChildren()) {
+            Object browser = row.getProperties().get("browser");
+            double target = ours && browser != null && closedBrowsers.contains(browser) ? .35 : 1;
+            if (row.getOpacity() == target) continue;
+            if (Motion.REDUCED || !Motion.showing(row)) row.setOpacity(target);
+            else new Timeline(new KeyFrame(Motion.BASE, new KeyValue(row.opacityProperty(), target, Motion.STANDARD))).play();
+        }
     }
 
     /** The generic confirm scrim. The verb button carries the caller's word and action, in the
@@ -3320,7 +3748,8 @@ public class HelloController {
     }
     // == Embedded server (the contract with ResumeOneExtension) ============
     //   WS  /ws?browser=X&profile=email   extension keeps this open; app pushes "capture" to request tabs,
-    //                       or {"open":[urls]} on resume and the extension answers {"opened":n}
+    //                       or {"open":[urls]} on resume and the extension answers {"opened":n},
+    //                       or {"close":[urls]} on Checkpoint & close (no answer)
     //   GET /project        active project name ("" if none) - the popup's "is the app up?"
     //   POST /tabs          {browser, profile, urls[]} -> stored on the active project and saved
     //   Port 8765, CORS open, because the extension's fetch comes from a chrome-extension:// origin.

@@ -46,9 +46,26 @@ final class AppFolders {
 
     /** What a capture found: exe -> its open folders/files, exe -> the exe's full path
         (Unity installs per version, Blender is rarely on PATH, so resume starts that file),
-        and exe -> where each of its windows sat (see PLACE). */
+        exe -> where each of its windows sat (see PLACE), and the exes with a window holding
+        unsaved work (looksUnsaved). */
     record Capture(HashMap<String, ArrayList<String>> folders, HashMap<String, String> exePaths,
-                   HashMap<String, ArrayList<String>> windows) {}
+                   HashMap<String, ArrayList<String>> windows, List<String> unsaved) {}
+
+    /** A title that says the window holds work its file does not: "*a.txt - Notepad",
+        "● x.ts - proj - Visual Studio Code", "Blender* [C:\x.blend]", and a document with no
+        file yet ("Untitled - Paint"), which a resume could not reopen either.
+        ponytail: read off the title, so an app that marks nothing there goes unnoticed; Word
+        and friends count only when their document has no path (unsavedDocument). */
+    static boolean looksUnsaved(String title) {
+        String t = title.strip();
+        return t.startsWith("*") || t.startsWith("\u25cf") || t.regionMatches(true, 0, "Untitled", 0, 8)
+                || t.matches(".*\\S\\* (\\[|- ).*");
+    }
+
+    /** A COM document's FullName with no folder in it: "Document1", never saved. */
+    static boolean unsavedDocument(String fullName) {
+        return !fullName.isEmpty() && !fullName.contains("\\") && !fullName.contains("/");
+    }
 
     /** a VS Code build: its folder under %APPDATA% and the command that opens a folder in it */
     record VsCode(String dataDir, String cli) {}
@@ -95,6 +112,7 @@ final class AppFolders {
         HashMap<String, ArrayList<String>> out = new HashMap<>();
         HashMap<String, String> exePaths = new HashMap<>();
         HashMap<String, ArrayList<String>> places = new HashMap<>();
+        List<String> unsaved = new ArrayList<>();
         Map<String, List<String>> vscodeKnown = new HashMap<>();
         Map<String, String> jetbrainsKnown = null;   // read once, only when a JetBrains window is up
         List<String> blendRecent = null;
@@ -104,6 +122,9 @@ final class AppFolders {
             // Other is usually on neither PATH nor App Paths, and this is how resume finds it
             if (!w.exePath().isEmpty()) exePaths.put(w.exe(), w.exePath());
             if (PLACE.matcher(w.place()).matches()) places.computeIfAbsent(w.exe(), k -> new ArrayList<>()).add(w.place());
+            boolean dirty = COM_DOCS.contains(lower) ? unsavedDocument(w.title()) || looksUnsaved(w.title())
+                    : looksUnsaved(w.title());
+            if (dirty && unsaved.stream().noneMatch(w.exe()::equalsIgnoreCase)) unsaved.add(w.exe());
             String folder = null;
             VsCode vs = VSCODE_FAMILY.get(lower);
             if (vs != null) {
@@ -129,7 +150,7 @@ final class AppFolders {
             ArrayList<String> list = out.computeIfAbsent(w.exe(), k -> new ArrayList<>());
             if (list.stream().noneMatch(folder::equalsIgnoreCase)) list.add(folder);
         }
-        return new Capture(out, exePaths, places);
+        return new Capture(out, exePaths, places, unsaved);
     }
 
     // == Path in the title or on the command line ===========================
