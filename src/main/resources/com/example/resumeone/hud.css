@@ -451,6 +451,11 @@
 /* behaviour rows are check + label, no control: they state what the app does.
    stat-link is the one status row that acts (opens the data folder). */
 .behaviour { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+/* the greyed "under Other" line folds open its chips: it stays grey, a step brighter on hover */
+.other-fold { -fx-cursor: hand; }
+.other-fold:hover .cat-foot { -fx-text-fill: -rw-tx2; }
+.other-fold:hover .ico { -fx-stroke: -rw-tx2; }
+.other-fold:focus-visible { -fx-effect: dropshadow(gaussian, -rw-act, 3, 1.0, 0, 0); }
 .stat-link { -fx-cursor: hand; }
 .stat-link:hover { -fx-background-color: -rw-g2; -fx-border-color: -rw-ln2; }
 .stat-link:focus-visible { -fx-effect: dropshadow(gaussian, -rw-act, 3, 1.0, 0, 0); }

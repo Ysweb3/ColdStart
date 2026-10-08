@@ -1124,14 +1124,10 @@ public class HelloController {
         categoryRows.getChildren().clear();
         if (projectObj.apps == null) return;
 
-        // Other comes last, without the apps the user hid (another project hid them; this one
-        // still has them saved): captured, never relaunched, and each one sortable out of it
         List<String> filled = new ArrayList<>(CATEGORY_ORDER);
-        filled.add(OTHER);
         filled.removeIf(c -> visibleApps(projectObj, c).isEmpty());
         // every category is listed: the column scrolls, so nothing hides behind a "+n more"
         for (String category : filled) {
-            boolean other = category.equals(OTHER);
             Set<String> bucket = visibleApps(projectObj, category);
 
             // a 120px label column: 12px glyph + the 12px label; "Communication" is the widest
@@ -1143,27 +1139,16 @@ public class HelloController {
             labelBox.getChildren().addAll(categoryIcon(category),
                     styled(new Label(categoryLabel(category)), "cat-label"));
 
-            // flex-wrap: as wide as its chips, wrapping only when the row runs out. FlowPane
-            // otherwise asks for a fixed 400px, which pushed the note off its chip.
-            FlowPane chips = new FlowPane(5, 5) {
-                @Override protected double computePrefWidth(double height) {
-                    double w = -getHgap();
-                    for (Node n : getManagedChildren()) w += n.prefWidth(-1) + getHgap();
-                    return Math.max(0, w) + snappedLeftInset() + snappedRightInset();
-                }
-            };
-            chips.setAlignment(Pos.CENTER_LEFT);
-            chips.setMinWidth(0);
+            FlowPane chips = chipFlow();
             for (String app : bucket) {
-                chips.getChildren().add(other ? otherChip(projectObj, app)
-                        : category.equals(USER_APPS) ? appsChip(projectObj, app) : chip(projectObj, category, app));
+                chips.getChildren().add(category.equals(USER_APPS) ? appsChip(projectObj, app) : chip(projectObj, category, app));
             }
 
             HBox row = new HBox(10);
             row.setAlignment(Pos.CENTER_LEFT);
             row.getChildren().addAll(labelBox, chips);
 
-            String note = other ? "not relaunched" : trailingNote(category, projectObj);
+            String note = trailingNote(category, projectObj);
             if (note != null) {
                 // "reopens chats" is a phrase, the IDE note a path: the face follows which
                 Label arg = styled(new Label(note), note.startsWith("…\\") ? "project-path" : "cat-arg");
@@ -1177,6 +1162,51 @@ public class HelloController {
 
             categoryRows.getChildren().add(row);
         }
+
+        // "Other" is captured but never relaunched, which the design calls out by name: the
+        // greyed line it always was, now a fold. Opened, its chips sit under the line and each
+        // app can be sorted out of it with + or x. Hidden apps (from any project) are left out.
+        Set<String> other = visibleApps(projectObj, OTHER);
+        if (other.isEmpty()) return;
+        String first = appName(other.iterator().next());
+        String rest = other.size() > 1 ? " (+" + (other.size() - 1) + ")" : "";
+        Pane chevron = Icons.node(Icons.CHEVRON, 12, TX3);
+        chevron.setRotate(otherOpen ? 90 : 0);
+        HBox foot = new HBox(9, Icons.node(Icons.APP_WINDOW, 12, TX3),
+                styled(new Label(first + rest + " under Other — captured, not relaunched"), "cat-foot"), chevron);
+        foot.setAlignment(Pos.CENTER_LEFT);
+        foot.getStyleClass().add("other-fold");
+        clickable(foot, otherOpen ? "Fold the apps under Other" : "Show the apps under Other", () -> {
+            otherOpen = !otherOpen;
+            renderCategories(projectObj);
+        });
+        categoryRows.getChildren().add(foot);
+        if (otherOpen) {
+            FlowPane chips = chipFlow();
+            other.forEach(app -> chips.getChildren().add(otherChip(projectObj, app)));
+            // under the words, past the 12px glyph and the 9px gap
+            VBox.setMargin(chips, new Insets(0, 0, 0, 21));
+            categoryRows.getChildren().add(chips);
+        }
+    }
+
+    /** Whether the Other fold is open. Per run, not saved: it starts folded, as Other always
+        read before it could be acted on. */
+    private boolean otherOpen;
+
+    /** flex-wrap: as wide as its chips, wrapping only when the row runs out. FlowPane otherwise
+        asks for a fixed 400px, which pushed the note off its chip. */
+    private static FlowPane chipFlow() {
+        FlowPane chips = new FlowPane(5, 5) {
+            @Override protected double computePrefWidth(double height) {
+                double w = -getHgap();
+                for (Node n : getManagedChildren()) w += n.prefWidth(-1) + getHgap();
+                return Math.max(0, w) + snappedLeftInset() + snappedRightInset();
+            }
+        };
+        chips.setAlignment(Pos.CENTER_LEFT);
+        chips.setMinWidth(0);
+        return chips;
     }
 
     /** The category's apps in chip order; for Other, without the ones the user hid. */
