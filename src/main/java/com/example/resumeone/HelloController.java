@@ -123,6 +123,15 @@ public class HelloController {
     /** An awake extension redials every 3s, so by this long after the server came up it has
         connected - a resume started sooner waits for it, briefly. */
     static final long EXT_DIAL_MS = 3_500;
+    /** A checkpoint's tabs still owed, by bucket key, by an open browser whose extension was
+        asleep when it was taken: asked for the moment it connects, until `until`. Past that
+        the bucket keeps the last checkpoint's tabs, and its group says so. */
+    record Owed(Project project, Checkpoint mode, long until) {}
+    private final Map<String, Owed> owedTabs = new ConcurrentHashMap<>();
+    /** An asleep extension wakes on its 30s alarm, then dials. */
+    static final long OWED_NANOS = 35_000_000_000L;
+    /** A quit is held on the "waiting for tabs" scrim; it goes through once nothing is owed. */
+    private boolean exitWaiting;
     private volatile long serverStartedNanos;
 
     @FXML
@@ -873,6 +882,7 @@ public class HelloController {
     /** confirmPane / deletePane / newProjectPane are scrims stacked over whichever base is showing.
         Focus follows the scrim onto its safe button, so Enter cannot re-fire whatever opened it. */
     private void showOverlay(Node target) {
+        exitWaiting = false;   // the quit scrim went, whichever way
         for (Node pane : List.of(deletePane, newProjectPane, confirmPane)) {
             boolean opening = pane == target && !pane.isVisible();
             pane.setVisible(pane == target);
@@ -1354,6 +1364,14 @@ public class HelloController {
             if (!tabRows.isEmpty()) VBox.setMargin(head, new Insets(4, 0, 0, 0));
             Label name = styled(new Label(browserLabel(browser)), "browser-name");
             head.getChildren().addAll(name, styled(new Label(String.valueOf(urls.size())), "side-count"));
+            // its extension was asleep at the checkpoint: these are the tabs from the one before
+            Owed owed = owedTabs.get(browser);
+            if (owed != null && owed.project() == projectObj) {
+                Label stale = styled(new Label(System.nanoTime() < owed.until() ? "waiting for tabs…"
+                        : "from last checkpoint"), "side-count");
+                Tooltip.install(stale, tip("Its extension was asleep when you saved, so these are the tabs from the checkpoint before"));
+                head.getChildren().add(stale);
+            }
             head.getProperties().put("browser", browser);   // markClosed dims the group
             tabRows.add(head);
 
@@ -2125,9 +2143,50 @@ public class HelloController {
         projectObj.lastCheckpoint = old.lastCheckpoint;
     }
 
-    private void dropIncomingTabs() {
+    private void dropIncomingTabs(Project projectObj) {
         tabTarget = null;
         tabTargetUntil = System.nanoTime() + TAB_WINDOW_NANOS;
+        owedTabs.values().removeIf(o -> o.project() == projectObj);
+    }
+
+    /** Whether a bucket's browser has its profile open, from the running exes. */
+    static boolean browserOpen(String bucket, Set<String> running) {
+        String exe = BROWSER_EXE.get(brandOf(bucket).toLowerCase());
+        return exe != null && profileOpen(bucket, exe, running);
+    }
+
+    /** The owed entry a connected extension (or its POST /tabs) answers, while it is still due. */
+    static Map.Entry<String, Owed> owedFor(Map<String, Owed> owed, String connected, long now) {
+        return owed.entrySet().stream()
+                .filter(e -> now < e.getValue().until() && sameBrowser(connected, e.getKey()))
+                .findFirst().orElse(null);
+    }
+
+    /** The browsers still due to send a checkpoint their tabs. */
+    private List<String> owedBrowsers() {
+        long now = System.nanoTime();
+        return owedTabs.entrySet().stream().filter(e -> now < e.getValue().until())
+                .map(e -> browserLabel(e.getKey())).distinct().sorted().toList();
+    }
+
+    /** Owed tabs landed or ran out: the tab groups say where they stand, and a held quit goes. */
+    private void owedSettled() {
+        if (activeProject != null && isHud()) renderDetail(activeProject);
+        if (exitWaiting && owedBrowsers().isEmpty()) ((Stage) btnCheckpoint.getScene().getWindow()).close();
+    }
+
+    /** The window's close: a browser still owing a checkpoint its tabs holds it on a scrim that
+        goes by itself once they land (35s at most), or at once on Quit anyway. Quitting first
+        would leave that browser with the last checkpoint's tabs. True when held. */
+    public boolean holdExit() {
+        List<String> owed = owedBrowsers();
+        if (owed.isEmpty()) return false;
+        confirm("Waiting for tabs", String.join(" · ", owed),
+                "Its extension is waking up and sends this checkpoint its tabs in under a minute; "
+                        + "this window closes once they land. Quit now and it keeps the tabs from the checkpoint before.",
+                "Quit anyway", () -> ((Stage) btnCheckpoint.getScene().getWindow()).close());
+        exitWaiting = true;   // after confirm: its showOverlay clears it
+        return true;
     }
 
     private void undoCheckpoint() {
@@ -2137,7 +2196,7 @@ public class HelloController {
         Project projectObj = activeProject;
         restore(projectObj, before);
         // a tab reply still on its way belongs to the checkpoint just undone
-        dropIncomingTabs();
+        dropIncomingTabs(projectObj);
         try {
             saveProject(projectObj);
         } catch (IOException ex) {
@@ -2167,6 +2226,16 @@ public class HelloController {
         // own bucket in POST /tabs, and one that does not answer (asleep worker, dead socket,
         // closed) keeps what it had. Stale beats gone.
         tabMode = mode;
+        // a browser with no extension on the socket owes its tabs instead: asked when it
+        // connects. The ones not open at all are let off once the capture below has looked
+        if (mode.tabs()) {
+            owedTabs.values().removeIf(o -> o.project() == projectObj);   // this one asks again
+            long until = System.nanoTime() + OWED_NANOS;
+            for (String bucket : projectObj.urlsByBrowser.keySet()) {
+                if (liveSession(bucket) == null) owedTabs.put(bucket, new Owed(projectObj, mode, until));
+            }
+        }
+        boolean owes = owedTabs.values().stream().anyMatch(o -> o.project() == projectObj);
         CountDownLatch replies = mode.tabs() ? askForTabs(projectObj) : new CountDownLatch(0);
         if (projectObj == activeProject) renderCkPanel();   // "checkpointing…"
         // the PowerShell capture takes seconds: off the FX thread the HUD keeps drawing and
@@ -2176,10 +2245,14 @@ public class HelloController {
             AppFolders.Capture dirs = null;
             IOException failed = null;
             try {
+                HashSet<String> running = mode.apps() || owes ? captureRunningApps() : null;
                 if (mode.apps()) {
-                    now = segregateApps(captureRunningApps());
+                    now = segregateApps(new HashSet<>(running));
                     dirs = captureFolders(now);
                 }
+                // a closed browser has no tabs to send: it keeps the saved ones, as always
+                if (owes) owedTabs.entrySet().removeIf(e -> e.getValue().project() == projectObj
+                        && !browserOpen(e.getKey(), running));
                 // still "checkpointing…": the browsers usually answered while PowerShell ran,
                 // so this rarely waits, and "Saved" can always give the tab count
                 replies.await(TAB_WAIT_MILLIS, TimeUnit.MILLISECONDS);
@@ -2232,7 +2305,7 @@ public class HelloController {
             // to what the disk held, and the tabs already asked for are turned away. A reply that
             // landed during the capture was written by POST /tabs, so the old state is put back.
             restore(projectObj, before);
-            dropIncomingTabs();
+            dropIncomingTabs(projectObj);
             try { saveProject(projectObj); } catch (IOException ignored) { }
             if (onScreen) renderDetail(projectObj);
             confirm("Checkpoint not written", projectsFile().getPath(),
@@ -2253,6 +2326,12 @@ public class HelloController {
         }
         StackPane row = rowsByProject.get(projectObj.projectName);
         if (row != null) railTip(row, projectObj);
+        if (owedTabs.values().stream().anyMatch(o -> o.project() == projectObj)) {
+            // "waiting for tabs…" turns into "from last checkpoint" for any that never came
+            PauseTransition due = new PauseTransition(Duration.millis(OWED_NANOS / 1_000_000));
+            due.setOnFinished(e -> owedSettled());
+            due.play();
+        }
         // switched away mid-capture: the save landed, the other card stays as it is
         if (!onScreen) return;
 
@@ -3112,7 +3191,8 @@ public class HelloController {
         if (activeProject != null && activeProject.projectName.equals(projectObj.projectName)) {
             activeProject = null;
         }
-        if (tabTarget != null && tabTarget.projectName.equals(projectObj.projectName)) dropIncomingTabs();
+        if (tabTarget != null && tabTarget.projectName.equals(projectObj.projectName)) dropIncomingTabs(projectObj);
+        owedTabs.values().removeIf(o -> o.project().projectName.equals(projectObj.projectName));
         undoByProject.remove(projectObj.projectName);
         projectList.getChildren().remove(projectRow);
     }
@@ -4000,6 +4080,8 @@ public class HelloController {
                     List<String> rest = pendingOpens.remove(saved);
                     if (rest != null) ctx.send(gson.toJson(Map.of("open", rest)));
                 }
+                // a checkpoint taken while it slept still wants its tabs
+                if (owedFor(owedTabs, wsBrowser(ctx), System.nanoTime()) != null) ctx.send("capture");
                 });
             // the heartbeat is echoed: it is the extension's only way to tell a hung app from a
             // quiet one, and it redials a socket that stops echoing.
@@ -4035,14 +4117,20 @@ public class HelloController {
             @SuppressWarnings("unchecked")
             List<String> incoming = (List<String>) data.get("urls");
             Object browser = data.get("browser");
+            // browser is absent when getBrowserFromBrands() recognises no brand
+            String brand = browser != null ? browser.toString() : DEFAULT_BROWSER;
+            Object profile = data.get("profile"), pid = data.get("pid");
+            String key = browserKey(brand, profilePart(brand, profile == null ? null : profile.toString(),
+                    pid == null ? null : pid.toString()));
+            // tabs a checkpoint has been owed since this extension slept through it go to that
+            // checkpoint, in its mode; it never counted on them, so its wait is not ticked
+            Map.Entry<String, Owed> owed = owedFor(owedTabs, key, System.nanoTime());
+            if (owed != null) owedTabs.remove(owed.getKey());
             // the project whose checkpoint asked, even if another one is on screen by now
-            Project target = tabsTarget(tabTarget, tabTargetUntil, System.nanoTime(), activeProject);
+            Project target = owed != null ? (projects.contains(owed.getValue().project()) ? owed.getValue().project() : null)
+                    : tabsTarget(tabTarget, tabTargetUntil, System.nanoTime(), activeProject);
+            Checkpoint mode = owed != null ? owed.getValue().mode() : tabMode;
             if (target != null && incoming != null) {
-                // browser is absent when getBrowserFromBrands() recognises no brand
-                String brand = browser != null ? browser.toString() : DEFAULT_BROWSER;
-                Object profile = data.get("profile"), pid = data.get("pid");
-                String key = browserKey(brand, profilePart(brand, profile == null ? null : profile.toString(),
-                        pid == null ? null : pid.toString()));
                 List<String> pages = incoming.stream().filter(HelloController::isPageUrl).toList();
                 ArrayList<String> had = target.urlsByBrowser.getOrDefault(key, new ArrayList<>());
                 // the brand-only bucket from before the extension sent its profile is this
@@ -4053,13 +4141,16 @@ public class HelloController {
                     List<String> legacy = target.urlsByBrowser.remove(brand);
                     if (legacy != null) had = mergeUrls(had, legacy);
                 }
-                target.urlsByBrowser.put(key, tabMode.merge() ? mergeUrls(had, pages) : new ArrayList<>(pages));
+                target.urlsByBrowser.put(key, mode.merge() ? mergeUrls(had, pages) : new ArrayList<>(pages));
+                // its tabs are current now, owed or "from last checkpoint" before
+                owedTabs.entrySet().removeIf(e -> e.getValue().project() == target && sameBrowser(key, e.getKey()));
                 saveProject(target);
-                tabReplies.countDown();
+                if (owed == null) tabReplies.countDown();
                 // tabs arrive after the checkpoint button has already returned, so the
                 // card has to be redrawn off the javalin thread - and only if it is this card
                 if (isHud()) {
                     Platform.runLater(() -> {
+                        if (owed != null && exitWaiting) owedSettled();   // the held quit may go now
                         if (target != activeProject) return;
                         renderDetail(target);
                         // a reply that missed the checkpoint's wait still corrects the "Saved" line
