@@ -820,6 +820,11 @@ public class HelloController {
         settingsRows.getChildren().addAll(userRows);
     }
 
+    // ponytail: 3s is a guess past the slowest window measured (a cold launch, ~1.2s); an app
+    // that takes longer still opens on top. Waiting for each launched window would close that.
+    static final Duration PIN_GRACE = Duration.seconds(3);
+    private PauseTransition pinHold;
+
     /** detailPane / emptyPane / settingsPane are the base views: exactly one shows. */
     private void showBase(Node target) {
         boolean arriving = !target.isVisible();
@@ -828,10 +833,18 @@ public class HelloController {
             pane.setManaged(pane == target);
         }
         if (arriving && Motion.showing(target)) panelIn(target);
-        // Pinned on top only while Resuming shows, so launched apps cannot bury progress and
-        // Stop. Derived here, from the view, so no path out of a resume can leave it pinned.
+        // Pinned on top while Resuming shows, so launched apps cannot bury progress and Stop.
+        // Derived here, from the view, so no path out of a resume can leave it pinned. The pin
+        // outlives the run by PIN_GRACE: the last app's window can show up after its launch
+        // returned (Explorer ~0.6s, a cold Notepad ~0.9s), and one that appears unpinned lands on top.
+        if (pinHold != null) pinHold.stop();
         if (target.getScene() != null && target.getScene().getWindow() instanceof Stage st) {
-            st.setAlwaysOnTop(target == resumingPane);
+            st.setAlwaysOnTop(target == resumingPane || target == restoredPane);
+            if (target == restoredPane) {
+                pinHold = new PauseTransition(PIN_GRACE);
+                pinHold.setOnFinished(e -> st.setAlwaysOnTop(false));
+                pinHold.play();
+            }
         }
         showOverlay(null);
         if (target != resumingPane && target != restoredPane) titleState(null, null, false);
