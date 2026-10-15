@@ -199,6 +199,7 @@ public class HelloController {
     @FXML public Label projectNameLabel, projectPathLabel, checkpointSub, ckDoneSub, statusLabel, resumeCounts;
     /** The full folder path, one hover away from the "…\\atlas-api" the header shows. */
     private Tooltip pathTip;
+    private Label pathTipPath;
 
     /** "connecting…": a 10px ring whose arc turns in place of the dot while no extension holds
         the socket yet but one is expected - at startup, and after the last one leaves. */
@@ -345,7 +346,14 @@ public class HelloController {
         restoredFill.prefWidthProperty().bind(restoredMeter.widthProperty().multiply(restoredFrac));
         restoredFailFill.prefWidthProperty().bind(restoredMeter.widthProperty().multiply(restoredFailFrac));
         countdownFill.prefWidthProperty().bind(countdownTrack.widthProperty().multiply(countdownFrac));
+        // the action on top in bold, the path under it in the card's own path style
+        Label editLine = new Label("Click to edit");
+        editLine.getStyleClass().add("tip-action");
+        pathTipPath = new Label();
+        pathTipPath.getStyleClass().add("project-path");
         pathTip = tip("");
+        pathTip.setGraphic(new VBox(4, editLine, pathTipPath));
+        pathTip.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         Tooltip.install(projectPathLabel, pathTip);
         clickable(projectPathLabel, "Edit project folder", this::editFolder);
         projectPathLabel.setCursor(Cursor.HAND);
@@ -985,9 +993,7 @@ public class HelloController {
 
         projectNameLabel.setText(projectObj.projectName);
         projectPathLabel.setText(projectObj.folderPath == null ? "no folder" : "\u2026\\" + new File(projectObj.folderPath).getName());
-        // only Claude, and VS Code when no folder was captured for it, launch in this folder
-        pathTip.setText((projectObj.folderPath == null ? "no folder chosen" : projectObj.folderPath)
-                + "\nClick to edit · Claude and VS Code open here");
+        pathTipPath.setText(projectObj.folderPath == null ? "no folder chosen" : projectObj.folderPath);
 
         int apps = launchableApps(projectObj);
         int tabs = countTabs(projectObj);
