@@ -18,6 +18,7 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.event.ActionEvent;
 import javafx.scene.AccessibleRole;
+import javafx.scene.Cursor;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.application.Platform;
@@ -198,6 +199,7 @@ public class HelloController {
     @FXML public Label projectNameLabel, projectPathLabel, checkpointSub, ckDoneSub, statusLabel, resumeCounts;
     /** The full folder path, one hover away from the "…\\atlas-api" the header shows. */
     private Tooltip pathTip;
+    private Label pathTipPath;
 
     /** "connecting…": a 10px ring whose arc turns in place of the dot while no extension holds
         the socket yet but one is expected - at startup, and after the last one leaves. */
@@ -305,8 +307,8 @@ public class HelloController {
         btnConfirmCancel.setOnAction(e -> showOverlay(null));
         installOffer();
         btnNpBrowse.setOnAction(e -> {
-            String chosen = openFolder(e);          // returns the "NULL" sentinel on cancel
-            if (!"NULL".equals(chosen)) npFolder.setText(chosen);
+            String chosen = openFolder(btnNpBrowse, NO_FOLDER.equals(npFolder.getText()) ? null : npFolder.getText());
+            if (chosen != null) npFolder.setText(chosen);
         });
         // the name is the project's key: a second "atlas-api" would replace the first one's
         // checkpoint, so a taken name cannot be created and the hint says why
@@ -344,8 +346,17 @@ public class HelloController {
         restoredFill.prefWidthProperty().bind(restoredMeter.widthProperty().multiply(restoredFrac));
         restoredFailFill.prefWidthProperty().bind(restoredMeter.widthProperty().multiply(restoredFailFrac));
         countdownFill.prefWidthProperty().bind(countdownTrack.widthProperty().multiply(countdownFrac));
+        // the action on top in bold, the path under it in the card's own path style
+        Label editLine = new Label("Click to edit");
+        editLine.getStyleClass().add("tip-action");
+        pathTipPath = new Label();
+        pathTipPath.getStyleClass().add("project-path");
         pathTip = tip("");
+        pathTip.setGraphic(new VBox(4, editLine, pathTipPath));
+        pathTip.setContentDisplay(ContentDisplay.GRAPHIC_ONLY);
         Tooltip.install(projectPathLabel, pathTip);
+        clickable(projectPathLabel, "Edit project folder", this::editFolder);
+        projectPathLabel.setCursor(Cursor.HAND);
         // A fixed 12x12 box with the ring at its exact centre, and only the arc turning, about
         // that same point. Rotating the whole node pivoted on bounds JavaFX recomputed, so the
         // ring wobbled as it spun.
@@ -498,8 +509,8 @@ public class HelloController {
         selectFolder.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white; -fx-font-weight:bold;");
         selectFolder.setText("Select Folder");
         selectFolder.setOnAction(e -> {
-            projectFolder = (openFolder(e));
-            selectFolder.setText(projectFolder);
+            projectFolder = openFolder(selectFolder, projectFolder);
+            selectFolder.setText(projectFolder == null ? "Select Folder" : projectFolder);
                 });
         grid.add(selectFolder,1,1);
         dialog.getDialogPane().setContent(grid);
@@ -982,7 +993,7 @@ public class HelloController {
 
         projectNameLabel.setText(projectObj.projectName);
         projectPathLabel.setText(projectObj.folderPath == null ? "no folder" : "\u2026\\" + new File(projectObj.folderPath).getName());
-        pathTip.setText(projectObj.folderPath == null ? "no folder chosen" : projectObj.folderPath);
+        pathTipPath.setText(projectObj.folderPath == null ? "no folder chosen" : projectObj.folderPath);
 
         int apps = launchableApps(projectObj);
         int tabs = countTabs(projectObj);
@@ -3810,25 +3821,33 @@ public class HelloController {
         }
     }
 
-    /** Native folder picker. Returns the absolute path, or the string "NULL" on cancel -
-        callers compare against that sentinel. */
-    public String openFolder(ActionEvent event) {
-
+    /** Native folder picker, opened at `current` when it still exists. Returns the absolute
+        path, or null on cancel. */
+    public String openFolder(Node source, String current) {
         DirectoryChooser directoryChooser = new DirectoryChooser();
-        directoryChooser.setTitle("Select Application Folder");
+        directoryChooser.setTitle("Select Project Folder");
+        if (current != null && new File(current).isDirectory()) directoryChooser.setInitialDirectory(new File(current));
+        File selectedDirectory = directoryChooser.showDialog(source.getScene().getWindow());
+        return selectedDirectory == null ? null : selectedDirectory.getAbsolutePath();
+    }
 
-        // Get the Window reference from the action event
-        Window ownerWindow = ((Node) event.getSource()).getScene().getWindow();
-
-
-        File selectedDirectory = directoryChooser.showDialog(ownerWindow);
-
-        if (selectedDirectory != null) {
-           return selectedDirectory.getAbsolutePath() ;
-        } else {
-            System.out.println("No folder chosen.");
+    /** The card's folder name: pick a new one and save it. Only Claude and, when no folder was
+        captured for it, VS Code launch in it; every other app reopens on its own folders. */
+    private void editFolder() {
+        Project projectObj = activeProject;
+        if (projectObj == null) return;
+        String chosen = openFolder(projectPathLabel, projectObj.folderPath);
+        if (chosen == null || chosen.equalsIgnoreCase(String.valueOf(projectObj.folderPath))) return;
+        String was = projectObj.folderPath;
+        projectObj.folderPath = chosen;
+        try {
+            saveProject(projectObj);
+        } catch (IOException ex) {
+            projectObj.folderPath = was;
+            confirm("Folder not saved", projectsFile().getPath(),
+                    "The project keeps its old folder. " + ex.getMessage(), "OK", () -> { });
         }
-        return "NULL";
+        if (activeProject == projectObj) renderDetail(projectObj);
     }
     // == Embedded server (the contract with ResumeOneExtension) ============
     //   WS  /ws?browser=X&profile=email   extension keeps this open; app pushes "capture" to request tabs,

@@ -250,7 +250,7 @@
           <VBox.margin><Insets top="8.0"/></VBox.margin>
         </Label>
         <Label styleClass="empty-body" maxWidth="460.0" wrapText="true" textAlignment="CENTER"
-               text="Create a project, point it at a folder, and hit Checkpoint when you stop for the day."/>
+               text="Create a project and hit Checkpoint when you stop for the day."/>
 
         <HBox alignment="CENTER" spacing="8.0">
           <VBox.margin><Insets top="16.0"/></VBox.margin>
@@ -445,7 +445,7 @@
           </VBox>
 
           <VBox spacing="8.0">
-            <Label styleClass="cat-foot" text="Folder"/>
+            <Label styleClass="cat-foot" text="Folder · optional, for Claude and VS Code"/>
             <HBox styleClass="inset-row" alignment="CENTER_LEFT" spacing="8.0">
               <padding><Insets top="8.0" right="8.0" bottom="8.0" left="8.0"/></padding>
               <StackPane fx:id="npFolderGlyph"/>
