@@ -30,6 +30,23 @@ class BrowserWaitTest {
     }
 
     @Test
+    void tabsQueuedForASleepingExtensionAreWaitingNotSent() {
+        Project p = new Project("P", null, new HashMap<>(), new ArrayList<>());
+        p.urlsByBrowser.put("Chrome", new ArrayList<>(List.of("https://a.com", "https://b.com")));
+        HelloController.LaunchStep chrome = new HelloController.LaunchStep("Chrome", "", true,
+                () -> { throw new HelloController.Queued(); });
+        HelloController.ResumeRun r = new HelloController.ResumeRun(p);
+        r.plan = new HelloController.ResumePlan(List.of(chrome), List.of());
+
+        chrome.run();
+
+        assertEquals(HelloController.LaunchStep.State.DONE, chrome.state, "counts as done, so the run is clean");
+        assertTrue(chrome.waiting);
+        assertEquals(2, HelloController.tabsWaiting(r));
+        assertTrue(chrome.logLine().contains("wait for its extension"));
+    }
+
+    @Test
     void aBrowserThatIsNotRunningHasNoOpenProfile() {
         assertFalse(HelloController.profileOpen("Chrome · me@x.com", "chrome.exe", Set.of("Code.exe")));
     }
