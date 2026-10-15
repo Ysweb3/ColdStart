@@ -120,6 +120,10 @@ public class HelloController {
     /** How long that browser has to bring its extension up before the rest are launched the
         old way, all in one go - it may not have the extension (another profile, firefox). */
     static final long PENDING_OPEN_MS = 15_000;
+    /** An awake extension redials every 3s, so by this long after the server came up it has
+        connected - a resume started sooner waits for it, briefly. */
+    static final long EXT_DIAL_MS = 3_500;
+    private volatile long serverStartedNanos;
 
     @FXML
     public VBox projectList;
@@ -3109,12 +3113,14 @@ public class HelloController {
     }
     // == Resume ============================================================
     //   resumeProject(): 1. capture what is running now (so we don't open it twice)
-    //                    2. push {"open":[urls]} to each browser's connected extension, which
-    //                       opens only the missing tabs, one at a time; no extension: start the
-    //                       browser (in the saved profile) on the first url and hand it the rest
-    //                       when its extension connects - or all at once after PENDING_OPEN_MS
-    //                    3. `start` every other captured app, with special cases for
+    //                    2. `start` every other captured app, with special cases for
     //                       claude (agent view of the project folder), VS Code (project folder), wt
+    //                    3. last, push {"open":[urls]} to each browser's connected extension,
+    //                       which opens only the missing tabs, one at a time. A profile already
+    //                       open whose extension has not connected yet is never started again -
+    //                       its tabs wait for the extension. A closed one is started on the first
+    //                       url and handed the rest when its extension connects - or all at once
+    //                       after PENDING_OPEN_MS
 
     /** `where <name>` - first PATH hit or null. Currently unused; browsers go via browserPath(). */
     public String getAppPath(String appName) throws IOException {
@@ -3570,6 +3576,9 @@ public class HelloController {
         List<LaunchStep> steps = new ArrayList<>();
         List<String> skipped = new ArrayList<>();
 
+        // browsers go last: the apps launching first give an extension that has not reconnected
+        // to a just-started ResumeOne time to, and only an extension can skip the open tabs
+        List<LaunchStep> browserSteps = new ArrayList<>();
         Set<String> handledBrowsers = new HashSet<>();
         for (Map.Entry<String, ArrayList<String>> entry : projectObj.urlsByBrowser.entrySet()) {
             //TODO:fix chrome settings urls not working
@@ -3587,14 +3596,15 @@ public class HelloController {
             if (exePath != null) {
                 handledBrowsers.add(new File(exePath).getName().toLowerCase());
             }
-            // check for open urls and skip them
-            WsContext live = wsSessions.stream()
-                    .filter(s -> sameBrowser(wsBrowser(s), browser))
-                    // the bucket's own profile before any other of its brand
-                    .min(Comparator.comparing(s -> !wsBrowser(s).equalsIgnoreCase(browser))).orElse(null);
-            if (live != null) {
-                steps.add(new LaunchStep(browser, urls.size() + " urls · via extension, open tabs skipped",
-                        true, () -> {
+            // a profile already open must never be started again: its open tabs would come back
+            // twice. Decided now, from the windows the capture saw; the extension is looked for
+            // when the step runs, since it may connect while the apps before it launch
+            boolean open = exePath != null && profileOpen(browser, new File(exePath).getName(), running);
+            String command = urls.size() + " urls · " + (open || liveSession(browser) != null ? "via extension, open tabs skipped"
+                    : exePath == null ? "default browser" : "one at a time");
+            browserSteps.add(new LaunchStep(browser, command, true, () -> {
+                WsContext live = awaitExtension(browser, open);
+                if (live != null) {
                     CompletableFuture<Integer> reply = new CompletableFuture<>();
                     openReplies.put(live, reply);
                     live.send(gson.toJson(Map.of("open", urls)));
@@ -3603,11 +3613,14 @@ public class HelloController {
                     int opened = reply.completeOnTimeout(-1, OPEN_REPLY_MS, TimeUnit.MILLISECONDS).join();
                     openReplies.remove(live, reply);
                     if (opened == 0) throw new AlreadyOpen();
-                }));
-                continue;
-            }
-            String command = urls.size() + " urls · " + (exePath == null ? "default browser" : "one at a time");
-            steps.add(new LaunchStep(browser, command, true, () -> {
+                    return;
+                }
+                if (open) {
+                    // its extension takes every tab the moment it connects and skips the open
+                    // ones; there is no command-line fallback, which would duplicate them
+                    pendingOpens.put(browser, List.copyOf(urls));
+                    return;
+                }
                 if (exePath == null) {
                     // unknown brand, browser not installed, or urls saved before we tracked the
                     // browser: fall back to whatever windows considers the default
@@ -3731,7 +3744,59 @@ public class HelloController {
                 }
             }
         }
+        steps.addAll(browserSteps);
         return new ResumePlan(steps, skipped);
+    }
+
+    /** The connected extension a bucket's tabs go to: its own profile before any other of its brand. */
+    private WsContext liveSession(String browser) {
+        return wsSessions.stream()
+                .filter(s -> sameBrowser(wsBrowser(s), browser))
+                .min(Comparator.comparing(s -> !wsBrowser(s).equalsIgnoreCase(browser))).orElse(null);
+    }
+
+    /** The bucket's extension, waited for only when its profile is open and ResumeOne started
+        so recently that the extension's 3s redial has not come round yet - after that a missing
+        extension is asleep (it wakes on a 1 min alarm) and waiting would only hold the resume. */
+    private WsContext awaitExtension(String browser, boolean open) {
+        long due = serverStartedNanos + TimeUnit.MILLISECONDS.toNanos(EXT_DIAL_MS);
+        WsContext live = liveSession(browser);
+        while (live == null && open && serverStartedNanos != 0 && !stopRequested && System.nanoTime() < due) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException ex) {
+                Thread.currentThread().interrupt();
+                break;
+            }
+            live = liveSession(browser);
+        }
+        return live;
+    }
+
+    /** Whether the bucket's profile has a window open now: the browser is running and, when the
+        bucket names a profile, Local State lists that profile's folder as active.
+        ponytail: Local State is written a few seconds behind, so a profile opened just before
+        Resume can read as closed and be started once more. */
+    static boolean profileOpen(String browser, String exe, Set<String> running) {
+        if (running.stream().noneMatch(exe::equalsIgnoreCase)) return false;
+        String data = USER_DATA.get(brandOf(browser).toLowerCase()), dir = profileDir(browser);
+        // a bucket with no profile, or a brand without profile folders: the browser being up is
+        // all there is to go on, and starting it again is what duplicates
+        if (data == null || dir == null) return true;
+        return activeProfiles(new File(System.getenv("LOCALAPPDATA"), data + "\\Local State")).contains(dir);
+    }
+
+    /** Local State's profile.last_active_profiles: the folders with a window open while the
+        browser runs. Empty when unreadable. */
+    static List<String> activeProfiles(File localState) {
+        try (Reader r = new FileReader(localState)) {
+            Map<String, Object> state = new Gson().fromJson(r, Map.class);
+            Object active = ((Map<String, Object>) state.get("profile")).get("last_active_profiles");
+            if (active instanceof List<?> l) return l.stream().map(String::valueOf).toList();
+        } catch (IOException | RuntimeException ex) {
+            // fall through
+        }
+        return List.of();
     }
 
     /** Opens one saved folder or file in the app that had it: a VS Code build through its own
@@ -3888,6 +3953,7 @@ public class HelloController {
                 });
             });
         }).start(8765);
+        serverStartedNanos = System.nanoTime();
         // CORS stays open for the extension, so these gates are what keep web pages out
         app.before(ctx -> { if (!fromExtension(ctx.header("Origin"))) throw new ForbiddenResponse(); });
         app.wsBeforeUpgrade("/ws", ctx -> { if (!fromExtension(ctx.header("Origin"))) throw new ForbiddenResponse(); });
