@@ -8,6 +8,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
+import javafx.stage.WindowEvent;
 import javafx.scene.text.Font;
 import javafx.scene.input.KeyCode;
 
@@ -53,7 +54,12 @@ public class HelloApplication extends Application {
         });
         windowButton(root.lookup("#btnMin"), Icons.MINIMIZE, () -> stage.setIconified(true));
         StackPane max = windowButton(root.lookup("#btnMax"), Icons.MAXIMIZE, () -> stage.setMaximized(!stage.isMaximized()));
-        windowButton(root.lookup("#btnClose"), Icons.CLOSE, stage::close);
+        // the X goes through the close request like Alt+F4 and the taskbar do, so the
+        // controller can hold a quit while a browser still owes the checkpoint its tabs
+        HelloController controller = fxmlLoader.getController();
+        stage.setOnCloseRequest(e -> { if (controller.holdExit()) e.consume(); });
+        windowButton(root.lookup("#btnClose"), Icons.CLOSE,
+                () -> stage.fireEvent(new WindowEvent(stage, WindowEvent.WINDOW_CLOSE_REQUEST)));
         // maximize shows restore while maximized, as the slide pairs them
         stage.maximizedProperty().addListener((o, was, is) ->
                 max.getChildren().setAll(Icons.node(is ? Icons.RESTORE : Icons.MAXIMIZE, 14, GLYPH)));
