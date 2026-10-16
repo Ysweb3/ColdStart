@@ -185,7 +185,12 @@ public class HelloController {
     @FXML public CheckBox sidebarToggle;
     /** Same node Motion keeps "motion" in; projects.json stays projects only. */
     private static final Preferences PREFS = Preferences.userNodeForPackage(HelloController.class);
-    @FXML public VBox settingsRows, captureRows, resumeRows;
+    @FXML public VBox settingsRows;
+    /** Settings > Window: pin coldstart on top while a resume runs. On unless unticked. */
+    @FXML public CheckBox pinToggle;
+    private static final String PIN_KEY = "pinWhileResuming";
+    // TODO: placeholder - swap in the real store listing once the extension is published
+    static final String EXTENSION_URL = "https://example.com/coldstart-extension";
     @FXML public Label settingsFoot;
     @FXML public CheckBox motionToggle;
     @FXML public Label deleteSub, deleteBody, deletePath;
@@ -274,16 +279,9 @@ public class HelloController {
                 btnResumeStop, btnStayHere, btnOpenProject, btnResumeRest)) {
             Motion.pressable(b);
         }
-        // what the app does, as plain check + label: these were disabled checkboxes, which read
-        // as "locked" and rendered at 2:1. The copy states each behaviour as a fact.
-        captureRows.getChildren().setAll(
-                behaviourRow("Browser tabs, per browser, via the extension"),
-                behaviourRow("Running apps, grouped by kind"));
-        resumeRows.getChildren().setAll(
-                behaviourRow("Browser tabs reopen in one window per browser"),
-                behaviourRow("Claude reopens its conversations for the folder"),
-                behaviourRow("Apps already running are left alone"),
-                behaviourRow("coldstart stays on top while resuming"));
+        pinToggle.setSelected(PREFS.getBoolean(PIN_KEY, true));
+        // read by showBase the next time a resume starts
+        pinToggle.selectedProperty().addListener((o, was, on) -> PREFS.putBoolean(PIN_KEY, on));
         clickable(btnNewProjectRail, "New project", this::onNewProjectClick);
         btnNewProjectWide.setOnAction(e -> onNewProjectClick());
         setRailWide(PREFS.getBoolean(SIDEBAR_WIDE, true));
@@ -626,7 +624,7 @@ public class HelloController {
         graphic(btnNewProjectEmpty, Icons.NEW, TX);
         graphic(btnNpBrowse, Icons.BROWSE, TX2);
         graphic(btnNpCreate, Icons.BOOKMARK_PLUS, TX);
-        for (CheckBox cb : List.of(motionToggle, sidebarToggle, npCapture)) iconCheck(cb);
+        for (CheckBox cb : List.of(pinToggle, motionToggle, sidebarToggle, npCapture)) iconCheck(cb);
 
         Pane play = Icons.node(Icons.RESUME, 30, GOI, 2.4);
         resumeGlyphBox.getChildren().add(play);
@@ -822,12 +820,23 @@ public class HelloController {
                 System.err.println("open data folder: " + ex.getMessage());
             }
         });
+        HBox extensionRow = statRow(Icons.BROWSER, "Get the browser extension", "Chrome, Edge, Brave, Opera", null);
+        extensionRow.getChildren().add(Icons.node(Icons.CHEVRON, 14, TX3));
+        extensionRow.getStyleClass().add("stat-link");
+        clickable(extensionRow, "Get the browser extension", () -> {
+            try {
+                Desktop.getDesktop().browse(new URI(EXTENSION_URL));
+            } catch (IOException | URISyntaxException ex) {
+                System.err.println("open extension page: " + ex.getMessage());
+            }
+        });
         settingsRows.getChildren().setAll(
                 statRow(Icons.BROWSER, "Browser extensions",
                         browsers.isEmpty() ? (System.nanoTime() < connectingUntil ? "connecting\u2026"
                                                                            : "none connected \u00b7 install the coldstart extension")
                                            : String.join(", ", browsers.stream().map(HelloController::browserLabel).toList())
                                              + " connected", null),
+                extensionRow,
                 statRow(Icons.APP_WINDOW, "Ignored processes", names(ignored), String.join("\n", ignored)),
                 storageRow);
         settingsRows.getChildren().addAll(userRows);
@@ -850,10 +859,12 @@ public class HelloController {
         // Derived here, from the view, so no path out of a resume can leave it pinned. The pin
         // outlives the run by PIN_GRACE: the last app's window can show up after its launch
         // returned (Explorer ~0.6s, a cold Notepad ~0.9s), and one that appears unpinned lands on top.
+        // Settings > Window can turn the pin off; unpinning on every other view still runs.
         if (pinHold != null) pinHold.stop();
         if (target.getScene() != null && target.getScene().getWindow() instanceof Stage st) {
-            st.setAlwaysOnTop(target == resumingPane || target == restoredPane);
-            if (target == restoredPane) {
+            boolean pin = pinToggle.isSelected() && (target == resumingPane || target == restoredPane);
+            st.setAlwaysOnTop(pin);
+            if (pin && target == restoredPane) {
                 pinHold = new PauseTransition(PIN_GRACE);
                 pinHold.setOnFinished(e -> st.setAlwaysOnTop(false));
                 pinHold.play();
@@ -1948,14 +1959,6 @@ public class HelloController {
 
     /** Settings glyphs are 20px: big enough to read the tick at a glance. */
     private static final int SETTING_GLYPH = 20;
-
-    /** Settings: one behaviour the app has, stated as a fact. A plain tick, not the toggles'
-        checkbox: a box that does not respond to a click read as a broken setting. */
-    private HBox behaviourRow(String text) {
-        HBox row = new HBox(10, Icons.node(Icons.CHECK, SETTING_GLYPH, TX3), styled(new Label(text), "behaviour"));
-        row.setAlignment(Pos.CENTER_LEFT);
-        return row;
-    }
 
     private HBox failRow(ResumeRun r, LaunchStep step) {
         return failRow(step.label, failure(step), step.error, () -> retry(r, step));

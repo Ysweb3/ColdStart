@@ -490,9 +490,7 @@
 .settings-scroll > .viewport { -fx-background-color: -rw-g; -fx-background: -rw-g; }
 .settings-scroll { -fx-padding: 0; }
 .settings-h1 { -fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-/* behaviour rows are check + label, no control: they state what the app does.
-   stat-link is the one status row that acts (opens the data folder). */
-.behaviour { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+/* stat-link: a status row that acts (open the extension page, the data folder) */
 /* the greyed "under Other" line folds open its chips: it stays grey, a step brighter on hover */
 .other-fold { -fx-cursor: hand; }
 .other-fold:hover .cat-foot { -fx-text-fill: -rw-tx2; }

@@ -276,25 +276,17 @@
                     prefHeight="34.0" minHeight="34.0"/>
           </HBox>
 
-          <!-- same topology as the project card: what the app does on the left, what the
-               system reports beside it. The behaviour rows are plain check + label, filled by
-               initialize(). The column grows so the divider runs the pane's height. -->
+          <!-- same topology as the project card: the user's options on the left, what the
+               system reports beside it. The column grows so the divider runs the pane's height. -->
           <HBox spacing="24.0" VBox.vgrow="ALWAYS">
             <VBox.margin><Insets top="24.0"/></VBox.margin>
 
             <VBox spacing="0.0">
               <VBox spacing="12.0">
-                <Label styleClass="rail-label" text="WHAT IS CAPTURED">
+                <Label styleClass="rail-label" text="WINDOW">
                   <VBox.margin><Insets bottom="4.0"/></VBox.margin>
                 </Label>
-                <VBox fx:id="captureRows" spacing="12.0"/>
-              </VBox>
-              <VBox spacing="12.0">
-                <VBox.margin><Insets top="24.0"/></VBox.margin>
-                <Label styleClass="rail-label" text="HOW IT RESUMES">
-                  <VBox.margin><Insets bottom="4.0"/></VBox.margin>
-                </Label>
-                <VBox fx:id="resumeRows" spacing="12.0"/>
+                <CheckBox fx:id="pinToggle" selected="true" text="Keep coldstart on top while resuming"/>
               </VBox>
               <VBox spacing="12.0">
                 <VBox.margin><Insets top="24.0"/></VBox.margin>
@@ -310,9 +302,6 @@
                 </Label>
                 <CheckBox fx:id="sidebarToggle" selected="true" text="Show project names in the sidebar"/>
               </VBox>
-              <Label styleClass="cat-foot" text="capture and resume are fixed for now">
-                <VBox.margin><Insets top="24.0"/></VBox.margin>
-              </Label>
             </VBox>
 
             <!-- three stat rows from real state, re-rendered on socket events. Storage is the one that acts. -->
