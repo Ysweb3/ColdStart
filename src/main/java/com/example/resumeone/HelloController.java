@@ -92,7 +92,7 @@ import java.time.ZoneId;
  *       node from that file; the "HUD rendering" / "HUD actions" sections draw the project card
  *       and react to its buttons.</li>
  *   <li><b>Persistence</b> — projects live in one Gson-serialised list at
- *       %APPDATA%\ResumeWork\projects.json (see {@link #projectsFile()}, {@link #saveProject}).</li>
+ *       %APPDATA%\Coldstart\projects.json (see {@link #projectsFile()}, {@link #saveProject}).</li>
  *   <li><b>Capture / resume</b> — {@link #captureRunningApps()} asks PowerShell which processes
  *       own a window, {@link #segregateApps} labels them, {@link #resumeProject} relaunches them
  *       and reopens the saved browser tabs.</li>
@@ -419,10 +419,12 @@ public class HelloController {
     }
     // == Persistence =======================================================
 
-    /** %APPDATA%\ResumeWork\projects.json - the single file every project is stored in. */
+    /** %APPDATA%\Coldstart\projects.json - the single file every project is stored in, and the
+        only place the app writes. Projects from before the rename were copied over from
+        %APPDATA%\ResumeWork by hand; nothing reads that folder any more. */
     @FXML
     static File projectsFile() {
-        File dir = new File(System.getenv("APPDATA"), "ResumeWork");
+        File dir = new File(System.getenv("APPDATA"), "Coldstart");
         dir.mkdirs();
         return new File(dir, "projects.json");
     }
