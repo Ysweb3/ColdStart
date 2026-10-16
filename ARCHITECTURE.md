@@ -13,9 +13,9 @@ folder, and later brings all of it back with one click. It is two pieces that on
 └─────────────────────────────┘                             └────────────────────────────┘
 ```
 
-The repos, the Java package (`com.example.resumeone`) and the data folder
-(`%APPDATA%\ResumeWork`) keep their old names: renaming the package would orphan the saved
-preferences (they are keyed to it) and renaming the folder would orphan every saved project.
+The repos and the Java package (`com.example.resumeone`) keep their old names: renaming the
+package would orphan the saved preferences (they are keyed to it). Project data moved to
+`%APPDATA%\Coldstart`; the old `%APPDATA%\ResumeWork` is no longer read or written.
 
 ## Files that matter
 
@@ -30,7 +30,7 @@ preferences (they are keyed to it) and renaming the folder would orphan every sa
 | `hello-view.fxml` | The old, plain UI. Still loadable (swap the filename in `HelloApplication`); every HUD-only field is null then, guarded by `isHud()`. |
 | `module-info.java` | Java module declaration. `opens ... to javafx.fxml` is what lets FXMLLoader inject private-ish fields. |
 | `src/test/...` | JUnit 5 tests for the pure helpers (categorising, persistence, launch commands). No UI tests. |
-| `%APPDATA%\ResumeWork\projects.json` | Where your projects actually live. Delete it to reset the app. |
+| `%APPDATA%\Coldstart\projects.json` | Where your projects actually live. Delete it to reset the app. |
 
 Build/run: `mvnw.cmd clean javafx:run` (needs `JAVA_HOME` → a JDK 24+). Tests: `mvnw.cmd test`.
 
