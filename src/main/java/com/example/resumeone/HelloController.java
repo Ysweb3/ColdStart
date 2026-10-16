@@ -114,7 +114,7 @@ public class HelloController {
     /** The extension answers in milliseconds; one from before the reply never does. */
     static final long OPEN_REPLY_MS = 2000;
     /** Tabs a browser resume just started still owes, by bucket key: its extension takes them
-        the moment it connects and opens them one at a time, rather than the command line
+        the moment it connects and opens them a few at a time, rather than the command line
         loading every one at once. */
     private final Map<String, List<String>> pendingOpens = new ConcurrentHashMap<>();
     /** How long that browser has to bring its extension up before the rest are launched the
@@ -1639,7 +1639,9 @@ public class HelloController {
                     step.run();
                     r.log.add(step.logLine());
                     Platform.runLater(() -> renderResuming(r));
-                    Thread.sleep(LAUNCH_GAP_MS);
+                    // the gap paces processes landing on the machine: a step that failed or found
+                    // everything open started none, and after the last one it only padded "took"
+                    if (step.state == LaunchStep.State.DONE && !step.waiting && r.queued() > 0) Thread.sleep(LAUNCH_GAP_MS);
                 }
             } catch (IOException ex) {
                 // without the list of open apps there is no telling what would open twice, so
@@ -1662,9 +1664,11 @@ public class HelloController {
     /** 1e. Rebuilt whole on every change - a run is a dozen rows at most. */
     private void renderResuming(ResumeRun r) {
         int total = r.total();
-        long started = r.started();
-        resumingCount.setText(started + " / " + (total == 0 ? "?" : String.valueOf(total)));
-        double frac = total == 0 ? 0 : (double) started / total;
+        // finished, not started: counting the one launching put 100% up while the last step
+        // (a browser waiting on its extension) still had seconds to go
+        long finished = r.done() + r.failed();
+        resumingCount.setText(finished + " / " + (total == 0 ? "?" : String.valueOf(total)));
+        double frac = total == 0 ? 0 : (double) finished / total;
         resumingPct.setText(Math.round(frac * 100) + "%");
         new Timeline(new KeyFrame(Duration.millis(220), new KeyValue(resumingFrac, frac, Motion.OUT))).play();
 
@@ -1756,8 +1760,8 @@ public class HelloController {
         restoredTook.setText(String.format("took %.1fs", r.tookMs / 1000.0));
         restoredFrac.set(total == 0 ? 0 : (double) r.done() / total);
         restoredFailFrac.set(total == 0 ? 0 : (double) r.failed() / total);
-        int tabsSent = tabsSent(r);
-        restoredSpec.setText(r.appsDone() + " apps · " + tabsSent + " tabs");
+        int tabsOpened = tabsOpened(r);
+        restoredSpec.setText(count(r.appsDone(), "app") + " · " + count(tabsOpened, "tab"));
 
         restoredRows.getChildren().clear();
         if (r.error != null) {
@@ -1772,10 +1776,13 @@ public class HelloController {
             if (step.state == LaunchStep.State.DONE && !step.waiting) (step.browser ? browsers : apps).add(step.label);
         }
         if (r.error == null) {
-            restoredRows.getChildren().add(foldRow(Icons.APP_WINDOW, apps.size() + " apps launched",
+            restoredRows.getChildren().add(foldRow(Icons.APP_WINDOW, count(apps.size(), "app") + " launched",
                     apps.isEmpty() ? "nothing new to open" : names(apps)));
-            restoredRows.getChildren().add(foldRow(Icons.BROWSER, tabsSent + " tabs sent",
-                    browsers.isEmpty() ? "no browser opened" : String.join(" · ", browsers)));
+            // the extension skips tabs that are already up; saying so is what makes 3 of 6 add up
+            int tabsUp = tabsAlreadyOpen(r);
+            restoredRows.getChildren().add(foldRow(Icons.BROWSER, count(tabsOpened, "tab") + " opened",
+                    browsers.isEmpty() ? "no browser opened"
+                            : String.join(" · ", browsers) + (tabsUp > 0 ? " · " + tabsUp + " already open" : "")));
             // an open browser whose extension is asleep: not sent yet, and saying so beats a
             // "sent" count while nothing appears for up to the extension's 30s wake-up
             List<String> waiting = new ArrayList<>();
@@ -1783,7 +1790,7 @@ public class HelloController {
                 if (step.waiting) waiting.add(step.label);
             }
             if (!waiting.isEmpty()) {
-                restoredRows.getChildren().add(foldRow(Icons.TIMESTAMP, tabsWaiting(r) + " tabs waiting for "
+                restoredRows.getChildren().add(foldRow(Icons.TIMESTAMP, count(tabsWaiting(r), "tab") + " waiting for "
                         + String.join(" · ", waiting), "they open when its extension connects"));
             }
         }
@@ -1807,25 +1814,37 @@ public class HelloController {
         }
     }
 
-    /** Tabs handed to a browser that started: every saved url of each browser step that ran. */
-    private static int tabsSent(ResumeRun r) {
-        return tabs(r, false);
+    /** Tabs a browser step opened: its extension's count, or every saved url when there is none. */
+    static int tabsOpened(ResumeRun r) {
+        return tabs(r, false, false);
+    }
+
+    /** Saved tabs an extension found already open, so left alone. */
+    static int tabsAlreadyOpen(ResumeRun r) {
+        return tabs(r, false, true);
     }
 
     /** Tabs queued for an extension that has not connected yet. */
     static int tabsWaiting(ResumeRun r) {
-        return tabs(r, true);
+        return tabs(r, true, false);
     }
 
-    private static int tabs(ResumeRun r, boolean waiting) {
+    private static int tabs(ResumeRun r, boolean waiting, boolean alreadyOpen) {
         int n = 0;
         for (LaunchStep step : r.plan.steps()) {
             if (step.browser && step.state == LaunchStep.State.DONE && step.waiting == waiting) {
                 List<String> urls = r.project.urlsByBrowser.get(step.label);
-                if (urls != null) n += urls.size();
+                int saved = urls == null ? 0 : urls.size();
+                int opened = step.opened < 0 ? saved : Math.min(step.opened, saved);
+                n += alreadyOpen ? saved - opened : opened;
             }
         }
         return n;
+    }
+
+    /** "1 app", "3 apps". */
+    static String count(long n, String noun) {
+        return n + " " + noun + (n == 1 ? "" : "s");
     }
 
     /** How long a clean RESUMED stays up before going back to the project. */
@@ -3585,6 +3604,9 @@ public class HelloController {
         volatile String error;
         /** DONE, but its tabs are still waiting for the browser's extension to connect */
         volatile boolean waiting;
+        /** a browser's tabs its extension says it opened; -1 = no count (command line, an older
+            extension), so every saved url counts */
+        volatile int opened = -1;
 
         LaunchStep(String label, String command, boolean browser, Launch launch) {
             this.label = label;
@@ -3636,7 +3658,6 @@ public class HelloController {
         ResumeRun(Project project) { this.project = project; }
 
         int total()     { return plan.steps().size(); }
-        long started()  { return plan.steps().stream().filter(s -> s.state != LaunchStep.State.QUEUED).count(); }
         /** finished fine, including a browser that had every tab open already */
         long done()     { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.DONE || s.state == LaunchStep.State.SKIPPED).count(); }
         long failed()   { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.FAILED).count(); }
@@ -3710,8 +3731,9 @@ public class HelloController {
             // when the step runs, since it may connect while the apps before it launch
             boolean open = exePath != null && profileOpen(browser, new File(exePath).getName(), running);
             String command = urls.size() + " urls · " + (open || liveSession(browser) != null ? "via extension, open tabs skipped"
-                    : exePath == null ? "default browser" : "one at a time");
-            browserSteps.add(new LaunchStep(browser, command, true, () -> {
+                    : exePath == null ? "default browser" : "starting the browser");
+            LaunchStep[] self = new LaunchStep[1];   // the launch reports the opened count back onto its step
+            browserSteps.add(self[0] = new LaunchStep(browser, command, true, () -> {
                 WsContext live = awaitExtension(browser, open);
                 if (live != null) {
                     CompletableFuture<Integer> reply = new CompletableFuture<>();
@@ -3722,6 +3744,7 @@ public class HelloController {
                     int opened = reply.completeOnTimeout(-1, OPEN_REPLY_MS, TimeUnit.MILLISECONDS).join();
                     openReplies.remove(live, reply);
                     if (opened == 0) throw new AlreadyOpen();
+                    self[0].opened = opened;
                     return;
                 }
                 if (open) {
