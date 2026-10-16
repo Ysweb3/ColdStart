@@ -200,13 +200,13 @@
         <!-- "where was I", under everything. Saved on Enter, Esc or any click outside it; the
              resume screen shows it. Folded into "Add a note" while the project has none; the x
              removes it (showNoteStrip). -->
-        <!-- the button is the strip's twin (same box, pencil and text start) so opening it
-             swaps one for the other without anything moving -->
-        <Button fx:id="btnAddNote" styleClass="note-add, no-cut" text="Add a note" graphicTextGap="12.0"
+        <!-- the button is the strip's twin (same box, notch, pencil and text start) so opening
+             it swaps one for the other without anything moving -->
+        <Button fx:id="btnAddNote" styleClass="note-add" text="Add a note" graphicTextGap="12.0"
                 maxWidth="Infinity" minHeight="40.0" prefHeight="40.0" maxHeight="40.0"/>
         <!-- 40 for one line, a line taller for two (the field's prefHeight, set in fitNote);
              the pencil and x stay centred on it -->
-        <HBox fx:id="noteStrip" styleClass="note-strip" alignment="CENTER_LEFT" spacing="12.0"
+        <HBox fx:id="noteStrip" styleClass="note-strip, cut" alignment="CENTER_LEFT" spacing="12.0"
               minHeight="40.0" maxHeight="-Infinity" visible="false" managed="false">
           <padding><Insets top="6.0" left="14.0" bottom="6.0" right="4.0"/></padding>
           <StackPane fx:id="noteGlyphBox"/>
