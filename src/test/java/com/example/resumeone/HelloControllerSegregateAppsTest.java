@@ -256,7 +256,7 @@ class HelloControllerSegregateAppsTest {
     @Test
     void onlyCapturedAppsKeepAnExePath() {
         // what the window listing hands back on this machine: the overlay is an ignored window,
-        // java.exe is ResumeOne itself, explorer.exe the desktop - none of them were captured
+        // java.exe is coldstart itself, explorer.exe the desktop - none of them were captured
         java.util.Map<String, String> exePaths = new HashMap<>(java.util.Map.of(
                 "idea64.exe", "C:\\JetBrains\\bin\\idea64.exe",
                 "NVIDIA Overlay.exe", "C:\\NVIDIA\\NVIDIA Overlay.exe",
