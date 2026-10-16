@@ -367,7 +367,7 @@
         <HBox styleClass="strip" alignment="CENTER_LEFT" spacing="16.0"
               minHeight="48.0" prefHeight="48.0" maxHeight="48.0">
           <padding><Insets left="22.0" right="22.0"/></padding>
-          <Label fx:id="restoredCount" styleClass="strip-count" text="0 / 0"/>
+          <Label fx:id="restoredCount" styleClass="strip-count" text="0 / 0" minWidth="-Infinity"/>
           <HBox fx:id="restoredMeter" styleClass="meter-track" alignment="CENTER_LEFT" HBox.hgrow="ALWAYS"
                 minHeight="6.0" prefHeight="6.0" maxHeight="6.0">
             <Region fx:id="restoredFill" styleClass="meter-fill" maxWidth="-Infinity"
@@ -375,7 +375,7 @@
             <Region fx:id="restoredFailFill" styleClass="meter-fail" maxWidth="-Infinity"
                     minHeight="6.0" prefHeight="6.0" maxHeight="6.0"/>
           </HBox>
-          <Label fx:id="restoredTook" styleClass="strip-took" text=""/>
+          <Label fx:id="restoredTook" styleClass="strip-took" text="" minWidth="-Infinity"/>
         </HBox>
         <VBox spacing="24.0" VBox.vgrow="ALWAYS">
           <padding><Insets top="20.0" right="22.0" bottom="20.0" left="22.0"/></padding>

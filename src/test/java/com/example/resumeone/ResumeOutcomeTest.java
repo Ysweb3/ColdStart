@@ -64,6 +64,26 @@ class ResumeOutcomeTest {
     }
 
     @Test
+    void tabsCountWhatTheExtensionOpenedNotEverySavedUrl() {
+        Project p = new Project("atlas", null, new HashMap<>(), new ArrayList<>());
+        p.urlsByBrowser.put("Edge", new ArrayList<>(List.of("https://a/", "https://b/", "https://c/", "https://d/")));
+        p.urlsByBrowser.put("Chrome", new ArrayList<>(List.of("https://e/", "https://f/")));
+        HelloController.LaunchStep edge = new HelloController.LaunchStep("Edge", "", true, () -> { });
+        HelloController.LaunchStep chrome = new HelloController.LaunchStep("Chrome", "", true, () -> { });
+        HelloController.ResumeRun r = new HelloController.ResumeRun(p);
+        r.plan = new HelloController.ResumePlan(List.of(edge, chrome), List.of());
+        edge.run();
+        chrome.run();
+        edge.opened = 1;   // its extension: three of the four were up already
+        // chrome gave no count (command line), so both of its urls count as opened
+
+        assertEquals(3, HelloController.tabsOpened(r));
+        assertEquals(3, HelloController.tabsAlreadyOpen(r));
+        assertEquals("1 app", HelloController.count(1, "app"));
+        assertEquals("0 tabs", HelloController.count(0, "tab"));
+    }
+
+    @Test
     void pathLookupFindsAnExeAndSkipsBadEntries(@TempDir Path dir) throws IOException {
         Files.createFile(dir.resolve("tool.exe"));
         String path = "\"C:\\bad<entry\";" + ";" + dir;
