@@ -9,9 +9,10 @@
    HelloApplication.loadFonts() — JavaFX CSS has no @font-face. */
 
 /* No rounding anywhere: square corners on every node, Modena's defaults included (an author
-   rule outranks the user-agent sheet whatever its selector). Actions (buttons, fields, the
-   keycap) get a 6px corner cut from Cuts.java, which CSS cannot draw at a fixed size;
-   containers, chips and rows stay square, so the notch keeps meaning "press this". */
+   rule outranks the user-agent sheet whatever its selector). Anything you act on (buttons,
+   fields, app chips, the note) gets a 6px corner cut from Cuts.java, which CSS cannot draw at
+   a fixed size; containers, rows and the CTRL+R keycap stay square, so the notch keeps
+   meaning "you can act on this". */
 * { -fx-background-radius: 0; -fx-border-radius: 0; }
 
 .root {
