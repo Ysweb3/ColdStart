@@ -1,16 +1,21 @@
-# Resume One — how it works
+# coldstart — how it works
 
-Resume One saves a "project" = the apps you have open + the browser tabs you have open + a
+coldstart saves a "project" = the apps you have open + the browser tabs you have open + a
 folder, and later brings all of it back with one click. It is two pieces that only talk over
 `localhost:8765`:
 
 ```
 ┌─────────────────────────────┐   ws://localhost:8765/ws    ┌────────────────────────────┐
-│  ResumeOne (this repo)      │◄───────────────────────────►│  ResumeOneExtension        │
+│  coldstart app              │◄───────────────────────────►│  coldstart extension       │
 │  JavaFX window + Javalin    │   POST /tabs {browser,urls} │  MV3 service worker + popup│
 │  server, Windows only       │◄────────────────────────────│  one per browser           │
+│  (ResumeOne repo, this one) │                             │  (ResumeOneExtension repo) │
 └─────────────────────────────┘                             └────────────────────────────┘
 ```
+
+The repos, the Java package (`com.example.resumeone`) and the data folder
+(`%APPDATA%\ResumeWork`) keep their old names: renaming the package would orphan the saved
+preferences (they are keyed to it) and renaming the folder would orphan every saved project.
 
 ## Files that matter
 
@@ -65,7 +70,7 @@ Triggered by **Resume** on the card.
 resumeProject(project)
  ├─ running = captureRunningApps()            what is open right now
  ├─ for each browser in urlsByBrowser:
- │    extension connected?                    send {"open":[urls]}; it opens the missing ones one by one
+ │    extension connected?                    send {"open":[urls]}; it opens the missing ones, 4 at a time
  │    browserPath(browser)                    App Paths registry lookup → C:\...\chrome.exe
  │    profileDir(browser)                     "Chrome · me@x.com" → Local State → "Profile 2"
  │    ProcessBuilder(exe, --profile-directory, url1)   rest go to its extension when it connects,
@@ -98,7 +103,7 @@ background.js (service worker, one per browser profile)
  ├─ connectWS()        opens ws://localhost:8765/ws?browser=Chrome&profile=me@x.com, retries every 3s
  ├─ on "capture"       chrome.tabs.query → POST /tabs {browser:"Chrome", profile, urls:[...]}
  ├─ heartbeat 20s      keeps the socket alive
- └─ chrome.alarms 1m   MV3 kills idle workers; the alarm wakes it and reconnects
+ └─ chrome.alarms 30s  MV3 kills idle workers; the alarm wakes it and reconnects
 
 popup.js (click the toolbar icon)
  ├─ GET /project       "is the app running, and which project will these land on?"

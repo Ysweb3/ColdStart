@@ -2401,7 +2401,7 @@ public class HelloController {
         return found;
     }
 
-    /** The window listing has every titled window's exe - ResumeOne's own java.exe, the
+    /** The window listing has every titled window's exe - coldstart's own java.exe, the
         desktop's explorer.exe, overlays the capture ignores, apps the user hid. Only the apps
         this checkpoint kept need a path to relaunch from. */
     static void keepCapturedExePaths(Map<String, ?> exePaths, Map<String, HashSet<String>> apps) {
@@ -3710,7 +3710,7 @@ public class HelloController {
         List<String> skipped = new ArrayList<>();
 
         // browsers go last: the apps launching first give an extension that has not reconnected
-        // to a just-started ResumeOne time to, and only an extension can skip the open tabs
+        // to a just-started coldstart time to, and only an extension can skip the open tabs
         List<LaunchStep> browserSteps = new ArrayList<>();
         Set<String> handledBrowsers = new HashSet<>();
         for (Map.Entry<String, ArrayList<String>> entry : projectObj.urlsByBrowser.entrySet()) {
@@ -3890,7 +3890,7 @@ public class HelloController {
                 .min(Comparator.comparing(s -> !wsBrowser(s).equalsIgnoreCase(browser))).orElse(null);
     }
 
-    /** The bucket's extension, waited for only when its profile is open and ResumeOne started
+    /** The bucket's extension, waited for only when its profile is open and coldstart started
         so recently that the extension's 3s redial has not come round yet - after that a missing
         extension is asleep (it wakes on a 30s alarm) and waiting would only hold the resume. */
     private WsContext awaitExtension(String browser, boolean open) {
