@@ -1,5 +1,6 @@
 package com.example.resumeone;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.scene.Cursor;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
@@ -18,6 +19,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.net.HttpURLConnection;
+import java.net.URI;
 import java.time.LocalDateTime;
 
 /**
@@ -32,6 +35,10 @@ public class HelloApplication extends Application {
 
     @Override
     public void start(Stage stage) throws IOException {
+        if (focusRunning()) {
+            Platform.exit();
+            return;
+        }
         logErrors();
         loadFonts();
 
@@ -117,6 +124,24 @@ public class HelloApplication extends Application {
             }
         });
         return box;
+    }
+
+    /** True when coldstart is already running: it was asked to bring its window forward, so this
+        launch quits instead of failing on the taken port. Nothing on the port, or something that
+        is not coldstart, means a normal launch. */
+    static boolean focusRunning() {
+        try {
+            HttpURLConnection c = (HttpURLConnection) URI.create(
+                    "http://127.0.0.1:" + HelloController.PORT + "/focus").toURL().openConnection();
+            c.setRequestMethod("POST");
+            c.setConnectTimeout(1000);
+            c.setReadTimeout(2000);
+            try (InputStream in = c.getInputStream()) {
+                return "coldstart".equals(new String(in.readAllBytes()));
+            }
+        } catch (IOException ex) {
+            return false;
+        }
     }
 
     /** Copies everything sent to System.err (our error prints, slf4j/Javalin, uncaught stack traces)
