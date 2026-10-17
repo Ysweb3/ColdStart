@@ -1661,6 +1661,7 @@ public class HelloController {
                 // nothing is launched and 1l says so instead of "RESUMED"
                 r.error = ex.getMessage() == null ? "the open apps could not be listed" : ex.getMessage();
                 r.log.add("resume failed: " + r.error);
+                System.err.println("resume failed: " + ex);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             } finally {
@@ -2281,6 +2282,7 @@ public class HelloController {
                 // so this rarely waits, and "Saved" can always give the tab count
                 replies.await(TAB_WAIT_MILLIS, TimeUnit.MILLISECONDS);
             } catch (IOException ex) {
+                System.err.println("checkpoint capture failed: " + ex);
                 failed = ex;
             } catch (InterruptedException ignored) {
             }
@@ -3195,11 +3197,17 @@ public class HelloController {
         // force-quit - left projects.json empty and took every project with it.
         File target = projectsFile();
         File temp = new File(target.getParentFile(), target.getName() + ".tmp");
-        try (Writer writer = new FileWriter(temp, false)) {
-            gson.toJson(list, writer);
+        try {
+            try (Writer writer = new FileWriter(temp, false)) {
+                gson.toJson(list, writer);
+            }
+            Files.move(temp.toPath(), target.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (IOException ex) {
+            // every caller shows its own dialog (or swallows a Retry); this is the one place they all pass
+            System.err.println("could not write projects.json: " + ex);
+            throw ex;
         }
-        Files.move(temp.toPath(), target.toPath(),
-                StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     }
 
     public synchronized void deleteProject(Project projectObj, Node projectRow) throws IOException {
