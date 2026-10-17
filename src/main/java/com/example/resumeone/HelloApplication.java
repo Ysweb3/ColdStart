@@ -123,6 +123,8 @@ public class HelloApplication extends Application {
         into error.log next to projects.json, so a user can attach it to a support email. Over 1 MB it
         starts fresh at launch. If the file can't be opened the app just runs without it. */
     private static void logErrors() {
+        // slf4j-simple logs INFO to System.err: ~20 lines of Jetty startup and a Javalin banner per launch
+        System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "warn");
         File log = new File(HelloController.projectsFile().getParentFile(), "error.log");
         PrintStream console = System.err;
         try {
