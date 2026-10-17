@@ -12,8 +12,13 @@ import javafx.stage.WindowEvent;
 import javafx.scene.text.Font;
 import javafx.scene.input.KeyCode;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.time.LocalDateTime;
 
 /**
  * JavaFX entry point. Owns only window-level concerns: bundled fonts, the undecorated stage,
@@ -27,7 +32,8 @@ public class HelloApplication extends Application {
 
     @Override
     public void start(Stage stage) throws IOException {
-        loadFonts();    
+        logErrors();
+        loadFonts();
 
         // HUD v2 prototype. Swap back to "hello-view.fxml" (and 800x600) for the real app.
         FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("hud-view.fxml"));
@@ -111,6 +117,28 @@ public class HelloApplication extends Application {
             }
         });
         return box;
+    }
+
+    /** Copies everything sent to System.err (our error prints, slf4j/Javalin, uncaught stack traces)
+        into error.log next to projects.json, so a user can attach it to a support email. Over 1 MB it
+        starts fresh at launch. If the file can't be opened the app just runs without it. */
+    private static void logErrors() {
+        File log = new File(HelloController.projectsFile().getParentFile(), "error.log");
+        PrintStream console = System.err;
+        try {
+            FileOutputStream file = new FileOutputStream(log, log.length() < 1_000_000);
+            System.setErr(new PrintStream(new OutputStream() {
+                @Override public void write(int b) throws IOException { console.write(b); file.write(b); }
+                @Override public void write(byte[] b, int off, int len) throws IOException {
+                    console.write(b, off, len);
+                    file.write(b, off, len);
+                }
+                @Override public void flush() throws IOException { console.flush(); file.flush(); }
+            }, true));
+            System.err.println("--- coldstart started " + LocalDateTime.now().withNano(0) + " ---");
+        } catch (IOException ex) {
+            console.println("error log unavailable: " + ex.getMessage());
+        }
     }
 
     /** JavaFX CSS silently ignores @font-face, so the bundled faces are registered here
