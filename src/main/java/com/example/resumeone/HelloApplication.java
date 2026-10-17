@@ -1,5 +1,6 @@
 package com.example.resumeone;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.scene.Cursor;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Node;
@@ -12,8 +13,15 @@ import javafx.stage.WindowEvent;
 import javafx.scene.text.Font;
 import javafx.scene.input.KeyCode;
 
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.net.HttpURLConnection;
+import java.net.URI;
+import java.time.LocalDateTime;
 
 /**
  * JavaFX entry point. Owns only window-level concerns: bundled fonts, the undecorated stage,
@@ -27,7 +35,12 @@ public class HelloApplication extends Application {
 
     @Override
     public void start(Stage stage) throws IOException {
-        loadFonts();    
+        if (focusRunning()) {
+            Platform.exit();
+            return;
+        }
+        logErrors();
+        loadFonts();
 
         // HUD v2 prototype. Swap back to "hello-view.fxml" (and 800x600) for the real app.
         FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("hud-view.fxml"));
@@ -111,6 +124,48 @@ public class HelloApplication extends Application {
             }
         });
         return box;
+    }
+
+    /** True when coldstart is already running: it was asked to bring its window forward, so this
+        launch quits instead of failing on the taken port. Nothing on the port, or something that
+        is not coldstart, means a normal launch. */
+    static boolean focusRunning() {
+        try {
+            HttpURLConnection c = (HttpURLConnection) URI.create(
+                    "http://127.0.0.1:" + HelloController.PORT + "/focus").toURL().openConnection();
+            c.setRequestMethod("POST");
+            c.setConnectTimeout(1000);
+            c.setReadTimeout(2000);
+            try (InputStream in = c.getInputStream()) {
+                return "coldstart".equals(new String(in.readAllBytes()));
+            }
+        } catch (IOException ex) {
+            return false;
+        }
+    }
+
+    /** Copies everything sent to System.err (our error prints, slf4j/Javalin, uncaught stack traces)
+        into error.log next to projects.json, so a user can attach it to a support email. Over 1 MB it
+        starts fresh at launch. If the file can't be opened the app just runs without it. */
+    private static void logErrors() {
+        // slf4j-simple logs INFO to System.err: ~20 lines of Jetty startup and a Javalin banner per launch
+        System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "warn");
+        File log = new File(HelloController.projectsFile().getParentFile(), "error.log");
+        PrintStream console = System.err;
+        try {
+            FileOutputStream file = new FileOutputStream(log, log.length() < 1_000_000);
+            System.setErr(new PrintStream(new OutputStream() {
+                @Override public void write(int b) throws IOException { console.write(b); file.write(b); }
+                @Override public void write(byte[] b, int off, int len) throws IOException {
+                    console.write(b, off, len);
+                    file.write(b, off, len);
+                }
+                @Override public void flush() throws IOException { console.flush(); file.flush(); }
+            }, true));
+            System.err.println("--- coldstart started " + LocalDateTime.now().withNano(0) + " ---");
+        } catch (IOException ex) {
+            console.println("error log unavailable: " + ex.getMessage());
+        }
     }
 
     /** JavaFX CSS silently ignores @font-face, so the bundled faces are registered here

@@ -1661,6 +1661,7 @@ public class HelloController {
                 // nothing is launched and 1l says so instead of "RESUMED"
                 r.error = ex.getMessage() == null ? "the open apps could not be listed" : ex.getMessage();
                 r.log.add("resume failed: " + r.error);
+                System.err.println("resume failed: " + ex);
             } catch (InterruptedException ex) {
                 Thread.currentThread().interrupt();
             } finally {
@@ -2281,6 +2282,7 @@ public class HelloController {
                 // so this rarely waits, and "Saved" can always give the tab count
                 replies.await(TAB_WAIT_MILLIS, TimeUnit.MILLISECONDS);
             } catch (IOException ex) {
+                System.err.println("checkpoint capture failed: " + ex);
                 failed = ex;
             } catch (InterruptedException ignored) {
             }
@@ -3195,11 +3197,17 @@ public class HelloController {
         // force-quit - left projects.json empty and took every project with it.
         File target = projectsFile();
         File temp = new File(target.getParentFile(), target.getName() + ".tmp");
-        try (Writer writer = new FileWriter(temp, false)) {
-            gson.toJson(list, writer);
+        try {
+            try (Writer writer = new FileWriter(temp, false)) {
+                gson.toJson(list, writer);
+            }
+            Files.move(temp.toPath(), target.toPath(),
+                    StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        } catch (IOException ex) {
+            // every caller shows its own dialog (or swallows a Retry); this is the one place they all pass
+            System.err.println("could not write projects.json: " + ex);
+            throw ex;
         }
-        Files.move(temp.toPath(), target.toPath(),
-                StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
     }
 
     public synchronized void deleteProject(Project projectObj, Node projectRow) throws IOException {
@@ -4070,7 +4078,10 @@ public class HelloController {
     //                       or {"close":[urls]} on Checkpoint & close (no answer)
     //   GET /project        active project name ("" if none) - the popup's "is the app up?"
     //   POST /tabs          {browser, profile, urls[]} -> stored on the active project and saved
+    //   POST /focus         a second launch: bring this window forward, answer "coldstart"
     //   Port 8765, CORS open, because the extension's fetch comes from a chrome-extension:// origin.
+    //   Bound to 127.0.0.1: no Windows Firewall prompt on first launch, and nothing else on the
+    //   network can reach it. The extension's ws://localhost falls back from ::1 to 127.0.0.1.
 
     /** Whether a request may reach the server. A web page's request carries its own site as
         Origin (Chrome and Edge extensions send chrome-extension://), and without this any open
@@ -4081,6 +4092,10 @@ public class HelloController {
         return origin == null || origin.startsWith("chrome-extension://");
     }
 
+    /** The port the extension dials. coldstart.port only exists to run a test copy beside the
+        real app; the installed app never sets it. */
+    static final int PORT = Integer.getInteger("coldstart.port", 8765);
+
     public void startServer(){
         System.out.println("server starting...");
         Javalin app = Javalin.create(config -> {
@@ -4089,7 +4104,7 @@ public class HelloController {
                     rule.anyHost();
                 });
             });
-        }).start(8765);
+        }).start("127.0.0.1", PORT);
         serverStartedNanos = System.nanoTime();
         // CORS stays open for the extension, so these gates are what keep web pages out
         app.before(ctx -> { if (!fromExtension(ctx.header("Origin"))) throw new ForbiddenResponse(); });
@@ -4137,6 +4152,20 @@ public class HelloController {
         // the extension popup reads this to name the project its tabs will land on, and
         // treats any reply at all as "the desktop app is running"
         app.get("/project", ctx -> ctx.result(activeProject == null ? "" : activeProject.projectName));
+        // a second launch (HelloApplication.focusRunning) asks this one forward instead of failing
+        // on the taken port; POST, so a web page's request carries an Origin and the gate stops it
+        app.post("/focus", ctx -> {
+            Platform.runLater(() -> {
+                Stage st = (Stage) btnCheckpoint.getScene().getWindow();
+                st.setIconified(false);
+                st.toFront();
+                // Windows only lets the foreground process raise a window; a moment on top gets past it
+                st.setAlwaysOnTop(true);
+                st.setAlwaysOnTop(false);
+                st.requestFocus();
+            });
+            ctx.result("coldstart");
+        });
         app.post("/tabs", ctx -> {
             System.out.println(ctx.body());
             // gson gives back Object values here - browser is a String, urls a List, so the
