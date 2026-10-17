@@ -4079,6 +4079,8 @@ public class HelloController {
     //   GET /project        active project name ("" if none) - the popup's "is the app up?"
     //   POST /tabs          {browser, profile, urls[]} -> stored on the active project and saved
     //   Port 8765, CORS open, because the extension's fetch comes from a chrome-extension:// origin.
+    //   Bound to 127.0.0.1: no Windows Firewall prompt on first launch, and nothing else on the
+    //   network can reach it. The extension's ws://localhost falls back from ::1 to 127.0.0.1.
 
     /** Whether a request may reach the server. A web page's request carries its own site as
         Origin (Chrome and Edge extensions send chrome-extension://), and without this any open
@@ -4097,7 +4099,7 @@ public class HelloController {
                     rule.anyHost();
                 });
             });
-        }).start(8765);
+        }).start("127.0.0.1", 8765);
         serverStartedNanos = System.nanoTime();
         // CORS stays open for the extension, so these gates are what keep web pages out
         app.before(ctx -> { if (!fromExtension(ctx.header("Origin"))) throw new ForbiddenResponse(); });
