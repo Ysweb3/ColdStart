@@ -249,20 +249,20 @@
 
           <!-- a staircase: each step 6 x 3 cells, 2 columns after the last and starting on the row
                it ended. Between two steps, one elbow of cells: out of the bottom of one, along the
-               grid, into the middle of the next one's left side, where a chevron points in. Into
-               02 in checkpoint blue (the next move), into 03 grey (nothing to resume yet). -->
+               grid, into the middle of the next one's left side, where a chevron points in. Each
+               path wears its verb: checkpoint's fill into 02, resume's orange tint into 03. -->
           <Region styleClass="trail-ck" layoutX="121.0" layoutY="201.0" prefWidth="39.0" prefHeight="39.0"/>
           <Region styleClass="trail-ck" layoutX="121.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
           <Region styleClass="trail-ck" layoutX="161.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
           <Region styleClass="trail-ck" layoutX="201.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
           <Region styleClass="trail-ck" layoutX="241.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
           <StackPane fx:id="trailInto02" styleClass="trail-ck" layoutX="281.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-later" layoutX="441.0" layoutY="321.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-later" layoutX="441.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-later" layoutX="481.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-later" layoutX="521.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-later" layoutX="561.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
-          <StackPane fx:id="trailInto03" styleClass="trail-later" layoutX="601.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-go" layoutX="441.0" layoutY="321.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-go" layoutX="441.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-go" layoutX="481.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-go" layoutX="521.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-go" layoutX="561.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
+          <StackPane fx:id="trailInto03" styleClass="trail-go" layoutX="601.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
 
           <VBox fx:id="emptyHead" styleClass="empty-cell" layoutX="1.0" layoutY="1.0" prefWidth="519.0" prefHeight="79.0"
                 alignment="CENTER_LEFT" spacing="2.0">
@@ -282,8 +282,7 @@
               <Label styleClass="step-num" text="01"/>
               <Label styleClass="step-body" text="Name it, pick its folder"/>
             </HBox>
-            <!-- checkpoint blue: it opens New project, whose own button is Create + checkpoint -->
-            <Button fx:id="btnNewProjectEmpty" onAction="#onNewProjectClick" styleClass="btn-checkpoint"
+            <Button fx:id="btnNewProjectEmpty" onAction="#onNewProjectClick" styleClass="btn-primary"
                     text="New project" prefHeight="42.0" minHeight="42.0">
               <VBox.margin><Insets top="14.0"/></VBox.margin>
             </Button>
@@ -303,8 +302,9 @@
             </Label>
           </VBox>
 
-          <!-- nothing to resume yet, so RESUME is grey here as the button is when disabled -->
-          <VBox fx:id="step03" styleClass="step, step-later" layoutX="640.0" layoutY="320.0" prefWidth="241.0" prefHeight="121.0">
+          <!-- 02 and 03 are the two verbs as their blocks draw them: slate-edged Checkpoint,
+               orange RESUME, both with the verbs' 14px notch -->
+          <VBox fx:id="step03" styleClass="step, step-go" layoutX="640.0" layoutY="320.0" prefWidth="241.0" prefHeight="121.0">
             <padding><Insets top="12.0" right="16.0" bottom="12.0" left="16.0"/></padding>
             <HBox alignment="CENTER_LEFT" spacing="10.0">
               <Label styleClass="step-num" text="03"/>

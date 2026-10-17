@@ -641,13 +641,13 @@ public class HelloController {
         Icons.animate(btnResume, play);
         // the checkpoint block keeps its earlier slate; its "Saved" check matches that sub-line
         ckDoneGlyphBox.getChildren().add(Icons.node(Icons.CHECK, 22, CKT, 2.2));
-        // the empty state's steps wear the glyphs of the blocks they stand for; RESUME's is grey
-        // there, as the disabled RESUME block is
-        stepCkGlyph.getChildren().add(Icons.node(Icons.CHECKPOINT_ADD, 16, CKT));
-        stepResumeGlyph.getChildren().add(Icons.node(Icons.RESUME, 16, TX3));
-        // where each path enters its step: checkpoint's text blue into 02, the move to make next
+        // the empty state's steps wear the glyphs of the blocks they stand for, in the blocks'
+        // colours: Checkpoint's bone bookmark, RESUME's play in ink on orange at its 2.4 stroke
+        stepCkGlyph.getChildren().add(Icons.node(Icons.CHECKPOINT_ADD, 16, TX));
+        stepResumeGlyph.getChildren().add(Icons.node(Icons.RESUME, 16, GOI, 2.4));
+        // where each path enters its step, in that verb's colour
         trailInto02.getChildren().add(Icons.node(Icons.CHEVRON, 14, CKT));
-        trailInto03.getChildren().add(Icons.node(Icons.CHEVRON, 14, TX3));
+        trailInto03.getChildren().add(Icons.node(Icons.CHEVRON, 14, GO));
         // TEMP: replay the entrance on demand while it is being tuned
         graphic(btnReplayEntrance, Icons.RECAPTURE, TX2);
         btnReplayEntrance.setOnAction(e -> playEmptyEntrance());
@@ -956,13 +956,13 @@ public class HelloController {
     private boolean emptyEntered;
 
     /** The empty state builds in the order it is used. The grid comes up under the heading, 01
-        lands, New project lights up in checkpoint blue, and that blue runs cell by cell along the
-        path into 02, which arrives from the side the path enters. The path into 03 follows,
-        quieter: there is nothing to resume yet. Settled by ~1.2s, clickable from the first frame.
-        Reduced motion: everything takes the short fade, nothing travels or lights up. */
+        lands, New project lights up, and checkpoint's blue runs cell by cell along the path into
+        02, which arrives from the side the path enters; resume's orange runs on into 03 the same
+        way, a little quicker. Settled by ~1.2s, clickable from the first frame. Reduced motion:
+        everything takes the short fade, nothing travels or lights up. */
     private void playEmptyEntrance() {
         emptyEntered = true;
-        List<Node> toCheckpoint = trail("trail-ck"), toResume = trail("trail-later");
+        List<Node> toCheckpoint = trail("trail-ck"), toResume = trail("trail-go");
         List<Node> parts = new ArrayList<>(List.of(emptyGrid, emptyHead, step01, step02, step03,
                 emptyFootLeft, emptyFootRight));
         parts.addAll(toCheckpoint);
@@ -972,8 +972,8 @@ public class HelloController {
             return;
         }
         parts.forEach(n -> n.setOpacity(0));
-        // grey until it lights up; igniteNewProject hands it back to CSS's checkpoint blue
-        btnNewProjectEmpty.setStyle("-fx-background-color: " + RAISED + ";");
+        // a raised grey button until it lights up; igniteNewProject hands it back to CSS's bone
+        igniteStep(0);
         Timeline t = new Timeline(
                 at(0, () -> Motion.enter(emptyGrid, 0, 0, 1, Duration.millis(600), Motion.GLIDE)),
                 at(0, () -> Motion.enter(emptyHead, 0, 6, 1, Motion.BASE, Motion.STANDARD)),
@@ -1013,25 +1013,34 @@ public class HelloController {
         return new KeyFrame(Duration.millis(ms), e -> action.run());
     }
 
-    /** New project takes its colour: raised grey fills to checkpoint blue under one beat of
-        bloom, the launch bloom's shape (a launching step row) in checkpoint's text blue. Then
-        the inline colour and the bloom go, and CSS owns the button again (hover included). */
+    /** New project lights up: a raised grey button (bone words) fills to the bone primary (ink
+        words) under one beat of bloom, the launch bloom's shape in bone. Then the inline colours
+        and the bloom go, and CSS owns the button again (hover included). */
     private void igniteNewProject() {
         Button b = btnNewProjectEmpty;
-        Color from = Color.web(RAISED), to = Color.web(CK);
-        DoubleProperty fill = new SimpleDoubleProperty();
-        fill.addListener((o, was, v) -> b.setStyle("-fx-background-color: " + web(from.interpolate(to, v.doubleValue())) + ";"));
-        DropShadow bloom = new DropShadow(BlurType.GAUSSIAN, Color.web(CKT), 0, 0, 0, 0);
+        DoubleProperty lit = new SimpleDoubleProperty();
+        lit.addListener((o, was, v) -> igniteStep(v.doubleValue()));
+        DropShadow bloom = new DropShadow(BlurType.GAUSSIAN, Color.web(TX, .55), 0, 0, 0, 0);
         b.setEffect(bloom);
         Timeline t = new Timeline(
-                new KeyFrame(Motion.SETTLE, new KeyValue(fill, 1, Motion.STANDARD)),
+                new KeyFrame(Motion.SETTLE, new KeyValue(lit, 1, Motion.STANDARD)),
                 new KeyFrame(Duration.millis(160), new KeyValue(bloom.radiusProperty(), 16, Motion.OUT)),
                 new KeyFrame(Motion.CAPTURE, new KeyValue(bloom.radiusProperty(), 0, Motion.STANDARD)));
         t.setOnFinished(e -> {
             b.setStyle("");
+            b.lookupAll(".ico").forEach(n -> n.setStyle(""));
             b.setEffect(null);
         });
         t.play();
+    }
+
+    /** New project part way lit: 0 is the raised secondary look, 1 the bone primary. Inline, so
+        it beats .btn-primary while the entrance runs; the words and the glyph cross from bone to
+        ink as the fill crosses from grey to bone. */
+    private void igniteStep(double v) {
+        Color fill = Color.web(RAISED).interpolate(Color.web(TX), v), ink = Color.web(TX).interpolate(Color.web(G1), v);
+        btnNewProjectEmpty.setStyle("-fx-background-color: " + web(fill) + "; -fx-text-fill: " + web(ink) + ";");
+        btnNewProjectEmpty.lookupAll(".ico").forEach(n -> n.setStyle("-fx-stroke: " + web(ink) + ";"));
     }
 
     private static String web(Color c) {
@@ -2157,7 +2166,7 @@ public class HelloController {
     /** Glyph colours, set from code (hud.css still re-colours them on hover): the 5a tokens. */
     private static final String TX = "#E9E3DF", TX2 = "#A8A29E", TX3 = "#77726E",
             GO = "#FF6500", GOI = "#1A0A00", BAD = "#EB7C73", HUD = "#A8A29E",
-            CK = "#2A5688", CKT = "#6E9BD1", WARN = "#E3C55A", RAISED = "#222428";
+            CK = "#2A5688", CKT = "#6E9BD1", WARN = "#E3C55A", RAISED = "#222428", G1 = "#0F1012";
 
     static int countApps(Project projectObj) {
         if (projectObj == null || projectObj.apps == null) return 0;
