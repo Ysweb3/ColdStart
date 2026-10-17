@@ -264,25 +264,26 @@
           <Region styleClass="trail-later" layoutX="561.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
           <StackPane fx:id="trailInto03" styleClass="trail-later" layoutX="601.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
 
-          <VBox styleClass="empty-cell" layoutX="1.0" layoutY="1.0" prefWidth="519.0" prefHeight="79.0"
+          <VBox fx:id="emptyHead" styleClass="empty-cell" layoutX="1.0" layoutY="1.0" prefWidth="519.0" prefHeight="79.0"
                 alignment="CENTER_LEFT" spacing="2.0">
             <Label styleClass="empty-title" text="Nothing to resume yet"/>
             <Label styleClass="empty-body" text="Three steps, once. After that it is one press."/>
           </VBox>
 
-          <VBox styleClass="step, step-now" layoutY="80.0" prefWidth="241.0" prefHeight="121.0">
+          <VBox fx:id="step01" styleClass="step, step-now" layoutY="80.0" prefWidth="241.0" prefHeight="121.0">
             <padding><Insets top="14.0" right="16.0" bottom="14.0" left="16.0"/></padding>
             <HBox alignment="CENTER_LEFT" spacing="10.0">
               <Label styleClass="step-num" text="01"/>
               <Label styleClass="step-body" text="Name it, pick its folder"/>
             </HBox>
-            <Button fx:id="btnNewProjectEmpty" onAction="#onNewProjectClick" styleClass="btn-primary"
+            <!-- checkpoint blue: it opens New project, whose own button is Create + checkpoint -->
+            <Button fx:id="btnNewProjectEmpty" onAction="#onNewProjectClick" styleClass="btn-checkpoint"
                     text="New project" prefHeight="42.0" minHeight="42.0">
               <VBox.margin><Insets top="14.0"/></VBox.margin>
             </Button>
           </VBox>
 
-          <VBox styleClass="step, step-ck" layoutX="320.0" layoutY="200.0" prefWidth="241.0" prefHeight="121.0">
+          <VBox fx:id="step02" styleClass="step, step-ck" layoutX="320.0" layoutY="200.0" prefWidth="241.0" prefHeight="121.0">
             <padding><Insets top="12.0" right="16.0" bottom="12.0" left="16.0"/></padding>
             <HBox alignment="CENTER_LEFT" spacing="10.0">
               <Label styleClass="step-num" text="02"/>
@@ -297,7 +298,7 @@
           </VBox>
 
           <!-- nothing to resume yet, so RESUME is grey here as the button is when disabled -->
-          <VBox styleClass="step, step-later" layoutX="640.0" layoutY="320.0" prefWidth="241.0" prefHeight="121.0">
+          <VBox fx:id="step03" styleClass="step, step-later" layoutX="640.0" layoutY="320.0" prefWidth="241.0" prefHeight="121.0">
             <padding><Insets top="12.0" right="16.0" bottom="12.0" left="16.0"/></padding>
             <HBox alignment="CENTER_LEFT" spacing="10.0">
               <Label styleClass="step-num" text="03"/>
@@ -311,9 +312,9 @@
             </Label>
           </VBox>
 
-          <Label styleClass="empty-cell, foot-note" layoutX="1.0" layoutY="481.0" prefWidth="399.0" prefHeight="39.0"
+          <Label fx:id="emptyFootLeft" styleClass="empty-cell, foot-note" layoutX="1.0" layoutY="481.0" prefWidth="399.0" prefHeight="39.0"
                  text="tabs come back through the coldstart browser extension"/>
-          <Label styleClass="empty-cell, empty-path" layoutX="481.0" layoutY="481.0" prefWidth="399.0" prefHeight="39.0"
+          <Label fx:id="emptyFootRight" styleClass="empty-cell, empty-path" layoutX="481.0" layoutY="481.0" prefWidth="399.0" prefHeight="39.0"
                  alignment="CENTER_RIGHT" text="\%APPDATA%\Coldstart\projects.json"/>
         </Pane>
       </StackPane>

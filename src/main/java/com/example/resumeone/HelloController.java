@@ -142,6 +142,8 @@ public class HelloController {
     @FXML public VBox detailPane, categoryRows, tabsList;
     @FXML public StackPane emptyPane;
     @FXML public Pane emptyGrid, emptyBoard;
+    @FXML public VBox emptyHead, step01, step02, step03;
+    @FXML public Label emptyFootLeft, emptyFootRight;
     @FXML public VBox deletePane, newProjectPane, confirmPane;
     @FXML public Label confirmTitle, confirmSub, confirmBody;
     // the checkpoint block's swappable parts, and the close offer under the card (handoff 1d)
@@ -308,8 +310,11 @@ public class HelloController {
                     }
                 });
                 scene.windowProperty().addListener((o2, none, window) -> {
-                    if (window != null) window.addEventHandler(javafx.stage.WindowEvent.WINDOW_SHOWN,
-                            e -> detailPane.requestFocus());
+                    if (window != null) window.addEventHandler(javafx.stage.WindowEvent.WINDOW_SHOWN, e -> {
+                        detailPane.requestFocus();
+                        // a first launch opens on the empty state before anything can animate
+                        if (emptyPane.isVisible() && !emptyEntered) playEmptyEntrance();
+                    });
                 });
             }
         });
@@ -885,7 +890,10 @@ public class HelloController {
             pane.setVisible(pane == target);
             pane.setManaged(pane == target);
         }
-        if (arriving && Motion.showing(target)) panelIn(target);
+        if (arriving && Motion.showing(target)) {
+            if (target == emptyPane && !emptyEntered) playEmptyEntrance();
+            else panelIn(target);
+        }
         // Pinned on top while Resuming shows, so launched apps cannot bury progress and Stop.
         // Derived here, from the view, so no path out of a resume can leave it pinned. The pin
         // outlives the run by PIN_GRACE: the last app's window can show up after its launch
@@ -937,6 +945,94 @@ public class HelloController {
         }
         if (target == deletePane) btnDeleteCancel.requestFocus();
         else if (target == confirmPane) btnConfirmCancel.requestFocus();
+    }
+
+    /** Once per launch, the first time the empty state is seen; after that it arrives as any
+        panel does. */
+    private boolean emptyEntered;
+
+    /** The empty state builds in the order it is used. The grid comes up under the heading, 01
+        lands, New project lights up in checkpoint blue, and that blue runs cell by cell along the
+        path into 02, which arrives from the side the path enters. The path into 03 follows,
+        quieter: there is nothing to resume yet. Settled by ~1.2s, clickable from the first frame.
+        Reduced motion: everything takes the short fade, nothing travels or lights up. */
+    private void playEmptyEntrance() {
+        emptyEntered = true;
+        List<Node> toCheckpoint = trail("trail-ck"), toResume = trail("trail-later");
+        List<Node> parts = new ArrayList<>(List.of(emptyGrid, emptyHead, step01, step02, step03,
+                emptyFootLeft, emptyFootRight));
+        parts.addAll(toCheckpoint);
+        parts.addAll(toResume);
+        if (Motion.REDUCED) {
+            parts.forEach(n -> Motion.enter(n, 0, 0, 1, Motion.FAST, Motion.STANDARD));
+            return;
+        }
+        parts.forEach(n -> n.setOpacity(0));
+        // grey until it lights up; igniteNewProject hands it back to CSS's checkpoint blue
+        btnNewProjectEmpty.setStyle("-fx-background-color: " + RAISED + ";");
+        Timeline t = new Timeline(
+                at(0, () -> Motion.enter(emptyGrid, 0, 0, 1, Duration.millis(600), Motion.GLIDE)),
+                at(0, () -> Motion.enter(emptyHead, 0, 6, 1, Motion.BASE, Motion.STANDARD)),
+                at(80, () -> Motion.enter(step01, 0, 8, 1, STEP_IN, Motion.OUT)),
+                at(200, () -> {
+                    Motion.enter(emptyFootLeft, 0, 0, 1, Motion.SLOW, Motion.GLIDE);
+                    Motion.enter(emptyFootRight, 0, 0, 1, Motion.SLOW, Motion.GLIDE);
+                }),
+                at(300, this::igniteNewProject),
+                at(560, () -> Motion.enter(step02, -8, 0, 1, STEP_IN, Motion.OUT)),
+                at(900, () -> Motion.enter(step03, -8, 0, 1, STEP_IN, Motion.OUT)));
+        flow(t, toCheckpoint, 420, 45);
+        flow(t, toResume, 760, 35);
+        t.play();
+    }
+
+    /** A step card's arrival: Motion's card range, a little longer than BASE for its size. */
+    private static final Duration STEP_IN = Duration.millis(280);
+
+    private List<Node> trail(String styleClass) {
+        // fxml order is path order: out of one step, into the next
+        return emptyBoard.getChildren().stream().filter(n -> n.getStyleClass().contains(styleClass)).toList();
+    }
+
+    /** A path lights cell by cell, each cell pushed out of the one before it, so the colour
+        travels the way the path runs; the first comes down out of its step. */
+    private static void flow(Timeline t, List<Node> cells, int startMs, int gapMs) {
+        for (int i = 0; i < cells.size(); i++) {
+            Node c = cells.get(i);
+            double dx = i == 0 ? 0 : -6 * Math.signum(c.getLayoutX() - cells.get(i - 1).getLayoutX());
+            double dy = i == 0 ? -6 : -6 * Math.signum(c.getLayoutY() - cells.get(i - 1).getLayoutY());
+            t.getKeyFrames().add(at(startMs + gapMs * i, () -> Motion.enter(c, dx, dy, 1, Motion.FAST, Motion.OUT)));
+        }
+    }
+
+    private static KeyFrame at(int ms, Runnable action) {
+        return new KeyFrame(Duration.millis(ms), e -> action.run());
+    }
+
+    /** New project takes its colour: raised grey fills to checkpoint blue under one beat of
+        bloom, the launch bloom's shape (a launching step row) in checkpoint's text blue. Then
+        the inline colour and the bloom go, and CSS owns the button again (hover included). */
+    private void igniteNewProject() {
+        Button b = btnNewProjectEmpty;
+        Color from = Color.web(RAISED), to = Color.web(CK);
+        DoubleProperty fill = new SimpleDoubleProperty();
+        fill.addListener((o, was, v) -> b.setStyle("-fx-background-color: " + web(from.interpolate(to, v.doubleValue())) + ";"));
+        DropShadow bloom = new DropShadow(BlurType.GAUSSIAN, Color.web(CKT), 0, 0, 0, 0);
+        b.setEffect(bloom);
+        Timeline t = new Timeline(
+                new KeyFrame(Motion.SETTLE, new KeyValue(fill, 1, Motion.STANDARD)),
+                new KeyFrame(Duration.millis(160), new KeyValue(bloom.radiusProperty(), 16, Motion.OUT)),
+                new KeyFrame(Motion.CAPTURE, new KeyValue(bloom.radiusProperty(), 0, Motion.STANDARD)));
+        t.setOnFinished(e -> {
+            b.setStyle("");
+            b.setEffect(null);
+        });
+        t.play();
+    }
+
+    private static String web(Color c) {
+        return String.format("#%02X%02X%02X", Math.round(c.getRed() * 255), Math.round(c.getGreen() * 255),
+                Math.round(c.getBlue() * 255));
     }
 
     /** motion-transitions, detail panel: 10px in from the right with a fade; width never animates. */
@@ -2057,7 +2153,7 @@ public class HelloController {
     /** Glyph colours, set from code (hud.css still re-colours them on hover): the 5a tokens. */
     private static final String TX = "#E9E3DF", TX2 = "#A8A29E", TX3 = "#77726E",
             GO = "#FF6500", GOI = "#1A0A00", BAD = "#EB7C73", HUD = "#A8A29E",
-            CK = "#2A5688", CKT = "#6E9BD1", WARN = "#E3C55A";
+            CK = "#2A5688", CKT = "#6E9BD1", WARN = "#E3C55A", RAISED = "#222428";
 
     static int countApps(Project projectObj) {
         if (projectObj == null || projectObj.apps == null) return 0;

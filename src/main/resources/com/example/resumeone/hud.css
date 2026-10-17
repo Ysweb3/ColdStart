@@ -463,9 +463,10 @@
 /* a text cell's black ground: the grid never runs behind words */
 .empty-cell   { -fx-background-color: -rw-g; -fx-padding: 0 12 0 12; }
 .empty-path   { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
-/* Colour says when: now is the bone button (01's edge steps back so the button leads), next is
-   checkpoint blue (02's edge and the path into it, in the block's own fill), later is grey like
-   the disabled RESUME block (03 and its path, all one muted ink, ranked by weight alone). */
+/* Colour says when: New project is checkpoint blue, as the Create + checkpoint it opens is, and
+   that blue runs on along the path into 02 (in the block's own fill): the press and what it
+   leads to share one colour. 01's edge steps back so the button leads. Later is grey like the
+   disabled RESUME block (03 and its path, all one muted ink, ranked by weight alone). */
 .step         { -fx-background-color: -rw-g1; -fx-border-color: -rw-ln2; }
 .step-now     { -fx-border-color: -rw-tx3; }
 .step-ck      { -fx-border-color: -rw-ck-edge; }
