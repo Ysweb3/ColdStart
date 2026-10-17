@@ -314,7 +314,7 @@ public class HelloController {
                     if (window != null) window.addEventHandler(javafx.stage.WindowEvent.WINDOW_SHOWN, e -> {
                         detailPane.requestFocus();
                         // a first launch opens on the empty state before anything can animate
-                        if (emptyPane.isVisible() && !emptyEntered) playEmptyEntrance();
+                        if (emptyPane.isVisible() && !emptyEntered) playEmptyEntranceWhenOnScreen();
                     });
                 });
             }
@@ -962,11 +962,7 @@ public class HelloController {
         everything takes the short fade, nothing travels or lights up. */
     private void playEmptyEntrance() {
         emptyEntered = true;
-        List<Node> toCheckpoint = trail("trail-ck"), toResume = trail("trail-go");
-        List<Node> parts = new ArrayList<>(List.of(emptyGrid, emptyHead, step01, step02, step03,
-                emptyFootLeft, emptyFootRight));
-        parts.addAll(toCheckpoint);
-        parts.addAll(toResume);
+        List<Node> parts = emptyParts();
         if (Motion.REDUCED) {
             parts.forEach(n -> Motion.enter(n, 0, 0, 1, Motion.FAST, Motion.STANDARD));
             return;
@@ -975,23 +971,65 @@ public class HelloController {
         // a raised grey button until it lights up; igniteNewProject hands it back to CSS's bone
         igniteStep(0);
         Timeline t = new Timeline(
-                at(0, () -> Motion.enter(emptyGrid, 0, 0, 1, Duration.millis(600), Motion.GLIDE)),
-                at(0, () -> Motion.enter(emptyHead, 0, 6, 1, Motion.BASE, Motion.STANDARD)),
-                at(80, () -> Motion.enter(step01, 0, 8, 1, STEP_IN, Motion.OUT)),
+                at(0, () -> Motion.enter(emptyGrid, 0, 0, 1, ENTER_GRID, Motion.IN_OUT)),
+                at(0, () -> Motion.enter(emptyHead, 0, 6, 1, ENTER_HEAD, Motion.IN_OUT)),
+                at(80, () -> Motion.enter(step01, 0, 8, 1, ENTER_STEP, Motion.IN_OUT)),
                 at(200, () -> {
-                    Motion.enter(emptyFootLeft, 0, 0, 1, Motion.SLOW, Motion.GLIDE);
-                    Motion.enter(emptyFootRight, 0, 0, 1, Motion.SLOW, Motion.GLIDE);
+                    Motion.enter(emptyFootLeft, 0, 0, 1, ENTER_FOOT, Motion.IN_OUT);
+                    Motion.enter(emptyFootRight, 0, 0, 1, ENTER_FOOT, Motion.IN_OUT);
                 }),
                 at(300, this::igniteNewProject),
-                at(560, () -> Motion.enter(step02, -8, 0, 1, STEP_IN, Motion.OUT)),
-                at(900, () -> Motion.enter(step03, -8, 0, 1, STEP_IN, Motion.OUT)));
-        flow(t, toCheckpoint, 420, 45);
-        flow(t, toResume, 760, 35);
+                at(560, () -> Motion.enter(step02, -8, 0, 1, ENTER_STEP, Motion.IN_OUT)),
+                at(900, () -> Motion.enter(step03, -8, 0, 1, ENTER_STEP, Motion.IN_OUT)));
+        flow(t, trail("trail-ck"), 420, 45);
+        flow(t, trail("trail-go"), 760, 35);
         t.play();
     }
 
-    /** A step card's arrival: Motion's card range, a little longer than BASE for its size. */
-    private static final Duration STEP_IN = Duration.millis(280);
+    /** The entrance's durations, in one place to tune. Every move eases in and out
+        (Motion.IN_OUT), so each runs a little longer than its ease-out equivalent would: the
+        gentle start would otherwise read as a late one. */
+    private static final Duration ENTER_GRID = Duration.millis(600), ENTER_HEAD = Duration.millis(300),
+            ENTER_STEP = Duration.millis(360), ENTER_CELL = Duration.millis(200),
+            ENTER_FOOT = Duration.millis(400), IGNITE = Duration.millis(420);
+
+    /** Everything the entrance brings in; the TEMP replay button stays put. */
+    private List<Node> emptyParts() {
+        List<Node> parts = new ArrayList<>(List.of(emptyGrid, emptyHead, step01, step02, step03,
+                emptyFootLeft, emptyFootRight));
+        parts.addAll(trail("trail-ck"));
+        parts.addAll(trail("trail-go"));
+        return parts;
+    }
+
+    /** WINDOW_SHOWN fires inside show(), before the first frame is painted, and the frames
+        right after it stutter (measured: the first at ~20ms, then two ~45ms gaps, steady only
+        from ~120ms), so an entrance started there spent its first beats unseen. Instead the
+        parts hide at once, and the entrance starts when the window is up, not minimised, and four
+        frames in a row have come within 25ms of each other. If frames never settle it starts
+        after 800ms anyway; a minimised window waits until it is restored. */
+    private void playEmptyEntranceWhenOnScreen() {
+        emptyEntered = true;
+        if (!Motion.REDUCED) {
+            emptyParts().forEach(n -> n.setOpacity(0));
+            igniteStep(0);
+        }
+        Stage st = (Stage) emptyPane.getScene().getWindow();
+        long since = System.nanoTime();
+        new javafx.animation.AnimationTimer() {
+            long last;
+            int steady;
+            @Override public void handle(long now) {
+                boolean up = st.isShowing() && !st.isIconified();
+                steady = up && last != 0 && now - last < 25_000_000L ? steady + 1 : 0;
+                last = now;
+                if (up && (steady >= 4 || now - since > 800_000_000L)) {
+                    stop();
+                    playEmptyEntrance();
+                }
+            }
+        }.start();
+    }
 
     private List<Node> trail(String styleClass) {
         // fxml order is path order: out of one step, into the next
@@ -1005,7 +1043,7 @@ public class HelloController {
             Node c = cells.get(i);
             double dx = i == 0 ? 0 : -6 * Math.signum(c.getLayoutX() - cells.get(i - 1).getLayoutX());
             double dy = i == 0 ? -6 : -6 * Math.signum(c.getLayoutY() - cells.get(i - 1).getLayoutY());
-            t.getKeyFrames().add(at(startMs + gapMs * i, () -> Motion.enter(c, dx, dy, 1, Motion.FAST, Motion.OUT)));
+            t.getKeyFrames().add(at(startMs + gapMs * i, () -> Motion.enter(c, dx, dy, 1, ENTER_CELL, Motion.IN_OUT)));
         }
     }
 
@@ -1023,9 +1061,9 @@ public class HelloController {
         DropShadow bloom = new DropShadow(BlurType.GAUSSIAN, Color.web(TX, .55), 0, 0, 0, 0);
         b.setEffect(bloom);
         Timeline t = new Timeline(
-                new KeyFrame(Motion.SETTLE, new KeyValue(lit, 1, Motion.STANDARD)),
-                new KeyFrame(Duration.millis(160), new KeyValue(bloom.radiusProperty(), 16, Motion.OUT)),
-                new KeyFrame(Motion.CAPTURE, new KeyValue(bloom.radiusProperty(), 0, Motion.STANDARD)));
+                new KeyFrame(IGNITE, new KeyValue(lit, 1, Motion.IN_OUT)),
+                new KeyFrame(Duration.millis(200), new KeyValue(bloom.radiusProperty(), 16, Motion.IN_OUT)),
+                new KeyFrame(Motion.CAPTURE, new KeyValue(bloom.radiusProperty(), 0, Motion.IN_OUT)));
         t.setOnFinished(e -> {
             b.setStyle("");
             b.lookupAll(".ico").forEach(n -> n.setStyle(""));

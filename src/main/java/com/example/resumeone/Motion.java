@@ -27,7 +27,9 @@ final class Motion {
             OUT = Interpolator.SPLINE(.16, 1, .3, 1),
             IN = Interpolator.SPLINE(.5, 0, .9, .4),
             GLIDE = Interpolator.SPLINE(.25, .1, .2, 1),
-            SNAP = bezier(.34, 1.4, .5, 1);
+            SNAP = bezier(.34, 1.4, .5, 1),
+            /** CSS ease-in-out: gentle start and gentle stop, for the empty-state entrance. */
+            IN_OUT = Interpolator.SPLINE(.42, 0, .58, 1);
 
     /** cubic-bezier(x1, y1, x2, y2) as CSS reads it. SPLINE rejects a y outside 0..1, so the
         handoff's overshoot curve needs its own: solve x(t) by bisection, return y(t). */
