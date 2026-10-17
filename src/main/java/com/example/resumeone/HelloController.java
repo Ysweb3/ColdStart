@@ -639,8 +639,8 @@ public class HelloController {
         // there, as the disabled RESUME block is
         stepCkGlyph.getChildren().add(Icons.node(Icons.CHECKPOINT_ADD, 16, CKT));
         stepResumeGlyph.getChildren().add(Icons.node(Icons.RESUME, 16, TX3));
-        // where each path enters its step: brighter into 02, the move to make next
-        trailInto02.getChildren().add(Icons.node(Icons.CHEVRON, 14, TX2));
+        // where each path enters its step: checkpoint's text blue into 02, the move to make next
+        trailInto02.getChildren().add(Icons.node(Icons.CHEVRON, 14, CKT));
         trailInto03.getChildren().add(Icons.node(Icons.CHEVRON, 14, TX3));
         emptyPane.layoutBoundsProperty().addListener((o, was, b) -> drawEmptyGrid());
         emptyBoard.boundsInParentProperty().addListener((o, was, b) -> drawEmptyGrid());

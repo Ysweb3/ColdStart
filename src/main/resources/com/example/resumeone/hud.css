@@ -463,16 +463,18 @@
 /* a text cell's black ground: the grid never runs behind words */
 .empty-cell   { -fx-background-color: -rw-g; -fx-padding: 0 12 0 12; }
 .empty-path   { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
-/* the step to take now wears the ink ring the active project does; 02 is checkpoint's edge */
+/* Colour says when: now is the bone button (01's edge steps back so the button leads), next is
+   checkpoint blue (02's edge and the path into it, in the block's own fill), later is grey like
+   the disabled RESUME block (03 and its path, all one muted ink, ranked by weight alone). */
 .step         { -fx-background-color: -rw-g1; -fx-border-color: -rw-ln2; }
-.step-now     { -fx-border-color: -rw-tx; }
+.step-now     { -fx-border-color: -rw-tx3; }
 .step-ck      { -fx-border-color: -rw-ck-edge; }
 .step-num     { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .step-title   { -fx-font-size: 17px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .step-body    { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
-.step-later .step-num, .step-later .step-title { -fx-text-fill: -rw-tx3t; }
-.trail-lit    { -fx-background-color: -rw-raised; }
-.trail-dim    { -fx-background-color: -rw-g2; }
+.step-later .step-num, .step-later .step-title, .step-later .step-body { -fx-text-fill: -rw-tx3t; }
+.trail-ck     { -fx-background-color: -rw-ck-fill; }
+.trail-later  { -fx-background-color: -rw-g2; }
 
 /* ── scrollbars: thin, trackless, thumb only ───────────────────────── */
 .scroll-bar { -fx-background-color: transparent; }
