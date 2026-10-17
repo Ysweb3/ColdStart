@@ -959,7 +959,7 @@ public class HelloController {
         lands and New project lights up. Then checkpoint's blue runs cell by cell along the path
         into 02, which arrives from the side the path enters, and resume's orange runs on into 03
         the same way, a little quicker. Every step rests the same BEAT before its path sets off.
-        Settled by ~2s, clickable from the first frame. Reduced motion: everything takes the short
+        Settled by ~1.5s, clickable from the first frame. Reduced motion: everything takes the short
         fade, nothing travels or lights up. */
     private void playEmptyEntrance() {
         emptyEntered = true;
@@ -971,12 +971,12 @@ public class HelloController {
         parts.forEach(n -> n.setOpacity(0));
         // a raised grey button until it lights up; igniteNewProject hands it back to CSS's bone
         igniteStep(0);
-        // each step lands, rests for BEAT, then its path sets off; the next step arrives 140ms
+        // each step lands, rests for BEAT, then its path sets off; the next step arrives 110ms
         // into that path. 01's beat is where New project lights, timed to finish as the blue leaves
         int step = (int) ENTER_STEP.toMillis(), beat = (int) BEAT.toMillis();
-        int in01 = 80, go01 = in01 + step + beat;
-        int in02 = go01 + 140, go02 = in02 + step + beat;
-        int in03 = go02 + 140;
+        int in01 = 60, go01 = in01 + step + beat;
+        int in02 = go01 + 110, go02 = in02 + step + beat;
+        int in03 = go02 + 110;
         Timeline t = new Timeline(
                 at(0, () -> Motion.enter(emptyGrid, 0, 0, 1, ENTER_GRID, Motion.IN_OUT)),
                 at(0, () -> Motion.enter(emptyHead, 0, 6, 1, ENTER_HEAD, Motion.IN_OUT)),
@@ -988,21 +988,21 @@ public class HelloController {
                 at(go01 - (int) IGNITE.toMillis(), this::igniteNewProject),
                 at(in02, () -> Motion.enter(step02, -8, 0, 1, ENTER_STEP, Motion.IN_OUT)),
                 at(in03, () -> Motion.enter(step03, -8, 0, 1, ENTER_STEP, Motion.IN_OUT)));
-        flow(t, trail("trail-ck"), go01, 45);
-        flow(t, trail("trail-go"), go02, 35);
+        flow(t, trail("trail-ck"), go01, 35);
+        flow(t, trail("trail-go"), go02, 28);
         t.play();
     }
 
     /** The one rest, the same at every step: how long a step sits, landed, before its path sets
         off, so the eye lands on each in turn. */
-    private static final Duration BEAT = Duration.millis(280);
+    private static final Duration BEAT = Duration.millis(200);
 
     /** The entrance's durations, in one place to tune. Every move eases in and out
         (Motion.IN_OUT), so each runs a little longer than its ease-out equivalent would: the
         gentle start would otherwise read as a late one. */
-    private static final Duration ENTER_GRID = Duration.millis(600), ENTER_HEAD = Duration.millis(300),
-            ENTER_STEP = Duration.millis(360), ENTER_CELL = Duration.millis(200),
-            ENTER_FOOT = Duration.millis(400), IGNITE = Duration.millis(420);
+    private static final Duration ENTER_GRID = Duration.millis(450), ENTER_HEAD = Duration.millis(240),
+            ENTER_STEP = Duration.millis(280), ENTER_CELL = Duration.millis(160),
+            ENTER_FOOT = Duration.millis(320), IGNITE = Duration.millis(320);
 
     /** Everything the entrance brings in; the TEMP replay button stays put. */
     private List<Node> emptyParts() {
@@ -1073,8 +1073,8 @@ public class HelloController {
         b.setEffect(bloom);
         Timeline t = new Timeline(
                 new KeyFrame(IGNITE, new KeyValue(lit, 1, Motion.IN_OUT)),
-                new KeyFrame(Duration.millis(200), new KeyValue(bloom.radiusProperty(), 16, Motion.IN_OUT)),
-                new KeyFrame(Motion.CAPTURE, new KeyValue(bloom.radiusProperty(), 0, Motion.IN_OUT)));
+                new KeyFrame(Duration.millis(150), new KeyValue(bloom.radiusProperty(), 16, Motion.IN_OUT)),
+                new KeyFrame(Duration.millis(520), new KeyValue(bloom.radiusProperty(), 0, Motion.IN_OUT)));
         t.setOnFinished(e -> {
             b.setStyle("");
             b.lookupAll(".ico").forEach(n -> n.setStyle(""));
