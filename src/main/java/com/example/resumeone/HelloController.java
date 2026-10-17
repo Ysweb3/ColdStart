@@ -204,7 +204,7 @@ public class HelloController {
     @FXML public Region ckRing, ckBar;
     @FXML public StackPane btnDelete;
     // empty slots in the fxml that Icons draws into
-    @FXML public StackPane resumeGlyphBox, ckDoneGlyphBox, stepCkGlyph, stepResumeGlyph,
+    @FXML public StackPane resumeGlyphBox, ckDoneGlyphBox, stepCkGlyph, stepResumeGlyph, trailInto02, trailInto03,
             deleteFolderGlyph, npFolderGlyph, noteGlyphBox;
     /** The NEXT line under the buttons: the project's "where was I" note. */
     @FXML public TextArea noteField;
@@ -639,6 +639,9 @@ public class HelloController {
         // there, as the disabled RESUME block is
         stepCkGlyph.getChildren().add(Icons.node(Icons.CHECKPOINT_ADD, 16, CKT));
         stepResumeGlyph.getChildren().add(Icons.node(Icons.RESUME, 16, TX3));
+        // where each path enters its step: brighter into 02, the move to make next
+        trailInto02.getChildren().add(Icons.node(Icons.CHEVRON, 14, TX2));
+        trailInto03.getChildren().add(Icons.node(Icons.CHEVRON, 14, TX3));
         emptyPane.layoutBoundsProperty().addListener((o, was, b) -> drawEmptyGrid());
         emptyBoard.boundsInParentProperty().addListener((o, was, b) -> drawEmptyGrid());
         deleteFolderGlyph.getChildren().add(Icons.node(Icons.OTHER, 16, TX3));

@@ -238,30 +238,34 @@
       </VBox>
 
       <!-- ══ nothing saved yet ═════════════════════════════════════════════ -->
-      <!-- three steps on a 40px grid. The board is 21 x 13 cells, centred; every child sits on
+      <!-- three steps on a 40px grid. The board is 22 x 13 cells, centred; every child sits on
            its cells (a framed block on the gridlines, a text cell 1px inside them, so its black
            ground masks the grid behind the words). drawEmptyGrid lines the grid up with the
            board's corner, so the steps stay on cells at any window size. -->
       <StackPane fx:id="emptyPane" visible="false" managed="false">
         <Pane fx:id="emptyGrid" mouseTransparent="true"/>
-        <Pane fx:id="emptyBoard" minWidth="840.0" prefWidth="840.0" maxWidth="840.0"
+        <Pane fx:id="emptyBoard" minWidth="880.0" prefWidth="880.0" maxWidth="880.0"
               minHeight="520.0" prefHeight="520.0" maxHeight="520.0">
 
-          <!-- the path: lit from 01 to 02, still dim from 02 to 03 (part of it under 02 and 03) -->
-          <Region styleClass="trail-lit" layoutX="241.0" layoutY="201.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-lit" layoutX="281.0" layoutY="201.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-dim" layoutX="601.0" layoutY="201.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-dim" layoutX="561.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-dim" layoutX="601.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-dim" layoutX="521.0" layoutY="281.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-dim" layoutX="561.0" layoutY="281.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-dim" layoutX="601.0" layoutY="281.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-dim" layoutX="521.0" layoutY="321.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-dim" layoutX="561.0" layoutY="321.0" prefWidth="39.0" prefHeight="39.0"/>
+          <!-- a staircase: each step 6 x 3 cells, 2 columns after the last and starting on the row
+               it ended. Between two steps, one elbow of cells: out of the bottom of one, along the
+               grid, into the middle of the next one's left side, where a chevron points in. Lit
+               to 02 (the next move), dim to 03. -->
+          <Region styleClass="trail-lit" layoutX="121.0" layoutY="201.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-lit" layoutX="121.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-lit" layoutX="161.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-lit" layoutX="201.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-lit" layoutX="241.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
+          <StackPane fx:id="trailInto02" styleClass="trail-lit" layoutX="281.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-dim" layoutX="441.0" layoutY="321.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-dim" layoutX="441.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-dim" layoutX="481.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-dim" layoutX="521.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-dim" layoutX="561.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
+          <StackPane fx:id="trailInto03" styleClass="trail-dim" layoutX="601.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
 
           <VBox styleClass="empty-cell" layoutX="1.0" layoutY="1.0" prefWidth="519.0" prefHeight="79.0"
                 alignment="CENTER_LEFT" spacing="2.0">
-            <Label styleClass="empty-kicker" text="PROJECTS · 00"/>
             <Label styleClass="empty-title" text="Nothing to resume yet"/>
             <Label styleClass="empty-body" text="Three steps, once. After that it is one press."/>
           </VBox>
@@ -278,7 +282,7 @@
             </Button>
           </VBox>
 
-          <VBox styleClass="step, step-ck" layoutX="320.0" layoutY="160.0" prefWidth="241.0" prefHeight="121.0">
+          <VBox styleClass="step, step-ck" layoutX="320.0" layoutY="200.0" prefWidth="241.0" prefHeight="121.0">
             <padding><Insets top="12.0" right="16.0" bottom="12.0" left="16.0"/></padding>
             <HBox alignment="CENTER_LEFT" spacing="10.0">
               <Label styleClass="step-num" text="02"/>
@@ -293,7 +297,7 @@
           </VBox>
 
           <!-- nothing to resume yet, so RESUME is grey here as the button is when disabled -->
-          <VBox styleClass="step, step-later" layoutX="600.0" layoutY="320.0" prefWidth="241.0" prefHeight="121.0">
+          <VBox styleClass="step, step-later" layoutX="640.0" layoutY="320.0" prefWidth="241.0" prefHeight="121.0">
             <padding><Insets top="12.0" right="16.0" bottom="12.0" left="16.0"/></padding>
             <HBox alignment="CENTER_LEFT" spacing="10.0">
               <Label styleClass="step-num" text="03"/>
@@ -309,7 +313,7 @@
 
           <Label styleClass="empty-cell, foot-note" layoutX="1.0" layoutY="481.0" prefWidth="399.0" prefHeight="39.0"
                  text="tabs come back through the coldstart browser extension"/>
-          <Label styleClass="empty-cell, empty-path" layoutX="441.0" layoutY="481.0" prefWidth="399.0" prefHeight="39.0"
+          <Label styleClass="empty-cell, empty-path" layoutX="481.0" layoutY="481.0" prefWidth="399.0" prefHeight="39.0"
                  alignment="CENTER_RIGHT" text="\%APPDATA%\Coldstart\projects.json"/>
         </Pane>
       </StackPane>
