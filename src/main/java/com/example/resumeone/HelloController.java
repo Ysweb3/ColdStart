@@ -956,10 +956,11 @@ public class HelloController {
     private boolean emptyEntered;
 
     /** The empty state builds in the order it is used. The grid comes up under the heading, 01
-        lands, New project lights up, and checkpoint's blue runs cell by cell along the path into
-        02, which arrives from the side the path enters; resume's orange runs on into 03 the same
-        way, a little quicker. Settled by ~1.2s, clickable from the first frame. Reduced motion:
-        everything takes the short fade, nothing travels or lights up. */
+        lands, New project lights up and the entrance waits on it (HOLD). Then checkpoint's blue
+        runs cell by cell along the path into 02, which arrives from the side the path enters;
+        resume's orange runs on into 03 the same way, a little quicker. Settled by ~2s, clickable
+        from the first frame. Reduced motion: everything takes the short fade, nothing travels or
+        lights up. */
     private void playEmptyEntrance() {
         emptyEntered = true;
         List<Node> parts = emptyParts();
@@ -978,13 +979,21 @@ public class HelloController {
                     Motion.enter(emptyFootLeft, 0, 0, 1, ENTER_FOOT, Motion.IN_OUT);
                     Motion.enter(emptyFootRight, 0, 0, 1, ENTER_FOOT, Motion.IN_OUT);
                 }),
-                at(300, this::igniteNewProject),
-                at(560, () -> Motion.enter(step02, -8, 0, 1, ENTER_STEP, Motion.IN_OUT)),
-                at(900, () -> Motion.enter(step03, -8, 0, 1, ENTER_STEP, Motion.IN_OUT)));
-        flow(t, trail("trail-ck"), 420, 45);
-        flow(t, trail("trail-go"), 760, 35);
+                at(IGNITE_AT, this::igniteNewProject));
+        // the rest waits on the lit button: nothing moves for HOLD, then the blue sets off from it
+        int go = IGNITE_AT + (int) IGNITE.toMillis() + (int) HOLD.toMillis();
+        t.getKeyFrames().addAll(
+                at(go + 140, () -> Motion.enter(step02, -8, 0, 1, ENTER_STEP, Motion.IN_OUT)),
+                at(go + 480, () -> Motion.enter(step03, -8, 0, 1, ENTER_STEP, Motion.IN_OUT)));
+        flow(t, trail("trail-ck"), go, 45);
+        flow(t, trail("trail-go"), go + 340, 35);
         t.play();
     }
+
+    /** When New project starts to light, and how long the entrance then waits on it, lit and
+        alone, before going on: the one pause, so the eye lands on the thing to press. */
+    private static final int IGNITE_AT = 300;
+    private static final Duration HOLD = Duration.millis(500);
 
     /** The entrance's durations, in one place to tune. Every move eases in and out
         (Motion.IN_OUT), so each runs a little longer than its ease-out equivalent would: the
