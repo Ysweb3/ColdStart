@@ -144,6 +144,7 @@ public class HelloController {
     @FXML public Pane emptyGrid, emptyBoard;
     @FXML public VBox emptyHead, step01, step02, step03;
     @FXML public Label emptyFootLeft, emptyFootRight;
+    @FXML public Button btnReplayEntrance;   // TEMP: remove with its fxml before shipping
     @FXML public VBox deletePane, newProjectPane, confirmPane;
     @FXML public Label confirmTitle, confirmSub, confirmBody;
     // the checkpoint block's swappable parts, and the close offer under the card (handoff 1d)
@@ -647,6 +648,9 @@ public class HelloController {
         // where each path enters its step: checkpoint's text blue into 02, the move to make next
         trailInto02.getChildren().add(Icons.node(Icons.CHEVRON, 14, CKT));
         trailInto03.getChildren().add(Icons.node(Icons.CHEVRON, 14, TX3));
+        // TEMP: replay the entrance on demand while it is being tuned
+        graphic(btnReplayEntrance, Icons.RECAPTURE, TX2);
+        btnReplayEntrance.setOnAction(e -> playEmptyEntrance());
         emptyPane.layoutBoundsProperty().addListener((o, was, b) -> drawEmptyGrid());
         emptyBoard.boundsInParentProperty().addListener((o, was, b) -> drawEmptyGrid());
         deleteFolderGlyph.getChildren().add(Icons.node(Icons.OTHER, 16, TX3));

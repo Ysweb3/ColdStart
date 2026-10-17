@@ -270,6 +270,12 @@
             <Label styleClass="empty-body" text="Three steps, once. After that it is one press."/>
           </VBox>
 
+          <!-- TEMP: replays the entrance while it is being tuned; remove before shipping -->
+          <HBox styleClass="empty-cell" layoutX="481.0" layoutY="1.0" prefWidth="399.0" prefHeight="79.0" alignment="CENTER_RIGHT">
+            <Button fx:id="btnReplayEntrance" styleClass="btn-ghost" text="Replay entrance"
+                    prefHeight="34.0" minHeight="34.0"/>
+          </HBox>
+
           <VBox fx:id="step01" styleClass="step, step-now" layoutY="80.0" prefWidth="241.0" prefHeight="121.0">
             <padding><Insets top="14.0" right="16.0" bottom="14.0" left="16.0"/></padding>
             <HBox alignment="CENTER_LEFT" spacing="10.0">
