@@ -139,7 +139,9 @@ public class HelloController {
 
     // ── HUD v2 (hud-view.fxml). All null when the old hello-view.fxml is loaded,
     //    so every use is guarded by isHud().
-    @FXML public VBox detailPane, emptyPane, categoryRows, tabsList;
+    @FXML public VBox detailPane, categoryRows, tabsList;
+    @FXML public StackPane emptyPane;
+    @FXML public Pane emptyGrid, emptyBoard;
     @FXML public VBox deletePane, newProjectPane, confirmPane;
     @FXML public Label confirmTitle, confirmSub, confirmBody;
     // the checkpoint block's swappable parts, and the close offer under the card (handoff 1d)
@@ -202,7 +204,7 @@ public class HelloController {
     @FXML public Region ckRing, ckBar;
     @FXML public StackPane btnDelete;
     // empty slots in the fxml that Icons draws into
-    @FXML public StackPane resumeGlyphBox, ckDoneGlyphBox, emptyGlyphBox,
+    @FXML public StackPane resumeGlyphBox, ckDoneGlyphBox, stepCkGlyph, stepResumeGlyph,
             deleteFolderGlyph, npFolderGlyph, noteGlyphBox;
     /** The NEXT line under the buttons: the project's "where was I" note. */
     @FXML public TextArea noteField;
@@ -633,9 +635,33 @@ public class HelloController {
         Icons.animate(btnResume, play);
         // the checkpoint block keeps its earlier slate; its "Saved" check matches that sub-line
         ckDoneGlyphBox.getChildren().add(Icons.node(Icons.CHECK, 22, CKT, 2.2));
-        emptyGlyphBox.getChildren().add(Icons.node(Icons.BOOKMARK_PLUS, 40, CK));
+        // the empty state's steps wear the glyphs of the blocks they stand for; RESUME's is grey
+        // there, as the disabled RESUME block is
+        stepCkGlyph.getChildren().add(Icons.node(Icons.CHECKPOINT_ADD, 16, CKT));
+        stepResumeGlyph.getChildren().add(Icons.node(Icons.RESUME, 16, TX3));
+        emptyPane.layoutBoundsProperty().addListener((o, was, b) -> drawEmptyGrid());
+        emptyBoard.boundsInParentProperty().addListener((o, was, b) -> drawEmptyGrid());
         deleteFolderGlyph.getChildren().add(Icons.node(Icons.OTHER, 16, TX3));
         npFolderGlyph.getChildren().add(Icons.node(Icons.OTHER, 16, TX3));
+    }
+
+    /** The empty state's 40px grid, every line through a multiple of 40 from the board's corner,
+        so the steps keep sitting on cells wherever the window puts the board. +.5 keeps each
+        1px line on one pixel row. */
+    private void drawEmptyGrid() {
+        double w = emptyPane.getWidth(), h = emptyPane.getHeight();
+        List<javafx.scene.shape.Line> lines = new ArrayList<>();
+        for (double x = emptyBoard.getLayoutX() % GRID; x <= w; x += GRID) lines.add(gridLine(x + .5, 0, x + .5, h));
+        for (double y = emptyBoard.getLayoutY() % GRID; y <= h; y += GRID) lines.add(gridLine(0, y + .5, w, y + .5));
+        emptyGrid.getChildren().setAll(lines);
+    }
+
+    private static final double GRID = 40;
+
+    private static javafx.scene.shape.Line gridLine(double x1, double y1, double x2, double y2) {
+        javafx.scene.shape.Line l = new javafx.scene.shape.Line(x1, y1, x2, y2);
+        l.getStyleClass().add("grid-line");
+        return l;
     }
 
     /** A CheckBox drawn as the slide's CHECKBOX glyph: the box always, the tick only while
@@ -922,7 +948,10 @@ public class HelloController {
         if (row != null && !row.getStyleClass().contains("rail-active")) row.getStyleClass().add("rail-active");
     }
 
+    /** No projects: the narrow rail, whatever the saved width. The steps need 21 cells and the
+        wide sidebar would only list nothing; the first project brings the saved width back. */
     private void showEmpty(boolean empty) {
+        showRail(!empty && PREFS.getBoolean(SIDEBAR_WIDE, true));
         showBase(empty ? emptyPane : detailPane);
     }
 
@@ -959,6 +988,13 @@ public class HelloController {
     /** 200px with names, or the 48px numbered rail. Instant: width never animates (it would
         reflow the card every frame). Remembered across launches. */
     private void setRailWide(boolean wide) {
+        showRail(wide);
+        sidebarToggle.setSelected(wide);   // Ctrl+B keeps the Settings box honest; no-op from the box
+        PREFS.putBoolean(SIDEBAR_WIDE, wide);
+    }
+
+    /** The look alone, remembered nowhere: the empty state borrows the narrow rail. */
+    private void showRail(boolean wide) {
         rail.getStyleClass().remove("rail-wide");
         if (wide) rail.getStyleClass().add("rail-wide");
         // the narrow rail has no header at all, so its first number sits where PROJECTS would
@@ -968,8 +1004,6 @@ public class HelloController {
         }
         btnNewProjectRail.setVisible(!wide);
         btnNewProjectRail.setManaged(!wide);
-        sidebarToggle.setSelected(wide);   // Ctrl+B keeps the Settings box honest; no-op from the box
-        PREFS.putBoolean(SIDEBAR_WIDE, wide);
     }
 
     /** The wide rail's face of a row, SidebarItem: a 15px folder (open on the active row, via
