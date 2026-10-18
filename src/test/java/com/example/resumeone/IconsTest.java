@@ -31,8 +31,8 @@ class IconsTest {
     void everyGlyphParsesAndStaysInTheBox() throws Exception {
         List<Icons.Glyph> all = glyphs();
         // 15 categories + 15 actions + check / chevron / app-window + bookmark-plus + power /
-        // circle-alert + the checkpoint block's bookmark
-        assertEquals(37, all.size());
+        // circle-alert + the checkpoint block's bookmark + onboarding's external-link
+        assertEquals(38, all.size());
         for (Icons.Glyph g : all) {
             for (Icons.Part p : g.parts()) {
                 String d = p.d().trim();

@@ -237,93 +237,170 @@
         </StackPane>
       </VBox>
 
-      <!-- ══ nothing saved yet ═════════════════════════════════════════════ -->
-      <!-- three steps on a 40px grid. The board is 22 x 13 cells, centred; every child sits on
-           its cells (a framed block on the gridlines, a text cell 1px inside them, so its black
-           ground masks the grid behind the words). drawEmptyGrid lines the grid up with the
-           board's corner, so the steps stay on cells at any window size. -->
-      <StackPane fx:id="emptyPane" visible="false" managed="false">
-        <Pane fx:id="emptyGrid" mouseTransparent="true"/>
-        <Pane fx:id="emptyBoard" minWidth="880.0" prefWidth="880.0" maxWidth="880.0"
-              minHeight="520.0" prefHeight="520.0" maxHeight="520.0">
-
-          <!-- a staircase: each step 6 x 3 cells, 2 columns after the last and starting on the row
-               it ended. Between two steps, one elbow of cells: out of the bottom of one, along the
-               grid, into the middle of the next one's left side, where a chevron points in. Each
-               path wears its verb: checkpoint's fill into 02, resume's orange tint into 03. -->
-          <Region styleClass="trail-ck" layoutX="121.0" layoutY="201.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-ck" layoutX="121.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-ck" layoutX="161.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-ck" layoutX="201.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-ck" layoutX="241.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
-          <StackPane fx:id="trailInto02" styleClass="trail-ck" layoutX="281.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-go" layoutX="441.0" layoutY="321.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-go" layoutX="441.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-go" layoutX="481.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-go" layoutX="521.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
-          <Region styleClass="trail-go" layoutX="561.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
-          <StackPane fx:id="trailInto03" styleClass="trail-go" layoutX="601.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
-
-          <VBox fx:id="emptyHead" styleClass="empty-cell" layoutX="1.0" layoutY="1.0" prefWidth="519.0" prefHeight="79.0"
-                alignment="CENTER_LEFT" spacing="2.0">
-            <Label styleClass="empty-title" text="Nothing to resume yet"/>
-            <Label styleClass="empty-body" text="Three steps, once. After that it is one press."/>
-          </VBox>
-
-          <!-- TEMP: replays the entrance while it is being tuned; remove before shipping -->
-          <HBox styleClass="empty-cell" layoutX="481.0" layoutY="1.0" prefWidth="399.0" prefHeight="79.0" alignment="CENTER_RIGHT">
-            <Button fx:id="btnReplayEntrance" styleClass="btn-ghost" text="Replay entrance"
-                    prefHeight="34.0" minHeight="34.0"/>
+      <!-- ══ nothing saved yet: the Ghost ══════════════════════════════════ -->
+      <!-- the project screen with no project in it: the two verbs at full size and in their
+           colours, neither pressable yet, over the card where New project sits. "Empty" is
+           said once, in the card. -->
+      <VBox fx:id="emptyPane" spacing="16.0" visible="false" managed="false">
+        <padding><Insets top="20.0" right="22.0" bottom="20.0" left="22.0"/></padding>
+        <HBox spacing="12.0" minHeight="104.0" prefHeight="104.0" maxHeight="104.0">
+          <HBox fx:id="ghostResume" styleClass="ghost-resume" alignment="CENTER_LEFT" spacing="16.0" HBox.hgrow="ALWAYS">
+            <padding><Insets left="22.0" right="22.0"/></padding>
+            <StackPane fx:id="ghostResumeGlyph"/>
+            <Label styleClass="ghost-resume-word" text="RESUME"/>
+            <Region HBox.hgrow="ALWAYS" minWidth="0.0"/>
+            <Label styleClass="ghost-key" text="CTRL+R"/>
           </HBox>
-
-          <VBox fx:id="step01" styleClass="step, step-now" layoutY="80.0" prefWidth="241.0" prefHeight="121.0">
-            <padding><Insets top="14.0" right="16.0" bottom="14.0" left="16.0"/></padding>
-            <HBox alignment="CENTER_LEFT" spacing="10.0">
-              <Label styleClass="step-num" text="01"/>
-              <Label styleClass="step-body" text="Name it, pick its folder"/>
+          <HBox styleClass="ghost-ck" alignment="CENTER_LEFT" spacing="16.0"
+                minWidth="264.0" prefWidth="264.0" maxWidth="264.0">
+            <padding><Insets left="23.0" right="22.0"/></padding>
+            <StackPane fx:id="ghostCkGlyph" minWidth="24.0"/>
+            <VBox spacing="8.0" alignment="CENTER_LEFT">
+              <Label styleClass="ghost-ck-word" text="Checkpoint"/>
+              <Label styleClass="checkpoint-sub" text="needs a project"/>
+            </VBox>
+          </HBox>
+        </HBox>
+        <!-- GET STARTED: four first actions that tick themselves (renderChecklist); New project
+             sits in the row it does -->
+        <VBox styleClass="card" alignment="CENTER" spacing="24.0" VBox.vgrow="ALWAYS">
+          <Label styleClass="empty-title" text="Nothing to resume yet"/>
+          <VBox fx:id="ghostChecklist" styleClass="checklist" minWidth="400.0" prefWidth="400.0" maxWidth="400.0">
+            <HBox alignment="BASELINE_LEFT" spacing="8.0">
+              <padding><Insets top="12.0" right="16.0" bottom="8.0" left="16.0"/></padding>
+              <Label styleClass="rail-label" text="GET STARTED"/>
+              <Region HBox.hgrow="ALWAYS"/>
+              <Label fx:id="ghostChecklistCount" styleClass="rail-count" text="0 / 4"/>
             </HBox>
-            <Button fx:id="btnNewProjectEmpty" onAction="#onNewProjectClick" styleClass="btn-primary"
-                    text="New project" prefHeight="42.0" minHeight="42.0">
-              <VBox.margin><Insets top="14.0"/></VBox.margin>
-            </Button>
+            <VBox fx:id="ghostChecklistRows"/>
           </VBox>
+          <Button fx:id="btnNewProjectEmpty" onAction="#onNewProjectClick" styleClass="btn-primary"
+                  text="New project" visible="false" managed="false"/>
+        </VBox>
+      </VBox>
 
-          <VBox fx:id="step02" styleClass="step, step-ck" layoutX="320.0" layoutY="200.0" prefWidth="241.0" prefHeight="121.0">
-            <padding><Insets top="12.0" right="16.0" bottom="12.0" left="16.0"/></padding>
-            <HBox alignment="CENTER_LEFT" spacing="10.0">
-              <Label styleClass="step-num" text="02"/>
-              <StackPane fx:id="stepCkGlyph"/>
+      <!-- ══ first run: three steps, once, before the first empty state ══════ -->
+      <!-- the rail stays but goes inert, so the footer is the only way on. The footer never
+           moves: the step counter and Back on the left, Skip and the step's primary on the
+           right, the primary carrying an ENTER hint. -->
+      <VBox fx:id="onboardPane" visible="false" managed="false">
+        <StackPane VBox.vgrow="ALWAYS">
+          <!-- 01 welcome: what it is, and that it stays on this PC -->
+          <VBox fx:id="obStep1" alignment="CENTER_LEFT" spacing="16.0">
+            <padding><Insets top="48.0" right="56.0" bottom="48.0" left="56.0"/></padding>
+            <HBox alignment="BASELINE_LEFT">
+              <Label styleClass="ob-wordmark" text="coldstart"/>
+              <Label styleClass="ob-wordmark-dot" text="."/>
             </HBox>
-            <Label styleClass="step-title" text="Checkpoint">
+            <Label styleClass="ob-tagline" text="Pick up where you left off."/>
+            <Label styleClass="empty-body" wrapText="true" maxWidth="460.0"
+                   text="Checkpoint records your open apps, tabs and folder. Resume reopens them."/>
+            <Label styleClass="cat-foot" text="Locally stored. No account, nothing syncs.">
               <VBox.margin><Insets top="8.0"/></VBox.margin>
             </Label>
-            <Label styleClass="step-body" wrapText="true" text="When you stop. Saves the open apps, tabs and folder.">
-              <VBox.margin><Insets top="4.0"/></VBox.margin>
-            </Label>
           </VBox>
 
-          <!-- 02 and 03 are the two verbs as their blocks draw them: slate-edged Checkpoint,
-               orange RESUME, both with the verbs' 14px notch -->
-          <VBox fx:id="step03" styleClass="step, step-go" layoutX="640.0" layoutY="320.0" prefWidth="241.0" prefHeight="121.0">
-            <padding><Insets top="12.0" right="16.0" bottom="12.0" left="16.0"/></padding>
-            <HBox alignment="CENTER_LEFT" spacing="10.0">
-              <Label styleClass="step-num" text="03"/>
-              <StackPane fx:id="stepResumeGlyph"/>
+          <!-- 02 the two verbs, in the home screen's order and widths; figures, not controls.
+               The captions carry the sequence. Under them, what a checkpoint would record right
+               now (renderObRecords): the apps open by category, and the browsers whose tabs come
+               in with the extension. -->
+          <VBox fx:id="obStep2" spacing="24.0" visible="false">
+            <padding><Insets top="40.0" right="56.0" bottom="32.0" left="56.0"/></padding>
+            <Label styleClass="empty-title" text="Two verbs do the work"/>
+            <HBox spacing="12.0">
+              <VBox spacing="16.0" HBox.hgrow="ALWAYS">
+                <HBox fx:id="obResume" styleClass="ob-resume" alignment="CENTER_LEFT" spacing="16.0"
+                      minHeight="104.0" prefHeight="104.0" maxHeight="104.0">
+                  <padding><Insets left="22.0" right="22.0"/></padding>
+                  <StackPane fx:id="obResumeGlyph"/>
+                  <Label styleClass="resume-word" text="RESUME"/>
+                  <Region HBox.hgrow="ALWAYS" minWidth="0.0"/>
+                  <Label styleClass="resume-key" text="CTRL+R"/>
+                </HBox>
+                <HBox spacing="10.0">
+                  <Label styleClass="step-num" text="2"/>
+                  <Label styleClass="empty-body" wrapText="true" text="When you're back. Reopens all of it."/>
+                </HBox>
+              </VBox>
+              <VBox spacing="16.0" minWidth="264.0" prefWidth="264.0" maxWidth="264.0">
+                <HBox styleClass="ghost-ck, ob-ck" alignment="CENTER_LEFT" spacing="16.0"
+                      minWidth="264.0" prefWidth="264.0" maxWidth="264.0" minHeight="104.0" prefHeight="104.0" maxHeight="104.0">
+                  <padding><Insets left="23.0" right="22.0"/></padding>
+                  <StackPane fx:id="obCkGlyph" minWidth="24.0"/>
+                  <VBox spacing="8.0" alignment="CENTER_LEFT">
+                    <Label styleClass="checkpoint-word" text="Checkpoint"/>
+                    <Label styleClass="checkpoint-sub" text="no checkpoint yet"/>
+                  </VBox>
+                </HBox>
+                <HBox spacing="10.0">
+                  <Label styleClass="step-num" text="1"/>
+                  <VBox spacing="4.0">
+                    <Label styleClass="empty-body" wrapText="true" text="When you stop. Records apps, tabs and folder."/>
+                    <Label styleClass="project-path" text="Ctrl+S"/>
+                  </VBox>
+                </HBox>
+              </VBox>
             </HBox>
-            <Label styleClass="step-title" text="RESUME">
-              <VBox.margin><Insets top="8.0"/></VBox.margin>
-            </Label>
-            <Label styleClass="step-body" wrapText="true" text="One press reopens all of it, tomorrow or next week.">
-              <VBox.margin><Insets top="4.0"/></VBox.margin>
-            </Label>
+            <!-- the right column is the Checkpoint block's 264, so the tabs sit under it -->
+            <HBox styleClass="card" VBox.vgrow="ALWAYS" minHeight="0.0">
+              <VBox fx:id="obRecords" spacing="8.0" HBox.hgrow="ALWAYS" minWidth="0.0">
+                <padding><Insets top="12.0" right="16.0" bottom="12.0" left="16.0"/></padding>
+              </VBox>
+              <VBox fx:id="obRecordTabs" styleClass="tabs-col" spacing="8.0"
+                    minWidth="264.0" prefWidth="264.0" maxWidth="264.0">
+                <padding><Insets top="12.0" right="16.0" bottom="12.0" left="16.0"/></padding>
+              </VBox>
+            </HBox>
           </VBox>
 
-          <Label fx:id="emptyFootLeft" styleClass="empty-cell, foot-note" layoutX="1.0" layoutY="481.0" prefWidth="399.0" prefHeight="39.0"
-                 text="tabs come back through the coldstart browser extension"/>
-          <Label fx:id="emptyFootRight" styleClass="empty-cell, empty-path" layoutX="481.0" layoutY="481.0" prefWidth="399.0" prefHeight="39.0"
-                 alignment="CENTER_RIGHT" text="\%APPDATA%\Coldstart\projects.json"/>
-        </Pane>
-      </StackPane>
+          <!-- 03 browser tabs: one row per running browser, built by renderObTabs() from the
+               capture and the sockets; it turns into the connected state by itself -->
+          <VBox fx:id="obStep3" spacing="24.0" visible="false">
+            <padding><Insets top="48.0" right="56.0" bottom="48.0" left="56.0"/></padding>
+            <VBox spacing="8.0">
+              <Label fx:id="obTabsTitle" styleClass="empty-title" text="Add the browser extension"/>
+              <Label fx:id="obTabsBody" styleClass="empty-body" text="Tabs need it. Apps and folders don't."/>
+            </VBox>
+            <VBox fx:id="obBrowsers" styleClass="card" maxWidth="720.0">
+              <HBox alignment="BASELINE_LEFT" spacing="8.0">
+                <padding><Insets top="12.0" right="16.0" bottom="8.0" left="16.0"/></padding>
+                <Label styleClass="rail-label" text="BROWSERS OPEN NOW"/>
+                <Region HBox.hgrow="ALWAYS"/>
+                <Label fx:id="obBrowserCount" styleClass="rail-count" text="00"/>
+              </HBox>
+              <VBox fx:id="obBrowserRows"/>
+            </VBox>
+            <HBox fx:id="obPortRow" styleClass="fail-row" alignment="CENTER_LEFT" spacing="12.0" maxWidth="720.0"
+                  minHeight="56.0" prefHeight="56.0" maxHeight="56.0" visible="false" managed="false">
+              <padding><Insets left="16.0" right="12.0"/></padding>
+              <StackPane fx:id="obPortGlyph"/>
+              <Label styleClass="fail-why" text="port 8765 is in use by another program"/>
+              <Region HBox.hgrow="ALWAYS"/>
+              <Button fx:id="btnObRetry" styleClass="btn-ghost" text="Retry" prefHeight="34.0" minHeight="34.0"/>
+            </HBox>
+            <Label fx:id="obHint" styleClass="empty-body" wrapText="true" maxWidth="720.0"/>
+          </VBox>
+        </StackPane>
+
+        <HBox styleClass="ob-foot" alignment="CENTER_LEFT" spacing="16.0" minHeight="64.0" prefHeight="64.0" maxHeight="64.0">
+          <padding><Insets left="24.0" right="24.0"/></padding>
+          <HBox fx:id="obProgress" alignment="CENTER_LEFT" spacing="8.0">
+            <Label fx:id="obStepNum" styleClass="step-num" text="01"/>
+            <Label styleClass="port" text="/ 03"/>
+            <HBox spacing="4.0" alignment="CENTER_LEFT">
+              <HBox.margin><Insets left="4.0"/></HBox.margin>
+              <Region fx:id="obSeg1" styleClass="ob-seg" minWidth="24.0" prefWidth="24.0" maxWidth="24.0" minHeight="3.0" prefHeight="3.0" maxHeight="3.0"/>
+              <Region fx:id="obSeg2" styleClass="ob-seg" minWidth="24.0" prefWidth="24.0" maxWidth="24.0" minHeight="3.0" prefHeight="3.0" maxHeight="3.0"/>
+              <Region fx:id="obSeg3" styleClass="ob-seg" minWidth="24.0" prefWidth="24.0" maxWidth="24.0" minHeight="3.0" prefHeight="3.0" maxHeight="3.0"/>
+            </HBox>
+          </HBox>
+          <Button fx:id="btnObBack" styleClass="btn-ghost" text="Back" prefHeight="34.0" minHeight="34.0"/>
+          <Region HBox.hgrow="ALWAYS"/>
+          <Button fx:id="btnObSkip" styleClass="btn-ghost" text="Skip" prefHeight="34.0" minHeight="34.0"/>
+          <Button fx:id="btnObNext" styleClass="btn-primary" text="Get started" contentDisplay="RIGHT"
+                  graphicTextGap="8.0" prefHeight="34.0" minHeight="34.0"/>
+        </HBox>
+      </VBox>
 
       <!-- Base view: replaces the project detail rather than covering it. -->
       <ScrollPane fx:id="settingsPane" styleClass="settings-scroll" fitToWidth="true" fitToHeight="true"

@@ -94,7 +94,9 @@ final class Icons {
         // the Checkpoint block's bookmark-and-plus (its SVGPath in hud-view.fxml), for the
         // empty state's step 02
         CHECKPOINT_ADD = g("M4 2 H16 V21 L10 16 L4 21 Z M19 4 V10 M16 7 H22"),
-        CIRCLE_ALERT = new Glyph(new Part(circ(12, 12, 10)), new Part("M12 8 V12 M12 16 H12.01"));
+        CIRCLE_ALERT = new Glyph(new Part(circ(12, 12, 10)), new Part("M12 8 V12 M12 16 H12.01")),
+        // lucide external-link: onboarding's Get extension leaves the app for a store page
+        EXTERNAL = g("M15 3 H21 V9 M10 14 L21 3 M18 13 V19 A2 2 0 0 1 16 21 H5 A2 2 0 0 1 3 19 V8 A2 2 0 0 1 5 6 H11");
 
     /** Project.apps keys → slide glyph; anything unlisted is "Other", which the handoff draws as
         app-window (the slide's OTHER folder reads as the project folder beside it). */

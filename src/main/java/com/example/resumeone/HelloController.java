@@ -140,11 +140,17 @@ public class HelloController {
     // ── HUD v2 (hud-view.fxml). All null when the old hello-view.fxml is loaded,
     //    so every use is guarded by isHud().
     @FXML public VBox detailPane, categoryRows, tabsList;
-    @FXML public StackPane emptyPane;
-    @FXML public Pane emptyGrid, emptyBoard;
-    @FXML public VBox emptyHead, step01, step02, step03;
-    @FXML public Label emptyFootLeft, emptyFootRight;
-    @FXML public Button btnReplayEntrance;   // TEMP: remove with its fxml before shipping
+    @FXML public VBox emptyPane;
+    @FXML public HBox ghostResume;
+    // first run (onboardPane): three steps, then the empty state
+    @FXML public VBox onboardPane, obStep1, obStep2, obStep3, obBrowsers, obBrowserRows, obRecords, obRecordTabs;
+    // the Ghost's GET STARTED checklist
+    @FXML public VBox ghostChecklist, ghostChecklistRows;
+    @FXML public Label ghostChecklistCount;
+    @FXML public HBox obResume, obPortRow;
+    @FXML public Label obTabsTitle, obTabsBody, obBrowserCount, obHint, obStepNum;
+    @FXML public Region obSeg1, obSeg2, obSeg3;
+    @FXML public Button btnObBack, btnObSkip, btnObNext, btnObRetry;
     @FXML public VBox deletePane, newProjectPane, confirmPane;
     @FXML public Label confirmTitle, confirmSub, confirmBody;
     // the checkpoint block's swappable parts, and the close offer under the card (handoff 1d)
@@ -194,8 +200,10 @@ public class HelloController {
     /** Settings > Window: pin coldstart on top while a resume runs. On unless unticked. */
     @FXML public CheckBox pinToggle;
     private static final String PIN_KEY = "pinWhileResuming";
-    // TODO: placeholder - swap in the real store listing once the extension is published
+    // TODO: placeholders - swap in the real store listings once the extension is published.
+    // Chrome, Brave and Opera install from the Chrome Web Store; Edge from Edge Add-ons.
     static final String EXTENSION_URL = "https://example.com/coldstart-extension";
+    static final String EDGE_EXTENSION_URL = "https://example.com/coldstart-extension-edge";
     @FXML public Label settingsFoot;
     @FXML public CheckBox motionToggle;
     @FXML public Label deleteSub, deleteBody, deletePath;
@@ -207,8 +215,8 @@ public class HelloController {
     @FXML public Region ckRing, ckBar;
     @FXML public StackPane btnDelete;
     // empty slots in the fxml that Icons draws into
-    @FXML public StackPane resumeGlyphBox, ckDoneGlyphBox, stepCkGlyph, stepResumeGlyph, trailInto02, trailInto03,
-            deleteFolderGlyph, npFolderGlyph, noteGlyphBox;
+    @FXML public StackPane resumeGlyphBox, ckDoneGlyphBox, ghostResumeGlyph, ghostCkGlyph, obResumeGlyph, obCkGlyph,
+            obPortGlyph, deleteFolderGlyph, npFolderGlyph, noteGlyphBox;
     /** The NEXT line under the buttons: the project's "where was I" note. */
     @FXML public TextArea noteField;
     @FXML public HBox noteStrip;
@@ -281,9 +289,10 @@ public class HelloController {
         Tooltip.install(btnSettingsBack, tip("Esc"));
         for (Node b : List.of(btnNewProjectWide, btnNewProjectEmpty, btnSettingsBack, btnDeleteCancel, btnDeleteOk,
                 btnNpBrowse, btnNpCancel, btnNpCreate, btnConfirmCancel, btnConfirmOk,
-                btnResumeStop, btnStayHere, btnOpenProject, btnResumeRest)) {
+                btnResumeStop, btnStayHere, btnOpenProject, btnResumeRest, btnObBack, btnObSkip, btnObNext, btnObRetry)) {
             Motion.pressable(b);
         }
+        installOnboarding();
         pinToggle.setSelected(PREFS.getBoolean(PIN_KEY, true));
         // read by showBase the next time a resume starts
         pinToggle.selectedProperty().addListener((o, was, on) -> PREFS.putBoolean(PIN_KEY, on));
@@ -313,8 +322,6 @@ public class HelloController {
                 scene.windowProperty().addListener((o2, none, window) -> {
                     if (window != null) window.addEventHandler(javafx.stage.WindowEvent.WINDOW_SHOWN, e -> {
                         detailPane.requestFocus();
-                        // a first launch opens on the empty state before anything can animate
-                        if (emptyPane.isVisible() && !emptyEntered) playEmptyEntranceWhenOnScreen();
                     });
                 });
             }
@@ -379,21 +386,8 @@ public class HelloController {
         // A fixed 12x12 box with the ring at its exact centre, and only the arc turning, about
         // that same point. Rotating the whole node pivoted on bounds JavaFX recomputed, so the
         // ring wobbled as it spun.
-        Circle track = new Circle(6, 6, 5, Color.TRANSPARENT);
-        track.setStroke(Color.web("#464A52"));
-        track.setStrokeWidth(1.6);
-        Arc arc = new Arc(6, 6, 5, 5, 90, -110);
-        arc.setType(ArcType.OPEN);
-        arc.setFill(null);
-        arc.setStroke(Color.web(TX2));
-        arc.setStrokeWidth(1.6);
-        arc.setStrokeLineCap(StrokeLineCap.ROUND);
         Rotate turn = new Rotate(0, 6, 6);
-        arc.getTransforms().add(turn);
-        statusSpin = new Pane(track, arc);
-        statusSpin.setMinSize(12, 12);
-        statusSpin.setPrefSize(12, 12);
-        statusSpin.setMaxSize(12, 12);
+        statusSpin = ring(turn);
         statusBox.getChildren().add(0, statusSpin);
         spin = new Timeline(new KeyFrame(Duration.ZERO, new KeyValue(turn.angleProperty(), 0)),
                 new KeyFrame(Duration.millis(900), new KeyValue(turn.angleProperty(), 360, Interpolator.LINEAR)));
@@ -414,11 +408,39 @@ public class HelloController {
         }));
         ages.setCycleCount(Animation.INDEFINITE);
         ages.play();
-        if (projects.isEmpty()) {
+        // COLDSTART_FIRST_RUN=1 shows onboarding whatever the registry says: the onboarded flag is
+        // shared by every copy of the app on this machine, so a test run cannot rely on clearing it
+        boolean firstRun = "1".equals(System.getenv("COLDSTART_FIRST_RUN"));
+        if (projects.isEmpty() && (firstRun || !PREFS.getBoolean(ONBOARDED, false))) {
+            showOnboarding();
+        } else if (projects.isEmpty()) {
             showEmpty(true);
         } else {
+            // someone with projects already knows the app; an empty list later is the Ghost
+            PREFS.putBoolean(ONBOARDED, true);
             selectProject(projects.get(0));
         }
+    }
+
+    /** The "connecting…" ring: a fixed 12x12 box with the ring at its exact centre, and only the
+        arc turning, by `turn`, about that same point. Rotating the whole node pivoted on bounds
+        JavaFX recomputed, so the ring wobbled as it spun. */
+    private static Pane ring(Rotate turn) {
+        Circle track = new Circle(6, 6, 5, Color.TRANSPARENT);
+        track.setStroke(Color.web("#464A52"));
+        track.setStrokeWidth(1.6);
+        Arc arc = new Arc(6, 6, 5, 5, 90, -110);
+        arc.setType(ArcType.OPEN);
+        arc.setFill(null);
+        arc.setStroke(Color.web(TX2));
+        arc.setStrokeWidth(1.6);
+        arc.setStrokeLineCap(StrokeLineCap.ROUND);
+        arc.getTransforms().add(turn);
+        Pane box = new Pane(track, arc);
+        box.setMinSize(12, 12);
+        box.setPrefSize(12, 12);
+        box.setMaxSize(12, 12);
+        return box;
     }
 
     /** True when the loaded view is hud-view.fxml rather than the older hello-view.fxml. */
@@ -641,39 +663,18 @@ public class HelloController {
         Icons.animate(btnResume, play);
         // the checkpoint block keeps its earlier slate; its "Saved" check matches that sub-line
         ckDoneGlyphBox.getChildren().add(Icons.node(Icons.CHECK, 22, CKT, 2.2));
-        // the empty state's steps wear the glyphs of the blocks they stand for, in the blocks'
-        // colours: Checkpoint's bone bookmark, RESUME's play in ink on orange at its 2.4 stroke
-        stepCkGlyph.getChildren().add(Icons.node(Icons.CHECKPOINT_ADD, 16, TX));
-        stepResumeGlyph.getChildren().add(Icons.node(Icons.RESUME, 16, GOI, 2.4));
-        // where each path enters its step, in that verb's colour
-        trailInto02.getChildren().add(Icons.node(Icons.CHEVRON, 14, CKT));
-        trailInto03.getChildren().add(Icons.node(Icons.CHEVRON, 14, GO));
-        // TEMP: replay the entrance on demand while it is being tuned
-        graphic(btnReplayEntrance, Icons.RECAPTURE, TX2);
-        btnReplayEntrance.setOnAction(e -> playEmptyEntrance());
-        emptyPane.layoutBoundsProperty().addListener((o, was, b) -> drawEmptyGrid());
-        emptyBoard.boundsInParentProperty().addListener((o, was, b) -> drawEmptyGrid());
+        // the Ghost's verbs keep their colours but not their power: RESUME's play in orange on
+        // its wash, Checkpoint's bookmark in bone 2 inside its blue edge
+        ghostResumeGlyph.getChildren().add(Icons.node(Icons.RESUME, 30, GO, 2.4));
+        ghostCkGlyph.getChildren().add(Icons.node(Icons.CHECKPOINT_ADD, 24, TX2, 1.8));
+        notch(ghostResume, 14);
+        // onboarding's portraits are the real blocks, drawn still
+        obResumeGlyph.getChildren().add(Icons.node(Icons.RESUME, 30, GOI, 2.4));
+        obCkGlyph.getChildren().add(Icons.node(Icons.CHECKPOINT_ADD, 24, TX, 1.8));
+        notch(obResume, 14);
+        obPortGlyph.getChildren().add(Icons.node(Icons.CIRCLE_ALERT, 16, BAD));
         deleteFolderGlyph.getChildren().add(Icons.node(Icons.OTHER, 16, TX3));
         npFolderGlyph.getChildren().add(Icons.node(Icons.OTHER, 16, TX3));
-    }
-
-    /** The empty state's 40px grid, every line through a multiple of 40 from the board's corner,
-        so the steps keep sitting on cells wherever the window puts the board. +.5 keeps each
-        1px line on one pixel row. */
-    private void drawEmptyGrid() {
-        double w = emptyPane.getWidth(), h = emptyPane.getHeight();
-        List<javafx.scene.shape.Line> lines = new ArrayList<>();
-        for (double x = emptyBoard.getLayoutX() % GRID; x <= w; x += GRID) lines.add(gridLine(x + .5, 0, x + .5, h));
-        for (double y = emptyBoard.getLayoutY() % GRID; y <= h; y += GRID) lines.add(gridLine(0, y + .5, w, y + .5));
-        emptyGrid.getChildren().setAll(lines);
-    }
-
-    private static final double GRID = 40;
-
-    private static javafx.scene.shape.Line gridLine(double x1, double y1, double x2, double y2) {
-        javafx.scene.shape.Line l = new javafx.scene.shape.Line(x1, y1, x2, y2);
-        l.getStyleClass().add("grid-line");
-        return l;
     }
 
     /** A CheckBox drawn as the slide's CHECKBOX glyph: the box always, the tick only while
@@ -737,7 +738,7 @@ public class HelloController {
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN),
                 () -> { if (!overlayOpen()) onCheckpoint(); });
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.N, KeyCombination.SHORTCUT_DOWN),
-                () -> { if (!overlayOpen()) onNewProjectClick(); });
+                () -> { if (!overlayOpen() && !onboardPane.isVisible()) onNewProjectClick(); });
         // Ctrl+1..9 selects the project the rail numbers 01..09, from any view
         for (int i = 1; i <= 9; i++) {
             int n = i;
@@ -755,7 +756,7 @@ public class HelloController {
             e.consume();
         });
         scene.getAccelerators().put(new KeyCodeCombination(KeyCode.B, KeyCombination.SHORTCUT_DOWN),
-                () -> { if (!overlayOpen()) setRailWide(!rail.getStyleClass().contains("rail-wide")); });
+                () -> { if (!overlayOpen() && !onboardPane.isVisible()) setRailWide(!rail.getStyleClass().contains("rail-wide")); });
         scene.addEventFilter(KeyEvent.KEY_PRESSED, e -> {
             // the close offer takes Enter (close) and Esc (keep) while it is up
             if (offerFor != null && !overlayOpen() && (e.getCode() == KeyCode.ENTER || e.getCode() == KeyCode.ESCAPE)) {
@@ -887,17 +888,14 @@ public class HelloController {
     static final Duration PIN_GRACE = Duration.seconds(3);
     private PauseTransition pinHold;
 
-    /** detailPane / emptyPane / settingsPane are the base views: exactly one shows. */
+    /** detailPane / emptyPane / onboardPane / settingsPane are the base views: exactly one shows. */
     private void showBase(Node target) {
         boolean arriving = !target.isVisible();
-        for (Node pane : List.of(detailPane, emptyPane, settingsPane, resumingPane, restoredPane)) {
+        for (Node pane : List.of(detailPane, emptyPane, onboardPane, settingsPane, resumingPane, restoredPane)) {
             pane.setVisible(pane == target);
             pane.setManaged(pane == target);
         }
-        if (arriving && Motion.showing(target)) {
-            if (target == emptyPane && !emptyEntered) playEmptyEntrance();
-            else panelIn(target);
-        }
+        if (arriving && Motion.showing(target)) panelIn(target);
         // Pinned on top while Resuming shows, so launched apps cannot bury progress and Stop.
         // Derived here, from the view, so no path out of a resume can leave it pinned. The pin
         // outlives the run by PIN_GRACE: the last app's window can show up after its launch
@@ -951,152 +949,6 @@ public class HelloController {
         else if (target == confirmPane) btnConfirmCancel.requestFocus();
     }
 
-    /** Once per launch, the first time the empty state is seen; after that it arrives as any
-        panel does. */
-    private boolean emptyEntered;
-
-    /** The empty state builds in the order it is used. The grid comes up under the heading, 01
-        lands and New project lights up. Then checkpoint's blue runs cell by cell along the path
-        into 02, which arrives from the side the path enters, and resume's orange runs on into 03
-        the same way, a little quicker. Every step rests the same BEAT before its path sets off.
-        Settled by ~1.5s, clickable from the first frame. Reduced motion: everything takes the short
-        fade, nothing travels or lights up. */
-    private void playEmptyEntrance() {
-        emptyEntered = true;
-        List<Node> parts = emptyParts();
-        if (Motion.REDUCED) {
-            parts.forEach(n -> Motion.enter(n, 0, 0, 1, Motion.FAST, Motion.STANDARD));
-            return;
-        }
-        parts.forEach(n -> n.setOpacity(0));
-        // a raised grey button until it lights up; igniteNewProject hands it back to CSS's bone
-        igniteStep(0);
-        // each step lands, rests for BEAT, then its path sets off; the next step arrives 110ms
-        // into that path. 01's beat is where New project lights, timed to finish as the blue leaves
-        int step = (int) ENTER_STEP.toMillis(), beat = (int) BEAT.toMillis();
-        int in01 = 60, go01 = in01 + step + beat;
-        int in02 = go01 + 110, go02 = in02 + step + beat;
-        int in03 = go02 + 110;
-        Timeline t = new Timeline(
-                at(0, () -> Motion.enter(emptyGrid, 0, 0, 1, ENTER_GRID, Motion.IN_OUT)),
-                at(0, () -> Motion.enter(emptyHead, 0, 6, 1, ENTER_HEAD, Motion.IN_OUT)),
-                at(in01, () -> Motion.enter(step01, 0, 8, 1, ENTER_STEP, Motion.IN_OUT)),
-                at(200, () -> {
-                    Motion.enter(emptyFootLeft, 0, 0, 1, ENTER_FOOT, Motion.IN_OUT);
-                    Motion.enter(emptyFootRight, 0, 0, 1, ENTER_FOOT, Motion.IN_OUT);
-                }),
-                at(go01 - (int) IGNITE.toMillis(), this::igniteNewProject),
-                at(in02, () -> Motion.enter(step02, -8, 0, 1, ENTER_STEP, Motion.IN_OUT)),
-                at(in03, () -> Motion.enter(step03, -8, 0, 1, ENTER_STEP, Motion.IN_OUT)));
-        flow(t, trail("trail-ck"), go01, 35);
-        flow(t, trail("trail-go"), go02, 28);
-        t.play();
-    }
-
-    /** The one rest, the same at every step: how long a step sits, landed, before its path sets
-        off, so the eye lands on each in turn. */
-    private static final Duration BEAT = Duration.millis(200);
-
-    /** The entrance's durations, in one place to tune. Every move eases in and out
-        (Motion.IN_OUT), so each runs a little longer than its ease-out equivalent would: the
-        gentle start would otherwise read as a late one. */
-    private static final Duration ENTER_GRID = Duration.millis(450), ENTER_HEAD = Duration.millis(240),
-            ENTER_STEP = Duration.millis(280), ENTER_CELL = Duration.millis(160),
-            ENTER_FOOT = Duration.millis(320), IGNITE = Duration.millis(320);
-
-    /** Everything the entrance brings in; the TEMP replay button stays put. */
-    private List<Node> emptyParts() {
-        List<Node> parts = new ArrayList<>(List.of(emptyGrid, emptyHead, step01, step02, step03,
-                emptyFootLeft, emptyFootRight));
-        parts.addAll(trail("trail-ck"));
-        parts.addAll(trail("trail-go"));
-        return parts;
-    }
-
-    /** WINDOW_SHOWN fires inside show(), before the first frame is painted, and the frames
-        right after it stutter (measured: the first at ~20ms, then two ~45ms gaps, steady only
-        from ~120ms), so an entrance started there spent its first beats unseen. Instead the
-        parts hide at once, and the entrance starts when the window is up, not minimised, and four
-        frames in a row have come within 25ms of each other. If frames never settle it starts
-        after 800ms anyway; a minimised window waits until it is restored. */
-    private void playEmptyEntranceWhenOnScreen() {
-        emptyEntered = true;
-        if (!Motion.REDUCED) {
-            emptyParts().forEach(n -> n.setOpacity(0));
-            igniteStep(0);
-        }
-        Stage st = (Stage) emptyPane.getScene().getWindow();
-        long since = System.nanoTime();
-        new javafx.animation.AnimationTimer() {
-            long last;
-            int steady;
-            @Override public void handle(long now) {
-                boolean up = st.isShowing() && !st.isIconified();
-                steady = up && last != 0 && now - last < 25_000_000L ? steady + 1 : 0;
-                last = now;
-                if (up && (steady >= 4 || now - since > 800_000_000L)) {
-                    stop();
-                    playEmptyEntrance();
-                }
-            }
-        }.start();
-    }
-
-    private List<Node> trail(String styleClass) {
-        // fxml order is path order: out of one step, into the next
-        return emptyBoard.getChildren().stream().filter(n -> n.getStyleClass().contains(styleClass)).toList();
-    }
-
-    /** A path lights cell by cell, each cell pushed out of the one before it, so the colour
-        travels the way the path runs; the first comes down out of its step. */
-    private static void flow(Timeline t, List<Node> cells, int startMs, int gapMs) {
-        for (int i = 0; i < cells.size(); i++) {
-            Node c = cells.get(i);
-            double dx = i == 0 ? 0 : -6 * Math.signum(c.getLayoutX() - cells.get(i - 1).getLayoutX());
-            double dy = i == 0 ? -6 : -6 * Math.signum(c.getLayoutY() - cells.get(i - 1).getLayoutY());
-            t.getKeyFrames().add(at(startMs + gapMs * i, () -> Motion.enter(c, dx, dy, 1, ENTER_CELL, Motion.IN_OUT)));
-        }
-    }
-
-    private static KeyFrame at(int ms, Runnable action) {
-        return new KeyFrame(Duration.millis(ms), e -> action.run());
-    }
-
-    /** New project lights up: a raised grey button (bone words) fills to the bone primary (ink
-        words) under one beat of bloom, the launch bloom's shape in bone. Then the inline colours
-        and the bloom go, and CSS owns the button again (hover included). */
-    private void igniteNewProject() {
-        Button b = btnNewProjectEmpty;
-        DoubleProperty lit = new SimpleDoubleProperty();
-        lit.addListener((o, was, v) -> igniteStep(v.doubleValue()));
-        DropShadow bloom = new DropShadow(BlurType.GAUSSIAN, Color.web(TX, .55), 0, 0, 0, 0);
-        b.setEffect(bloom);
-        Timeline t = new Timeline(
-                new KeyFrame(IGNITE, new KeyValue(lit, 1, Motion.IN_OUT)),
-                new KeyFrame(Duration.millis(150), new KeyValue(bloom.radiusProperty(), 16, Motion.IN_OUT)),
-                new KeyFrame(Duration.millis(520), new KeyValue(bloom.radiusProperty(), 0, Motion.IN_OUT)));
-        t.setOnFinished(e -> {
-            b.setStyle("");
-            b.lookupAll(".ico").forEach(n -> n.setStyle(""));
-            b.setEffect(null);
-        });
-        t.play();
-    }
-
-    /** New project part way lit: 0 is the raised secondary look, 1 the bone primary. Inline, so
-        it beats .btn-primary while the entrance runs; the words and the glyph cross from bone to
-        ink as the fill crosses from grey to bone. */
-    private void igniteStep(double v) {
-        Color fill = Color.web(RAISED).interpolate(Color.web(TX), v), ink = Color.web(TX).interpolate(Color.web(G1), v);
-        btnNewProjectEmpty.setStyle("-fx-background-color: " + web(fill) + "; -fx-text-fill: " + web(ink) + ";");
-        btnNewProjectEmpty.lookupAll(".ico").forEach(n -> n.setStyle("-fx-stroke: " + web(ink) + ";"));
-    }
-
-    private static String web(Color c) {
-        return String.format("#%02X%02X%02X", Math.round(c.getRed() * 255), Math.round(c.getGreen() * 255),
-                Math.round(c.getBlue() * 255));
-    }
-
     /** motion-transitions, detail panel: 10px in from the right with a fade; width never animates. */
     private static void panelIn(Node pane) {
         Motion.enter(pane, 10, 0, 1, Motion.SETTLE, Motion.GLIDE);
@@ -1113,7 +965,403 @@ public class HelloController {
         wide sidebar would only list nothing; the first project brings the saved width back. */
     private void showEmpty(boolean empty) {
         showRail(!empty && PREFS.getBoolean(SIDEBAR_WIDE, true));
+        if (empty) renderChecklist();
         showBase(empty ? emptyPane : detailPane);
+    }
+
+    // == GET STARTED =========================================================
+    //   Four first actions on the Ghost that tick themselves. Each is remembered once done, so
+    //   someone who deletes every project later is not asked to do them again.
+
+    private static final String SEEN_EXTENSION = "seenExtension", SEEN_CHECKPOINT = "seenCheckpoint",
+            SEEN_RESUME = "seenResume";
+
+    private void renderChecklist() {
+        List<String> connected = wsSessions.stream().map(s -> brandOf(wsBrowser(s)).toLowerCase()).distinct().sorted().toList();
+        boolean[] done = {!connected.isEmpty() || PREFS.getBoolean(SEEN_EXTENSION, false), !projects.isEmpty(),
+                PREFS.getBoolean(SEEN_CHECKPOINT, false), PREFS.getBoolean(SEEN_RESUME, false)};
+        int next = 0;
+        while (next < done.length && done[next]) next++;
+
+        Node extension;
+        if (done[0]) {
+            extension = styled(new Label(String.join(", ", connected)), "port");
+        } else {
+            Button get = new Button("Get extension");
+            get.getStyleClass().add("btn-secondary");
+            get.setGraphic(Icons.node(Icons.EXTERNAL, 14, TX));
+            get.setContentDisplay(ContentDisplay.RIGHT);
+            get.setGraphicTextGap(8);
+            get.setMinHeight(34);
+            get.setPrefHeight(34);
+            Motion.pressable(get);
+            get.setOnAction(e -> CompletableFuture.runAsync(() -> {
+                String brand = defaultBrowser();
+                openStore(brand != null && OB_BROWSERS.contains(brand) ? brand : "chrome");
+            }));
+            extension = get;
+        }
+        // New project is the empty state's own action, so it stays a bone primary in its row
+        // whichever row is next
+        btnNewProjectEmpty.setVisible(true);
+        btnNewProjectEmpty.setManaged(true);
+        btnNewProjectEmpty.setMinHeight(34);
+        btnNewProjectEmpty.setPrefHeight(34);
+        ghostChecklistRows.getChildren().setAll(
+                checkRow("Add the browser extension", done[0], next == 0, extension),
+                checkRow("Make a project", done[1], next == 1, btnNewProjectEmpty),
+                checkRow("Checkpoint it when you stop", done[2], next == 2, styled(new Label("Ctrl+S"), "port")),
+                checkRow("Resume it when you're back", done[3], next == 3, styled(new Label("Ctrl+R"), "port")));
+        long count = 0;
+        for (boolean d : done) if (d) count++;
+        ghostChecklistCount.setText(count + " / " + done.length);
+        ghostChecklist.setAccessibleText("Get started, " + count + " of " + done.length + " done");
+    }
+
+    /** One GET STARTED row: a tick once done (muted), an open ring otherwise, bone on the next
+        one to do, and what does it on the right. */
+    private static HBox checkRow(String text, boolean done, boolean next, Node trailing) {
+        Node mark;
+        if (done) {
+            mark = Icons.node(Icons.CHECK, 16, TX3, 2);
+        } else {
+            Circle ring = new Circle(8, 8, 7, Color.TRANSPARENT);
+            ring.setStroke(Color.web(next ? TX : TX3));
+            ring.setStrokeWidth(1.6);
+            mark = new Pane(ring);
+            ((Pane) mark).setMinSize(16, 16);
+            ((Pane) mark).setMaxSize(16, 16);
+        }
+        Label label = styled(new Label(text), done ? "check-done" : next ? "check-next" : "empty-body");
+        label.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(label, Priority.ALWAYS);
+        HBox row = obRow(new HBox(12, mark, label, trailing), trailing instanceof Button ? 12 : 16);
+        row.setMinHeight(48);
+        row.setPrefHeight(48);
+        row.setMaxHeight(48);
+        row.setAccessibleText(text + (done ? ", done" : ""));
+        return row;
+    }
+
+    // == First run ===========================================================
+    //   Three steps, once: what it is, the two verbs, the browser extension. Then the Ghost.
+    //   Shown while there are no projects and ONBOARDED is unset; Done or Skip sets it, so a
+    //   list emptied later shows the Ghost, not this again.
+
+    private static final String ONBOARDED = "onboarded";
+    private int obStep;
+    /** Brands whose store page step 3 opened: their row reads "waiting for …" until it connects. */
+    private final Set<String> obWaiting = new HashSet<>();
+    /** The running exes (lowercase), refreshed every OB_POLL while step 3 shows. */
+    private volatile Set<String> obRunning = Set.of();
+    /** The default browser's brand, or null when it is none of ours or unknown. */
+    private volatile String obDefault;
+    private Timeline obPoll, obSpin;
+    /** Every waiting row's ring turns by this one angle. */
+    private final DoubleProperty obAngle = new SimpleDoubleProperty();
+    /** What step 3 last drew, so a poll that found nothing new redraws nothing (and keeps focus). */
+    private String obShown = "";
+    private boolean obWasConnected;
+    /** The brand whose button was just pressed: its replacement takes the focus back. */
+    private String obRefocus;
+    static final Duration OB_POLL = Duration.seconds(3);
+    /** The browsers the extension installs in, in the order their rows list. */
+    static final List<String> OB_BROWSERS = List.of("chrome", "edge", "brave", "opera");
+
+    private void installOnboarding() {
+        Label key = new Label("ENTER");
+        key.getStyleClass().add("key-hint");
+        btnObNext.setGraphic(key);
+        btnObBack.setOnAction(e -> obGo(obStep - 1));
+        btnObSkip.setOnAction(e -> finishOnboarding());
+        btnObNext.setOnAction(e -> { if (obStep < 3) obGo(obStep + 1); else finishOnboarding(); });
+        btnObRetry.setOnAction(e -> {
+            startServer();
+            refreshStatusDot();
+        });
+        for (Node n : List.of(obHint, obPortRow, obBrowsers)) n.managedProperty().bind(n.visibleProperty());
+        obPoll = new Timeline(new KeyFrame(OB_POLL, e -> pollBrowsers()));
+        obPoll.setCycleCount(Animation.INDEFINITE);
+        obSpin = new Timeline(new KeyFrame(Duration.ZERO, new KeyValue(obAngle, 0)),
+                new KeyFrame(Duration.millis(900), new KeyValue(obAngle, 360, Interpolator.LINEAR)));
+        obSpin.setCycleCount(Animation.INDEFINITE);
+    }
+
+    private void showOnboarding() {
+        showRail(false);
+        for (Node b : List.of(btnNewProjectRail, btnSettings)) b.setDisable(true);
+        showBase(onboardPane);
+        obGo(1);
+        CompletableFuture.runAsync(() -> obDefault = defaultBrowser());
+        // step 02's card: what a checkpoint would record right now, by category
+        CompletableFuture.supplyAsync(this::runningApps).thenAccept(apps -> {
+            Map<String, Set<String>> byCategory = new HashMap<>();
+            for (String app : apps) byCategory.computeIfAbsent(categoryOf(app), k -> new HashSet<>()).add(app);
+            Platform.runLater(() -> renderObRecords(byCategory));
+        });
+    }
+
+    /** Step 02's WHAT IT RECORDS: the apps open now under their categories (Other is captured but
+        never relaunched, so it is left out), and beside them the browsers whose tabs come in
+        with the extension, the next step. */
+    private void renderObRecords(Map<String, Set<String>> byCategory) {
+        List<Node> rows = new ArrayList<>(List.of(styled(new Label("WHAT IT RECORDS"), "rail-label")));
+        for (String category : CATEGORY_ORDER) {
+            List<String> apps = byCategory.getOrDefault(category, Set.of()).stream().sorted(String.CASE_INSENSITIVE_ORDER).toList();
+            if (apps.isEmpty()) continue;
+            HBox label = new HBox(8, Icons.node(Icons.CATEGORY.getOrDefault(category, Icons.APP_WINDOW), 14, TX2),
+                    styled(new Label(categoryLabel(category)), "empty-body"));
+            label.setAlignment(Pos.CENTER_LEFT);
+            label.setMinWidth(132);
+            label.setPrefWidth(132);
+            FlowPane chips = new FlowPane(8, 8);
+            for (String app : apps) {
+                HBox chip = new HBox(styled(new Label(appName(app)), "chip-name"));
+                chip.getStyleClass().addAll("chip", "cut");
+                chip.setAlignment(Pos.CENTER_LEFT);
+                chip.setPadding(new Insets(0, 8, 0, 8));
+                chips.getChildren().add(chip);
+            }
+            HBox row = new HBox(12, label, chips);
+            row.setAlignment(Pos.TOP_LEFT);
+            rows.add(row);
+        }
+        if (rows.size() == 1) rows.add(styled(new Label("Open the apps you work with and they show up here."), "empty-body"));
+        obRecords.getChildren().setAll(rows);
+
+        List<Node> tabs = new ArrayList<>(List.of(styled(new Label("TABS"), "rail-label")));
+        Set<String> running = byCategory.getOrDefault("Browser", Set.of()).stream().map(String::toLowerCase)
+                .collect(java.util.stream.Collectors.toSet());
+        for (String brand : OB_BROWSERS) {
+            if (!running.contains(BROWSER_EXE.get(brand))) continue;
+            tabs.add(new VBox(2, styled(new Label(browserLabel(brand)), "browser-name"),
+                    styled(new Label("its open tabs, with the extension"), "cat-foot")));
+        }
+        if (tabs.size() == 1) tabs.add(styled(new Label("Open a browser and its tabs come too."), "cat-foot"));
+        obRecordTabs.getChildren().setAll(tabs);
+    }
+
+    /** captureRunningApps without the checked exception: nothing when PowerShell fails. */
+    private Set<String> runningApps() {
+        try {
+            return captureRunningApps();
+        } catch (IOException ex) {
+            return Set.of();
+        }
+    }
+
+    private void obGo(int step) {
+        obStep = step;
+        List<VBox> steps = List.of(obStep1, obStep2, obStep3);
+        for (int i = 0; i < steps.size(); i++) steps.get(i).setVisible(i == step - 1);
+        if (Motion.showing(onboardPane)) panelIn(steps.get(step - 1));
+        obStepNum.setText("0" + step);
+        obStepNum.getParent().setAccessibleText("Step " + step + " of 3");
+        List<Region> segs = List.of(obSeg1, obSeg2, obSeg3);
+        for (int i = 0; i < segs.size(); i++) segs.get(i).getStyleClass().setAll(i < step ? "ob-seg-on" : "ob-seg");
+        // Back keeps its place on step 1, only unseen, so it never moves between steps
+        btnObBack.setVisible(step > 1);
+        btnObSkip.setVisible(step < 3);
+        btnObSkip.setManaged(step < 3);
+        btnObNext.setDefaultButton(true);   // Enter takes the step's primary, as its hint says
+        if (step == 3) {
+            obShown = "";
+            obWasConnected = false;
+            pollBrowsers();
+            obPoll.play();
+        } else {
+            obPoll.stop();
+            btnObNext.setText(step == 1 ? "Get started" : "Continue");
+            styleNext("btn-primary");
+        }
+    }
+
+    private void styleNext(String style) {
+        btnObNext.getStyleClass().removeAll("btn-primary", "btn-secondary");
+        btnObNext.getStyleClass().add(style);
+    }
+
+    private void finishOnboarding() {
+        PREFS.putBoolean(ONBOARDED, true);
+        obPoll.stop();
+        obSpin.stop();
+        btnObNext.setDefaultButton(false);
+        for (Node b : List.of(btnNewProjectRail, btnSettings)) b.setDisable(false);
+        showEmpty(projects.isEmpty());
+    }
+
+    private void pollBrowsers() {
+        CompletableFuture.supplyAsync(this::runningApps).thenAccept(apps -> {
+            obRunning = Set.copyOf(apps.stream().map(String::toLowerCase).toList());
+            Platform.runLater(this::renderObTabs);
+        });
+    }
+
+    /** Step 3 from what is true right now: the running browsers, which of them hold a socket,
+        which the user went to install for. It turns into the connected state by itself. */
+    private void renderObTabs() {
+        if (!onboardPane.isVisible() || obStep != 3) return;
+        Set<String> connected = new HashSet<>();
+        for (WsContext s : wsSessions) connected.add(brandOf(wsBrowser(s)).toLowerCase());
+        List<String> rows = obRows(obRunning, connected);
+        boolean firefox = obRunning.contains("firefox.exe");
+        String state = portBusy + "|" + rows + "|" + connected + "|" + obWaiting + "|" + firefox + "|" + obDefault;
+        if (state.equals(obShown)) return;
+        obShown = state;
+
+        obPortRow.setVisible(portBusy);
+        obBrowsers.setVisible(!portBusy);
+        List<String> on = rows.stream().filter(connected::contains).toList();
+        obTabsTitle.setText(on.isEmpty() ? "Add the browser extension" : connectedTitle(rows, connected));
+        obTabsBody.setText(on.isEmpty() ? "Tabs need it. Apps and folders don't."
+                : (on.size() == 1 ? browserLabel(on.get(0)) + "'s tabs" : "Their tabs") + " now go into every checkpoint.");
+        obHint.setText(portBusy ? "Extensions can't reach coldstart until that program closes."
+                : !on.isEmpty() ? ""
+                : rows.isEmpty() ? "It only talks to coldstart on this PC."
+                : "Moves on by itself once it connects. It only talks to coldstart on this PC.");
+        obHint.setVisible(!obHint.getText().isEmpty());
+        btnObNext.setText(on.isEmpty() ? "Done without tabs" : "Done");
+        styleNext(on.isEmpty() ? "btn-secondary" : "btn-primary");
+        // the moment one connects, focus lands on Done, which is what a screen reader then reads
+        if (!on.isEmpty() && !obWasConnected) btnObNext.requestFocus();
+        obWasConnected = !on.isEmpty();
+
+        // one primary: the default browser if it still needs the extension, else the first that does
+        String primary = rows.stream().filter(b -> !connected.contains(b) && !obWaiting.contains(b))
+                .min(Comparator.comparing(b -> !b.equals(obDefault))).orElse(null);
+        List<Node> out = new ArrayList<>();
+        for (String brand : rows) {
+            out.add(browserRow(brand, connected.contains(brand), obWaiting.contains(brand), brand.equals(primary)));
+        }
+        if (firefox) {
+            out.add(obRow(new HBox(12, Icons.node(Icons.BROWSER, 16, TX3), styled(new Label("firefox.exe"), "step-label"),
+                    grow(), styled(new Label("no extension for firefox yet"), "port")), 16));
+        }
+        if (rows.isEmpty()) {
+            out.add(obRow(new HBox(styled(new Label("Open Chrome, Edge, Brave or Opera and it shows up here."), "empty-body")), 16));
+        }
+        obBrowserRows.getChildren().setAll(out);
+        obBrowserCount.setText(String.format("%02d", rows.size() + (firefox ? 1 : 0)));
+        boolean waiting = rows.stream().anyMatch(b -> obWaiting.contains(b) && !connected.contains(b));
+        if (waiting && !Motion.REDUCED) obSpin.play(); else obSpin.pause();
+        obRefocus = null;
+    }
+
+    /** One supported browser: its exe, a default tag, whether its extension is here, waiting or
+        missing, and the button that goes to get it. */
+    private HBox browserRow(String brand, boolean connected, boolean waiting, boolean primary) {
+        HBox row = new HBox(12, Icons.node(Icons.BROWSER, 16, TX3), styled(new Label(BROWSER_EXE.get(brand)), "step-label"));
+        if (brand.equals(obDefault)) row.getChildren().add(styled(new Label("default"), "port"));
+        row.getChildren().add(grow());
+        Node mark;
+        if (connected || !waiting) {
+            Region dot = new Region();
+            dot.getStyleClass().add(connected ? "dot-live" : "dot-idle");
+            dot.setMinSize(7, 7);
+            dot.setMaxSize(7, 7);
+            mark = dot;
+        } else {
+            Rotate turn = new Rotate(0, 6, 6);
+            turn.angleProperty().bind(obAngle);
+            mark = ring(turn);
+        }
+        Label status = styled(new Label(connected ? "connected" : waiting ? "waiting for " + brand + "…" : "no extension"),
+                connected ? "port-live" : waiting ? "ob-waiting" : "port");
+        HBox state = new HBox(8, mark, status);
+        state.setAlignment(Pos.CENTER_LEFT);
+        row.getChildren().add(state);
+        if (connected) return obRow(row, 16);
+        Button get = new Button(waiting ? "Open store again" : "Get extension");
+        get.getStyleClass().add(waiting ? "btn-ghost" : primary ? "btn-primary" : "btn-secondary");
+        get.setGraphic(Icons.node(Icons.EXTERNAL, 14, waiting ? TX2 : primary ? G1 : TX));
+        get.setContentDisplay(ContentDisplay.RIGHT);
+        get.setGraphicTextGap(8);
+        get.setMinHeight(34);
+        get.setPrefHeight(34);
+        get.setAccessibleText((waiting ? "Open the store again for " : "Get the extension for ") + browserLabel(brand));
+        Motion.pressable(get);
+        get.setOnAction(e -> {
+            openStore(brand);
+            obWaiting.add(brand);
+            obRefocus = brand;
+            renderObTabs();
+        });
+        if (brand.equals(obRefocus)) Platform.runLater(get::requestFocus);
+        HBox.setMargin(get, new Insets(0, 0, 0, 8));
+        row.getChildren().add(get);
+        return obRow(row, 12);
+    }
+
+    private static HBox obRow(HBox row, double right) {
+        row.getStyleClass().add("ob-row");
+        row.setAlignment(Pos.CENTER_LEFT);
+        row.setMinHeight(56);
+        row.setPrefHeight(56);
+        row.setMaxHeight(56);
+        row.setPadding(new Insets(0, right, 0, 16));
+        return row;
+    }
+
+    private static Label styled(Label l, String styleClass) {
+        l.getStyleClass().add(styleClass);
+        return l;
+    }
+
+    private static Region grow() {
+        Region r = new Region();
+        HBox.setHgrow(r, Priority.ALWAYS);
+        return r;
+    }
+
+    /** The supported browsers to list: the running ones, and any that already hold a socket. */
+    static List<String> obRows(Set<String> running, Set<String> connected) {
+        return OB_BROWSERS.stream().filter(b -> running.contains(BROWSER_EXE.get(b)) || connected.contains(b)).toList();
+    }
+
+    /** "Brave connected", "2 browsers connected", or "1 of 2 browsers connected". */
+    static String connectedTitle(List<String> rows, Set<String> connected) {
+        long on = rows.stream().filter(connected::contains).count();
+        if (on < rows.size()) return on + " of " + rows.size() + " browsers connected";
+        return on == 1 ? browserLabel(rows.get(0)) + " connected" : on + " browsers connected";
+    }
+
+    /** The extension's store page, opened in the browser it is for, so the install lands there
+        and not in whichever browser is the default. */
+    private static void openStore(String brand) {
+        String url = "edge".equals(brand) ? EDGE_EXTENSION_URL : EXTENSION_URL;
+        try {
+            new ProcessBuilder("cmd.exe", "/c", "start", "", BROWSER_EXE.get(brand), url).start();
+        } catch (IOException ex) {
+            try {
+                Desktop.getDesktop().browse(new URI(url));
+            } catch (IOException | URISyntaxException ex2) {
+                System.err.println("open extension page: " + ex2.getMessage());
+            }
+        }
+    }
+
+    /** The default browser's brand, from the https handler's ProgId; null when unknown. */
+    private static String defaultBrowser() {
+        try {
+            Process p = new ProcessBuilder("reg.exe", "query",
+                    "HKCU\\Software\\Microsoft\\Windows\\Shell\\Associations\\UrlAssociations\\https\\UserChoice",
+                    "/v", "ProgId").redirectErrorStream(true).start();
+            return brandFromProgId(new String(p.getInputStream().readAllBytes()));
+        } catch (IOException ex) {
+            return null;
+        }
+    }
+
+    /** reg's "    ProgId    REG_SZ    BraveHTML" -> "brave"; null for a handler that is none of ours. */
+    static String brandFromProgId(String regOutput) {
+        int i = regOutput.indexOf("REG_SZ");
+        if (i < 0) return null;
+        String id = regOutput.substring(i + "REG_SZ".length()).trim().toLowerCase();
+        for (String[] e : new String[][]{{"chromehtml", "chrome"}, {"msedgehtm", "edge"}, {"brave", "brave"},
+                {"opera", "opera"}, {"firefox", "firefox"}}) {
+            if (id.startsWith(e[0])) return e[1];
+        }
+        return null;
     }
 
     private void showDeleteView() {
@@ -1818,6 +2066,7 @@ public class HelloController {
     /** Shows 1e and walks the run's queued steps on a worker; plan=true captures and plans first. */
     private void startRun(ResumeRun r, boolean plan) {
         resuming = true;
+        PREFS.putBoolean(SEEN_RESUME, true);   // GET STARTED's last row
         stopRequested = false;
         r.stopped = false;
         r.error = null;
@@ -2521,6 +2770,7 @@ public class HelloController {
             }
             projectObj.lastCheckpoint = Instant.now().toString();
             saveProject(projectObj);
+            PREFS.putBoolean(SEEN_CHECKPOINT, true);   // GET STARTED's third row
         } catch (IOException ex) {
             // the card must not claim "saved" over a write that did not happen: memory goes back
             // to what the disk held, and the tabs already asked for are turned away. A reply that
@@ -3141,6 +3391,20 @@ public class HelloController {
         List<String> browsers = wsSessions.stream()
                 .map(HelloController::wsBrowser).distinct().sorted().toList();
         Platform.runLater(() -> {
+            if (onboardPane.isVisible()) renderObTabs();
+            if (emptyPane.isVisible()) renderChecklist();
+            if (portBusy) {
+                statusDot.getStyleClass().setAll("dot-bad");
+                statusDot.setVisible(true);
+                statusDot.setManaged(true);
+                statusSpin.setVisible(false);
+                statusSpin.setManaged(false);
+                spin.pause();
+                statusLabel.setText(":" + PORT + " in use");
+                statusLabel.getStyleClass().setAll("port-bad");
+                statusTip.setText("another program holds port " + PORT + ", so no extension can connect");
+                return;
+            }
             boolean live = !browsers.isEmpty();
             boolean connecting = !live && System.nanoTime() < connectingUntil;
             statusDot.getStyleClass().setAll(live ? "dot-live" : "dot-idle");
@@ -4290,16 +4554,29 @@ public class HelloController {
     /** The port the extension dials. coldstart.port only exists to run a test copy beside the
         real app; the installed app never sets it. */
     static final int PORT = Integer.getInteger("coldstart.port", 8765);
+    /** The port was taken when the server tried to start, so no extension can connect. */
+    private volatile boolean portBusy;
 
     public void startServer(){
         System.out.println("server starting...");
-        Javalin app = Javalin.create(config -> {
-            config.bundledPlugins.enableCors(cors -> {
-                cors.addRule(rule -> {
-                    rule.anyHost();
+        Javalin app;
+        try {
+            app = Javalin.create(config -> {
+                config.bundledPlugins.enableCors(cors -> {
+                    cors.addRule(rule -> {
+                        rule.anyHost();
+                    });
                 });
-            });
-        }).start("127.0.0.1", PORT);
+            }).start("127.0.0.1", PORT);
+        } catch (RuntimeException ex) {
+            // another program holds the port (a second coldstart asked focusRunning and quit
+            // before getting here): the app still runs, without extensions, and the title bar
+            // and onboarding say so. Onboarding's Retry calls this again.
+            portBusy = true;
+            System.err.println("server not started: " + ex.getMessage());
+            return;
+        }
+        portBusy = false;
         serverStartedNanos = System.nanoTime();
         // CORS stays open for the extension, so these gates are what keep web pages out
         app.before(ctx -> { if (!fromExtension(ctx.header("Origin"))) throw new ForbiddenResponse(); });
@@ -4309,6 +4586,7 @@ public class HelloController {
 
             ws.onConnect(ctx -> {
                 wsSessions.add(ctx);
+                PREFS.putBoolean(SEEN_EXTENSION, true);   // GET STARTED's first row
                 System.out.println("extension connected: " + wsBrowser(ctx)
                         + " (" + wsSessions.size() + " connected)");
                 refreshStatusDot();
