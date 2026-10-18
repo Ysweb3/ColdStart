@@ -111,6 +111,9 @@
 .port      { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
 /* a lighter step of live green for the words; the dot keeps -rw-live */
 .port-live { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-live-tx; -fx-font-weight: bold; }
+/* another program holds the port, so no extension can reach the app: brick, it failed */
+.port-bad  { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-bad; }
+.dot-bad   { -fx-background-color: -rw-brick; -fx-background-radius: 999; }
 
 /* tooltips are popups with their own scene; the selector still reaches them */
 .tooltip {
@@ -459,38 +462,54 @@
 .empty-title { -fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .empty-body  { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
 
-/* ── nothing saved yet: three steps on the grid ────────────────────── */
-.grid-line    { -fx-stroke: -rw-g3; }
-/* a text cell's black ground: the grid never runs behind words */
-.empty-cell   { -fx-background-color: -rw-g; -fx-padding: 0 12 0 12; }
-.empty-path   { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
-/* The verbs keep their own rules here. 01 is neutral: New project is the bone button (it
-   neither checkpoints nor resumes) and its edge steps back so the button leads. 02 is the
-   Checkpoint block small: the panel ground, a slate edge that follows the verbs' 14px notch (an
-   edge layer, not a border, as on the block), bone glyph and word. 03 is the RESUME block small:
-   orange, its ink, the same notch. Each path wears the verb it leads to. */
-.step         { -fx-background-color: -rw-g1; -fx-border-color: -rw-ln2; }
-.step-now     { -fx-border-color: -rw-tx3; }
-.step-ck {
-    -fx-border-color: transparent;
+/* ── nothing saved yet: the Ghost ───────────────────────────────────
+   The project screen with no project in it. The two verbs keep their colours but not their
+   power: RESUME on its wash with the word in orange, Checkpoint inside its blue edge with
+   the word stepped back to bone 2. Neither has a hover, because neither can be pressed. */
+.ghost-resume      { -fx-background-color: -rw-go-wash; }
+.ghost-resume-word { -fx-font-size: 34px; -fx-font-weight: bold; -fx-text-fill: -rw-go; }
+.ghost-key {
+    -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx3t;
+    -fx-border-color: -rw-ln2;
+    -fx-padding: 2 8 2 8;
+}
+/* the Checkpoint block's edge and notch, still; onboarding's portrait shares it */
+.ghost-ck {
     -fx-background-color: -rw-ck-edge, -rw-g2;
     -fx-background-insets: 0, 1;
-    -fx-shape: "M0 0 L227 0 L241 14 L241 121 L14 121 L0 107 Z";
+    -fx-shape: "M0 0 L250 0 L264 14 L264 104 L14 104 L0 90 Z";
 }
-.step-go {
-    -fx-border-color: transparent;
-    -fx-background-color: -rw-go;
-    -fx-shape: "M0 0 L227 0 L241 14 L241 121 L14 121 L0 107 Z";
+.ghost-ck-word { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-tx2; }
+/* GET STARTED on the Ghost: an inset list on the card's ground. A done row steps back to muted
+   text; the next one to do is bone; the rest stay bone 2. */
+.checklist  { -fx-background-color: -rw-g; -fx-border-color: -rw-ln; }
+.check-done { -fx-font-size: 13px; -fx-text-fill: -rw-tx3t; }
+.check-next { -fx-font-size: 13px; -fx-text-fill: -rw-tx; }
+
+/* ── first run ─────────────────────────────────────────────────────── */
+.ob-wordmark     { -fx-font-size: 44px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.ob-wordmark-dot { -fx-font-size: 44px; -fx-font-weight: bold; -fx-text-fill: -rw-go; }
+.ob-tagline      { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+/* the RESUME block drawn still: orange, no hover */
+.ob-resume       { -fx-background-color: -rw-go; }
+.step-num        { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.ob-foot {
+    -fx-background-color: -rw-g1;
+    -fx-border-color: -rw-ln transparent transparent transparent;
+    -fx-border-width: 1 0 0 0;
 }
-.step-num     { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-/* checkpoint-word's 21px, so the two verbs read as a pair */
-.step-title   { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
-.step-body    { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
-/* ink on orange, the body at resume-hint's .85 */
-.step-go .step-num, .step-go .step-title, .step-go .step-body { -fx-text-fill: -rw-goi; }
-.step-go .step-body { -fx-opacity: 0.85; }
-.trail-ck     { -fx-background-color: -rw-ck-fill; }
-.trail-go     { -fx-background-color: -rw-go-wash; }
+/* the step counter's segments: bone for done and current, line strong for to come */
+.ob-seg    { -fx-background-color: -rw-ln2; }
+.ob-seg-on { -fx-background-color: -rw-tx; }
+/* a browser row in BROWSERS OPEN NOW: 56px under a 1px line */
+.ob-row     { -fx-border-color: -rw-ln transparent transparent transparent; -fx-border-width: 1 0 0 0; }
+.ob-waiting { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx2; }
+/* the ENTER hint inside the step's primary, in the button's own ink */
+.key-hint                 { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-opacity: 0.6; }
+.btn-primary .key-hint    { -fx-text-fill: -rw-g1; }
+.btn-secondary .key-hint  { -fx-text-fill: -rw-tx; }
+/* the rail is inert while onboarding shows */
+.rail-btn:disabled { -fx-opacity: 0.45; -fx-cursor: default; }
 
 /* ── scrollbars: thin, trackless, thumb only ───────────────────────── */
 .scroll-bar { -fx-background-color: transparent; }
