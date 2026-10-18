@@ -34,6 +34,7 @@
     -rw-go2:    #FF8533;   /* resume hover */
     -rw-gop:    #D95500;   /* resume pressed; the launching ring */
     -rw-goi:    #1A0A00;   /* ink on orange */
+    -rw-go-wash: #2A1509;  /* resume's tint (the design system's orange-tint): the path into 03 */
     -rw-ck:     #2A5688;   /* blue is only ever CHECKPOINT: the button fill, the confirmation bar */
     -rw-ck-edge: #3D6EA8;  /* the Checkpoint block's edge: 3.4:1 on its ground, where -rw-ck's 2.4
                               vanished. Edge only: bone on it would be 4.1, under AA for 13px text */
@@ -455,8 +456,41 @@
 /* the stage is undecorated, so the app draws its own outer edge */
 .shell { -fx-border-color: -rw-ln; -fx-border-width: 1; }
 
-.empty-title { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.empty-title { -fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
 .empty-body  { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+
+/* ── nothing saved yet: three steps on the grid ────────────────────── */
+.grid-line    { -fx-stroke: -rw-g3; }
+/* a text cell's black ground: the grid never runs behind words */
+.empty-cell   { -fx-background-color: -rw-g; -fx-padding: 0 12 0 12; }
+.empty-path   { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
+/* The verbs keep their own rules here. 01 is neutral: New project is the bone button (it
+   neither checkpoints nor resumes) and its edge steps back so the button leads. 02 is the
+   Checkpoint block small: the panel ground, a slate edge that follows the verbs' 14px notch (an
+   edge layer, not a border, as on the block), bone glyph and word. 03 is the RESUME block small:
+   orange, its ink, the same notch. Each path wears the verb it leads to. */
+.step         { -fx-background-color: -rw-g1; -fx-border-color: -rw-ln2; }
+.step-now     { -fx-border-color: -rw-tx3; }
+.step-ck {
+    -fx-border-color: transparent;
+    -fx-background-color: -rw-ck-edge, -rw-g2;
+    -fx-background-insets: 0, 1;
+    -fx-shape: "M0 0 L227 0 L241 14 L241 121 L14 121 L0 107 Z";
+}
+.step-go {
+    -fx-border-color: transparent;
+    -fx-background-color: -rw-go;
+    -fx-shape: "M0 0 L227 0 L241 14 L241 121 L14 121 L0 107 Z";
+}
+.step-num     { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+/* checkpoint-word's 21px, so the two verbs read as a pair */
+.step-title   { -fx-font-size: 21px; -fx-font-weight: bold; -fx-text-fill: -rw-tx; }
+.step-body    { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; }
+/* ink on orange, the body at resume-hint's .85 */
+.step-go .step-num, .step-go .step-title, .step-go .step-body { -fx-text-fill: -rw-goi; }
+.step-go .step-body { -fx-opacity: 0.85; }
+.trail-ck     { -fx-background-color: -rw-ck-fill; }
+.trail-go     { -fx-background-color: -rw-go-wash; }
 
 /* ── scrollbars: thin, trackless, thumb only ───────────────────────── */
 .scroll-bar { -fx-background-color: transparent; }

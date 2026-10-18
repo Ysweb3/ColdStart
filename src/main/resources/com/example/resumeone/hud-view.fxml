@@ -238,30 +238,92 @@
       </VBox>
 
       <!-- ══ nothing saved yet ═════════════════════════════════════════════ -->
-      <!-- spacing is the tightest gap (title→body); every wider gap is a top margin,
-           because a flat 20 between all six children read as an unstructured stack. -->
-      <VBox fx:id="emptyPane" alignment="CENTER" spacing="8.0" visible="false" managed="false">
-        <padding><Insets left="40.0" right="40.0"/></padding>
+      <!-- three steps on a 40px grid. The board is 22 x 13 cells, centred; every child sits on
+           its cells (a framed block on the gridlines, a text cell 1px inside them, so its black
+           ground masks the grid behind the words). drawEmptyGrid lines the grid up with the
+           board's corner, so the steps stay on cells at any window size. -->
+      <StackPane fx:id="emptyPane" visible="false" managed="false">
+        <Pane fx:id="emptyGrid" mouseTransparent="true"/>
+        <Pane fx:id="emptyBoard" minWidth="880.0" prefWidth="880.0" maxWidth="880.0"
+              minHeight="520.0" prefHeight="520.0" maxHeight="520.0">
 
-        <StackPane fx:id="emptyGlyphBox">
-          <VBox.margin><Insets top="16.0"/></VBox.margin>
-        </StackPane>
-        <Label styleClass="empty-title" text="Nothing to resume yet">
-          <VBox.margin><Insets top="8.0"/></VBox.margin>
-        </Label>
-        <Label styleClass="empty-body" maxWidth="460.0" wrapText="true" textAlignment="CENTER"
-               text="Create a project and hit Checkpoint when you stop for the day."/>
+          <!-- a staircase: each step 6 x 3 cells, 2 columns after the last and starting on the row
+               it ended. Between two steps, one elbow of cells: out of the bottom of one, along the
+               grid, into the middle of the next one's left side, where a chevron points in. Each
+               path wears its verb: checkpoint's fill into 02, resume's orange tint into 03. -->
+          <Region styleClass="trail-ck" layoutX="121.0" layoutY="201.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-ck" layoutX="121.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-ck" layoutX="161.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-ck" layoutX="201.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-ck" layoutX="241.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
+          <StackPane fx:id="trailInto02" styleClass="trail-ck" layoutX="281.0" layoutY="241.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-go" layoutX="441.0" layoutY="321.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-go" layoutX="441.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-go" layoutX="481.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-go" layoutX="521.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
+          <Region styleClass="trail-go" layoutX="561.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
+          <StackPane fx:id="trailInto03" styleClass="trail-go" layoutX="601.0" layoutY="361.0" prefWidth="39.0" prefHeight="39.0"/>
 
-        <HBox alignment="CENTER" spacing="8.0">
-          <VBox.margin><Insets top="16.0"/></VBox.margin>
-          <Button fx:id="btnNewProjectEmpty" onAction="#onNewProjectClick" styleClass="btn-primary"
-                  text="New project" prefHeight="42.0" minHeight="42.0"/>
-        </HBox>
+          <VBox fx:id="emptyHead" styleClass="empty-cell" layoutX="1.0" layoutY="1.0" prefWidth="519.0" prefHeight="79.0"
+                alignment="CENTER_LEFT" spacing="2.0">
+            <Label styleClass="empty-title" text="Nothing to resume yet"/>
+            <Label styleClass="empty-body" text="Three steps, once. After that it is one press."/>
+          </VBox>
 
-        <Label styleClass="cat-foot" text="tabs come back through the coldstart browser extension">
-          <VBox.margin><Insets top="8.0"/></VBox.margin>
-        </Label>
-      </VBox>
+          <!-- TEMP: replays the entrance while it is being tuned; remove before shipping -->
+          <HBox styleClass="empty-cell" layoutX="481.0" layoutY="1.0" prefWidth="399.0" prefHeight="79.0" alignment="CENTER_RIGHT">
+            <Button fx:id="btnReplayEntrance" styleClass="btn-ghost" text="Replay entrance"
+                    prefHeight="34.0" minHeight="34.0"/>
+          </HBox>
+
+          <VBox fx:id="step01" styleClass="step, step-now" layoutY="80.0" prefWidth="241.0" prefHeight="121.0">
+            <padding><Insets top="14.0" right="16.0" bottom="14.0" left="16.0"/></padding>
+            <HBox alignment="CENTER_LEFT" spacing="10.0">
+              <Label styleClass="step-num" text="01"/>
+              <Label styleClass="step-body" text="Name it, pick its folder"/>
+            </HBox>
+            <Button fx:id="btnNewProjectEmpty" onAction="#onNewProjectClick" styleClass="btn-primary"
+                    text="New project" prefHeight="42.0" minHeight="42.0">
+              <VBox.margin><Insets top="14.0"/></VBox.margin>
+            </Button>
+          </VBox>
+
+          <VBox fx:id="step02" styleClass="step, step-ck" layoutX="320.0" layoutY="200.0" prefWidth="241.0" prefHeight="121.0">
+            <padding><Insets top="12.0" right="16.0" bottom="12.0" left="16.0"/></padding>
+            <HBox alignment="CENTER_LEFT" spacing="10.0">
+              <Label styleClass="step-num" text="02"/>
+              <StackPane fx:id="stepCkGlyph"/>
+            </HBox>
+            <Label styleClass="step-title" text="Checkpoint">
+              <VBox.margin><Insets top="8.0"/></VBox.margin>
+            </Label>
+            <Label styleClass="step-body" wrapText="true" text="When you stop. Saves the open apps, tabs and folder.">
+              <VBox.margin><Insets top="4.0"/></VBox.margin>
+            </Label>
+          </VBox>
+
+          <!-- 02 and 03 are the two verbs as their blocks draw them: slate-edged Checkpoint,
+               orange RESUME, both with the verbs' 14px notch -->
+          <VBox fx:id="step03" styleClass="step, step-go" layoutX="640.0" layoutY="320.0" prefWidth="241.0" prefHeight="121.0">
+            <padding><Insets top="12.0" right="16.0" bottom="12.0" left="16.0"/></padding>
+            <HBox alignment="CENTER_LEFT" spacing="10.0">
+              <Label styleClass="step-num" text="03"/>
+              <StackPane fx:id="stepResumeGlyph"/>
+            </HBox>
+            <Label styleClass="step-title" text="RESUME">
+              <VBox.margin><Insets top="8.0"/></VBox.margin>
+            </Label>
+            <Label styleClass="step-body" wrapText="true" text="One press reopens all of it, tomorrow or next week.">
+              <VBox.margin><Insets top="4.0"/></VBox.margin>
+            </Label>
+          </VBox>
+
+          <Label fx:id="emptyFootLeft" styleClass="empty-cell, foot-note" layoutX="1.0" layoutY="481.0" prefWidth="399.0" prefHeight="39.0"
+                 text="tabs come back through the coldstart browser extension"/>
+          <Label fx:id="emptyFootRight" styleClass="empty-cell, empty-path" layoutX="481.0" layoutY="481.0" prefWidth="399.0" prefHeight="39.0"
+                 alignment="CENTER_RIGHT" text="\%APPDATA%\Coldstart\projects.json"/>
+        </Pane>
+      </StackPane>
 
       <!-- Base view: replaces the project detail rather than covering it. -->
       <ScrollPane fx:id="settingsPane" styleClass="settings-scroll" fitToWidth="true" fitToHeight="true"

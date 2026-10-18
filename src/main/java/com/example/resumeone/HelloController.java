@@ -139,7 +139,12 @@ public class HelloController {
 
     // ── HUD v2 (hud-view.fxml). All null when the old hello-view.fxml is loaded,
     //    so every use is guarded by isHud().
-    @FXML public VBox detailPane, emptyPane, categoryRows, tabsList;
+    @FXML public VBox detailPane, categoryRows, tabsList;
+    @FXML public StackPane emptyPane;
+    @FXML public Pane emptyGrid, emptyBoard;
+    @FXML public VBox emptyHead, step01, step02, step03;
+    @FXML public Label emptyFootLeft, emptyFootRight;
+    @FXML public Button btnReplayEntrance;   // TEMP: remove with its fxml before shipping
     @FXML public VBox deletePane, newProjectPane, confirmPane;
     @FXML public Label confirmTitle, confirmSub, confirmBody;
     // the checkpoint block's swappable parts, and the close offer under the card (handoff 1d)
@@ -202,7 +207,7 @@ public class HelloController {
     @FXML public Region ckRing, ckBar;
     @FXML public StackPane btnDelete;
     // empty slots in the fxml that Icons draws into
-    @FXML public StackPane resumeGlyphBox, ckDoneGlyphBox, emptyGlyphBox,
+    @FXML public StackPane resumeGlyphBox, ckDoneGlyphBox, stepCkGlyph, stepResumeGlyph, trailInto02, trailInto03,
             deleteFolderGlyph, npFolderGlyph, noteGlyphBox;
     /** The NEXT line under the buttons: the project's "where was I" note. */
     @FXML public TextArea noteField;
@@ -306,8 +311,11 @@ public class HelloController {
                     }
                 });
                 scene.windowProperty().addListener((o2, none, window) -> {
-                    if (window != null) window.addEventHandler(javafx.stage.WindowEvent.WINDOW_SHOWN,
-                            e -> detailPane.requestFocus());
+                    if (window != null) window.addEventHandler(javafx.stage.WindowEvent.WINDOW_SHOWN, e -> {
+                        detailPane.requestFocus();
+                        // a first launch opens on the empty state before anything can animate
+                        if (emptyPane.isVisible() && !emptyEntered) playEmptyEntranceWhenOnScreen();
+                    });
                 });
             }
         });
@@ -633,9 +641,39 @@ public class HelloController {
         Icons.animate(btnResume, play);
         // the checkpoint block keeps its earlier slate; its "Saved" check matches that sub-line
         ckDoneGlyphBox.getChildren().add(Icons.node(Icons.CHECK, 22, CKT, 2.2));
-        emptyGlyphBox.getChildren().add(Icons.node(Icons.BOOKMARK_PLUS, 40, CK));
+        // the empty state's steps wear the glyphs of the blocks they stand for, in the blocks'
+        // colours: Checkpoint's bone bookmark, RESUME's play in ink on orange at its 2.4 stroke
+        stepCkGlyph.getChildren().add(Icons.node(Icons.CHECKPOINT_ADD, 16, TX));
+        stepResumeGlyph.getChildren().add(Icons.node(Icons.RESUME, 16, GOI, 2.4));
+        // where each path enters its step, in that verb's colour
+        trailInto02.getChildren().add(Icons.node(Icons.CHEVRON, 14, CKT));
+        trailInto03.getChildren().add(Icons.node(Icons.CHEVRON, 14, GO));
+        // TEMP: replay the entrance on demand while it is being tuned
+        graphic(btnReplayEntrance, Icons.RECAPTURE, TX2);
+        btnReplayEntrance.setOnAction(e -> playEmptyEntrance());
+        emptyPane.layoutBoundsProperty().addListener((o, was, b) -> drawEmptyGrid());
+        emptyBoard.boundsInParentProperty().addListener((o, was, b) -> drawEmptyGrid());
         deleteFolderGlyph.getChildren().add(Icons.node(Icons.OTHER, 16, TX3));
         npFolderGlyph.getChildren().add(Icons.node(Icons.OTHER, 16, TX3));
+    }
+
+    /** The empty state's 40px grid, every line through a multiple of 40 from the board's corner,
+        so the steps keep sitting on cells wherever the window puts the board. +.5 keeps each
+        1px line on one pixel row. */
+    private void drawEmptyGrid() {
+        double w = emptyPane.getWidth(), h = emptyPane.getHeight();
+        List<javafx.scene.shape.Line> lines = new ArrayList<>();
+        for (double x = emptyBoard.getLayoutX() % GRID; x <= w; x += GRID) lines.add(gridLine(x + .5, 0, x + .5, h));
+        for (double y = emptyBoard.getLayoutY() % GRID; y <= h; y += GRID) lines.add(gridLine(0, y + .5, w, y + .5));
+        emptyGrid.getChildren().setAll(lines);
+    }
+
+    private static final double GRID = 40;
+
+    private static javafx.scene.shape.Line gridLine(double x1, double y1, double x2, double y2) {
+        javafx.scene.shape.Line l = new javafx.scene.shape.Line(x1, y1, x2, y2);
+        l.getStyleClass().add("grid-line");
+        return l;
     }
 
     /** A CheckBox drawn as the slide's CHECKBOX glyph: the box always, the tick only while
@@ -856,7 +894,10 @@ public class HelloController {
             pane.setVisible(pane == target);
             pane.setManaged(pane == target);
         }
-        if (arriving && Motion.showing(target)) panelIn(target);
+        if (arriving && Motion.showing(target)) {
+            if (target == emptyPane && !emptyEntered) playEmptyEntrance();
+            else panelIn(target);
+        }
         // Pinned on top while Resuming shows, so launched apps cannot bury progress and Stop.
         // Derived here, from the view, so no path out of a resume can leave it pinned. The pin
         // outlives the run by PIN_GRACE: the last app's window can show up after its launch
@@ -910,6 +951,152 @@ public class HelloController {
         else if (target == confirmPane) btnConfirmCancel.requestFocus();
     }
 
+    /** Once per launch, the first time the empty state is seen; after that it arrives as any
+        panel does. */
+    private boolean emptyEntered;
+
+    /** The empty state builds in the order it is used. The grid comes up under the heading, 01
+        lands and New project lights up. Then checkpoint's blue runs cell by cell along the path
+        into 02, which arrives from the side the path enters, and resume's orange runs on into 03
+        the same way, a little quicker. Every step rests the same BEAT before its path sets off.
+        Settled by ~1.5s, clickable from the first frame. Reduced motion: everything takes the short
+        fade, nothing travels or lights up. */
+    private void playEmptyEntrance() {
+        emptyEntered = true;
+        List<Node> parts = emptyParts();
+        if (Motion.REDUCED) {
+            parts.forEach(n -> Motion.enter(n, 0, 0, 1, Motion.FAST, Motion.STANDARD));
+            return;
+        }
+        parts.forEach(n -> n.setOpacity(0));
+        // a raised grey button until it lights up; igniteNewProject hands it back to CSS's bone
+        igniteStep(0);
+        // each step lands, rests for BEAT, then its path sets off; the next step arrives 110ms
+        // into that path. 01's beat is where New project lights, timed to finish as the blue leaves
+        int step = (int) ENTER_STEP.toMillis(), beat = (int) BEAT.toMillis();
+        int in01 = 60, go01 = in01 + step + beat;
+        int in02 = go01 + 110, go02 = in02 + step + beat;
+        int in03 = go02 + 110;
+        Timeline t = new Timeline(
+                at(0, () -> Motion.enter(emptyGrid, 0, 0, 1, ENTER_GRID, Motion.IN_OUT)),
+                at(0, () -> Motion.enter(emptyHead, 0, 6, 1, ENTER_HEAD, Motion.IN_OUT)),
+                at(in01, () -> Motion.enter(step01, 0, 8, 1, ENTER_STEP, Motion.IN_OUT)),
+                at(200, () -> {
+                    Motion.enter(emptyFootLeft, 0, 0, 1, ENTER_FOOT, Motion.IN_OUT);
+                    Motion.enter(emptyFootRight, 0, 0, 1, ENTER_FOOT, Motion.IN_OUT);
+                }),
+                at(go01 - (int) IGNITE.toMillis(), this::igniteNewProject),
+                at(in02, () -> Motion.enter(step02, -8, 0, 1, ENTER_STEP, Motion.IN_OUT)),
+                at(in03, () -> Motion.enter(step03, -8, 0, 1, ENTER_STEP, Motion.IN_OUT)));
+        flow(t, trail("trail-ck"), go01, 35);
+        flow(t, trail("trail-go"), go02, 28);
+        t.play();
+    }
+
+    /** The one rest, the same at every step: how long a step sits, landed, before its path sets
+        off, so the eye lands on each in turn. */
+    private static final Duration BEAT = Duration.millis(200);
+
+    /** The entrance's durations, in one place to tune. Every move eases in and out
+        (Motion.IN_OUT), so each runs a little longer than its ease-out equivalent would: the
+        gentle start would otherwise read as a late one. */
+    private static final Duration ENTER_GRID = Duration.millis(450), ENTER_HEAD = Duration.millis(240),
+            ENTER_STEP = Duration.millis(280), ENTER_CELL = Duration.millis(160),
+            ENTER_FOOT = Duration.millis(320), IGNITE = Duration.millis(320);
+
+    /** Everything the entrance brings in; the TEMP replay button stays put. */
+    private List<Node> emptyParts() {
+        List<Node> parts = new ArrayList<>(List.of(emptyGrid, emptyHead, step01, step02, step03,
+                emptyFootLeft, emptyFootRight));
+        parts.addAll(trail("trail-ck"));
+        parts.addAll(trail("trail-go"));
+        return parts;
+    }
+
+    /** WINDOW_SHOWN fires inside show(), before the first frame is painted, and the frames
+        right after it stutter (measured: the first at ~20ms, then two ~45ms gaps, steady only
+        from ~120ms), so an entrance started there spent its first beats unseen. Instead the
+        parts hide at once, and the entrance starts when the window is up, not minimised, and four
+        frames in a row have come within 25ms of each other. If frames never settle it starts
+        after 800ms anyway; a minimised window waits until it is restored. */
+    private void playEmptyEntranceWhenOnScreen() {
+        emptyEntered = true;
+        if (!Motion.REDUCED) {
+            emptyParts().forEach(n -> n.setOpacity(0));
+            igniteStep(0);
+        }
+        Stage st = (Stage) emptyPane.getScene().getWindow();
+        long since = System.nanoTime();
+        new javafx.animation.AnimationTimer() {
+            long last;
+            int steady;
+            @Override public void handle(long now) {
+                boolean up = st.isShowing() && !st.isIconified();
+                steady = up && last != 0 && now - last < 25_000_000L ? steady + 1 : 0;
+                last = now;
+                if (up && (steady >= 4 || now - since > 800_000_000L)) {
+                    stop();
+                    playEmptyEntrance();
+                }
+            }
+        }.start();
+    }
+
+    private List<Node> trail(String styleClass) {
+        // fxml order is path order: out of one step, into the next
+        return emptyBoard.getChildren().stream().filter(n -> n.getStyleClass().contains(styleClass)).toList();
+    }
+
+    /** A path lights cell by cell, each cell pushed out of the one before it, so the colour
+        travels the way the path runs; the first comes down out of its step. */
+    private static void flow(Timeline t, List<Node> cells, int startMs, int gapMs) {
+        for (int i = 0; i < cells.size(); i++) {
+            Node c = cells.get(i);
+            double dx = i == 0 ? 0 : -6 * Math.signum(c.getLayoutX() - cells.get(i - 1).getLayoutX());
+            double dy = i == 0 ? -6 : -6 * Math.signum(c.getLayoutY() - cells.get(i - 1).getLayoutY());
+            t.getKeyFrames().add(at(startMs + gapMs * i, () -> Motion.enter(c, dx, dy, 1, ENTER_CELL, Motion.IN_OUT)));
+        }
+    }
+
+    private static KeyFrame at(int ms, Runnable action) {
+        return new KeyFrame(Duration.millis(ms), e -> action.run());
+    }
+
+    /** New project lights up: a raised grey button (bone words) fills to the bone primary (ink
+        words) under one beat of bloom, the launch bloom's shape in bone. Then the inline colours
+        and the bloom go, and CSS owns the button again (hover included). */
+    private void igniteNewProject() {
+        Button b = btnNewProjectEmpty;
+        DoubleProperty lit = new SimpleDoubleProperty();
+        lit.addListener((o, was, v) -> igniteStep(v.doubleValue()));
+        DropShadow bloom = new DropShadow(BlurType.GAUSSIAN, Color.web(TX, .55), 0, 0, 0, 0);
+        b.setEffect(bloom);
+        Timeline t = new Timeline(
+                new KeyFrame(IGNITE, new KeyValue(lit, 1, Motion.IN_OUT)),
+                new KeyFrame(Duration.millis(150), new KeyValue(bloom.radiusProperty(), 16, Motion.IN_OUT)),
+                new KeyFrame(Duration.millis(520), new KeyValue(bloom.radiusProperty(), 0, Motion.IN_OUT)));
+        t.setOnFinished(e -> {
+            b.setStyle("");
+            b.lookupAll(".ico").forEach(n -> n.setStyle(""));
+            b.setEffect(null);
+        });
+        t.play();
+    }
+
+    /** New project part way lit: 0 is the raised secondary look, 1 the bone primary. Inline, so
+        it beats .btn-primary while the entrance runs; the words and the glyph cross from bone to
+        ink as the fill crosses from grey to bone. */
+    private void igniteStep(double v) {
+        Color fill = Color.web(RAISED).interpolate(Color.web(TX), v), ink = Color.web(TX).interpolate(Color.web(G1), v);
+        btnNewProjectEmpty.setStyle("-fx-background-color: " + web(fill) + "; -fx-text-fill: " + web(ink) + ";");
+        btnNewProjectEmpty.lookupAll(".ico").forEach(n -> n.setStyle("-fx-stroke: " + web(ink) + ";"));
+    }
+
+    private static String web(Color c) {
+        return String.format("#%02X%02X%02X", Math.round(c.getRed() * 255), Math.round(c.getGreen() * 255),
+                Math.round(c.getBlue() * 255));
+    }
+
     /** motion-transitions, detail panel: 10px in from the right with a fade; width never animates. */
     private static void panelIn(Node pane) {
         Motion.enter(pane, 10, 0, 1, Motion.SETTLE, Motion.GLIDE);
@@ -922,7 +1109,10 @@ public class HelloController {
         if (row != null && !row.getStyleClass().contains("rail-active")) row.getStyleClass().add("rail-active");
     }
 
+    /** No projects: the narrow rail, whatever the saved width. The steps need 21 cells and the
+        wide sidebar would only list nothing; the first project brings the saved width back. */
     private void showEmpty(boolean empty) {
+        showRail(!empty && PREFS.getBoolean(SIDEBAR_WIDE, true));
         showBase(empty ? emptyPane : detailPane);
     }
 
@@ -959,6 +1149,13 @@ public class HelloController {
     /** 200px with names, or the 48px numbered rail. Instant: width never animates (it would
         reflow the card every frame). Remembered across launches. */
     private void setRailWide(boolean wide) {
+        showRail(wide);
+        sidebarToggle.setSelected(wide);   // Ctrl+B keeps the Settings box honest; no-op from the box
+        PREFS.putBoolean(SIDEBAR_WIDE, wide);
+    }
+
+    /** The look alone, remembered nowhere: the empty state borrows the narrow rail. */
+    private void showRail(boolean wide) {
         rail.getStyleClass().remove("rail-wide");
         if (wide) rail.getStyleClass().add("rail-wide");
         // the narrow rail has no header at all, so its first number sits where PROJECTS would
@@ -968,8 +1165,6 @@ public class HelloController {
         }
         btnNewProjectRail.setVisible(!wide);
         btnNewProjectRail.setManaged(!wide);
-        sidebarToggle.setSelected(wide);   // Ctrl+B keeps the Settings box honest; no-op from the box
-        PREFS.putBoolean(SIDEBAR_WIDE, wide);
     }
 
     /** The wide rail's face of a row, SidebarItem: a 15px folder (open on the active row, via
@@ -2020,7 +2215,7 @@ public class HelloController {
     /** Glyph colours, set from code (hud.css still re-colours them on hover): the 5a tokens. */
     private static final String TX = "#E9E3DF", TX2 = "#A8A29E", TX3 = "#77726E",
             GO = "#FF6500", GOI = "#1A0A00", BAD = "#EB7C73", HUD = "#A8A29E",
-            CK = "#2A5688", CKT = "#6E9BD1", WARN = "#E3C55A";
+            CK = "#2A5688", CKT = "#6E9BD1", WARN = "#E3C55A", RAISED = "#222428", G1 = "#0F1012";
 
     static int countApps(Project projectObj) {
         if (projectObj == null || projectObj.apps == null) return 0;

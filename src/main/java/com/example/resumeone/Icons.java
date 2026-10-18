@@ -91,6 +91,9 @@ final class Icons {
         // the checkpoint & close handoff (1d): power = Closing / Close N apps, circle-alert =
         // Unsaved work
         POWER = g("M12 2 V12 M18.4 6.6 A9 9 0 1 1 5.63 6.64"),
+        // the Checkpoint block's bookmark-and-plus (its SVGPath in hud-view.fxml), for the
+        // empty state's step 02
+        CHECKPOINT_ADD = g("M4 2 H16 V21 L10 16 L4 21 Z M19 4 V10 M16 7 H22"),
         CIRCLE_ALERT = new Glyph(new Part(circ(12, 12, 10)), new Part("M12 8 V12 M12 16 H12.01"));
 
     /** Project.apps keys → slide glyph; anything unlisted is "Other", which the handoff draws as
