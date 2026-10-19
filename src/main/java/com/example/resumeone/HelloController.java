@@ -3384,7 +3384,9 @@ public class HelloController {
         });
     }
 
-    // the Chromium browsers that can run the coldstart extension (it is MV3, Chrome Web Store)
+    // the Chromium browsers that can run the coldstart extension (it is MV3, Chrome Web Store);
+    // add "firefox.exe" when the Firefox build ships, not before: until then Firefox alone
+    // would wait a minute for an extension that cannot exist
     private static final Set<String> EXTENSION_BROWSERS = Set.of("chrome.exe", "msedge.exe", "brave.exe",
             "opera.exe", "vivaldi.exe", "arc.exe", "chromium.exe");
 
