@@ -3371,6 +3371,25 @@ public class HelloController {
         connectingEnds = new PauseTransition(CONNECT_GRACE);
         connectingEnds.setOnFinished(e -> refreshStatusDot());
         connectingEnds.play();
+        // nobody is coming when no browser the extension lives in has a window open; a failed
+        // look keeps the minute, as before
+        CompletableFuture.runAsync(() -> {
+            try {
+                if (!extensionBrowserOpen(captureRunningApps()) && wsSessions.isEmpty()) {
+                    connectingUntil = 0;
+                    refreshStatusDot();
+                }
+            } catch (IOException ignored) {
+            }
+        });
+    }
+
+    // the Chromium browsers that can run the coldstart extension (it is MV3, Chrome Web Store)
+    private static final Set<String> EXTENSION_BROWSERS = Set.of("chrome.exe", "msedge.exe", "brave.exe",
+            "opera.exe", "vivaldi.exe", "arc.exe", "chromium.exe");
+
+    static boolean extensionBrowserOpen(Set<String> apps) {
+        return apps.stream().anyMatch(a -> EXTENSION_BROWSERS.contains(a.toLowerCase()));
     }
 
     /** The title bar's words: who is connected, "connecting…", or nobody. */
