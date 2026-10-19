@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -72,6 +73,14 @@ class HandoffCopyTest {
         assertEquals("2 browsers connected", HelloController.statusLine(List.of("brave", "Chrome"), true));
         assertEquals("connecting…", HelloController.statusLine(List.of(), true));
         assertEquals("no browser connected", HelloController.statusLine(List.of(), false));
+    }
+
+    @Test
+    void connectingOnlyWhileABrowserThatRunsTheExtensionIsOpen() {
+        assertTrue(HelloController.extensionBrowserOpen(Set.of("Code.exe", "chrome.exe")));
+        assertTrue(HelloController.extensionBrowserOpen(Set.of("MSEdge.exe")));
+        assertFalse(HelloController.extensionBrowserOpen(Set.of("Code.exe", "firefox.exe")));
+        assertFalse(HelloController.extensionBrowserOpen(Set.of()));
     }
 
     @Test
