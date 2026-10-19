@@ -14,6 +14,14 @@ import javafx.scene.text.Font;
 import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 
+import java.awt.AWTException;
+import java.awt.MenuItem;
+import java.awt.PopupMenu;
+import java.awt.SystemTray;
+import java.awt.Toolkit;
+import java.awt.TrayIcon;
+import java.awt.event.MouseAdapter;
+
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -27,7 +35,8 @@ import java.util.Objects;
 
 /**
  * JavaFX entry point. Owns only window-level concerns: bundled fonts, the undecorated stage,
- * and the drag/resize/min/max/close handling that an undecorated stage loses. Everything
+ * the drag/resize/min/max/close handling that an undecorated stage loses, and the tray icon
+ * the close can hide to. Everything
  * inside the window is hud-view.fxml + HelloController.
  */
 public class HelloApplication extends Application {
@@ -69,10 +78,15 @@ public class HelloApplication extends Application {
         });
         windowButton(root.lookup("#btnMin"), Icons.MINIMIZE, () -> stage.setIconified(true));
         StackPane max = windowButton(root.lookup("#btnMax"), Icons.MAXIMIZE, () -> stage.setMaximized(!stage.isMaximized()));
-        // the X goes through the close request like Alt+F4 and the taskbar do, so the
-        // controller can hold a quit while a browser still owes the checkpoint its tabs
-        HelloController controller = fxmlLoader.getController();
-        stage.setOnCloseRequest(e -> { if (controller.holdExit()) e.consume(); });
+        // the X goes through the close request like Alt+F4 and the taskbar do: to the tray, or a
+        // quit the controller can hold while a browser still owes the checkpoint its tabs.
+        // A hidden window is not a quit, so every quit is an explicit Platform.exit()
+        controller = fxmlLoader.getController();
+        Platform.setImplicitExit(false);
+        stage.setOnCloseRequest(e -> {
+            e.consume();
+            if (HelloController.trayOn()) stage.hide(); else controller.quit();
+        });
         windowButton(root.lookup("#btnClose"), Icons.CLOSE,
                 () -> stage.fireEvent(new WindowEvent(stage, WindowEvent.WINDOW_CLOSE_REQUEST)));
         // maximize shows restore while maximized, as the slide pairs them
@@ -105,8 +119,51 @@ public class HelloApplication extends Application {
                     HelloApplication.class.getResourceAsStream("icons/coldstart-" + s + ".png"))));
         }
         stage.setScene(scene);
-        stage.show();
+        tray(HelloController.trayOn());
+        // the startup task's launcher passes --tray; a tray that failed to appear opens the window
+        if (!getParameters().getRaw().contains("--tray") || trayIcon == null) stage.show();
+    }
 
+    /** The tray icon keeps AWT's thread, and so the JVM, alive; it goes with the app. */
+    @Override
+    public void stop() {
+        tray(false);
+    }
+
+    private static HelloController controller;
+    private static TrayIcon trayIcon;
+
+    /** The notification-area icon while Settings > "Close to the tray" is on: a click opens the
+        window, its menu opens or quits. */
+    static void tray(boolean on) {
+        if (!SystemTray.isSupported() || on == (trayIcon != null)) return;
+        SystemTray tray = SystemTray.getSystemTray();
+        if (!on) {
+            tray.remove(trayIcon);
+            trayIcon = null;
+            return;
+        }
+        PopupMenu menu = new PopupMenu();
+        MenuItem open = new MenuItem("Open coldstart");
+        MenuItem quit = new MenuItem("Quit coldstart");
+        open.addActionListener(e -> Platform.runLater(controller::bringForward));
+        quit.addActionListener(e -> Platform.runLater(controller::quit));
+        menu.add(open);
+        menu.add(quit);
+        TrayIcon icon = new TrayIcon(Toolkit.getDefaultToolkit().getImage(
+                HelloApplication.class.getResource("icons/coldstart-32.png")), "coldstart", menu);
+        icon.setImageAutoSize(true);
+        icon.addMouseListener(new MouseAdapter() {
+            @Override public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getButton() == java.awt.event.MouseEvent.BUTTON1) Platform.runLater(controller::bringForward);
+            }
+        });
+        try {
+            tray.add(icon);
+            trayIcon = icon;
+        } catch (AWTException ex) {
+            System.err.println("tray unavailable: " + ex.getMessage());
+        }
     }
 
     /** IconButton ghost ink (--text-secondary); hud.css takes it to ink on hover, brick on close. */
