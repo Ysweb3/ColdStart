@@ -11,6 +11,7 @@ import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.stage.WindowEvent;
 import javafx.scene.text.Font;
+import javafx.scene.image.Image;
 import javafx.scene.input.KeyCode;
 
 import java.io.File;
@@ -22,6 +23,7 @@ import java.io.PrintStream;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 /**
  * JavaFX entry point. Owns only window-level concerns: bundled fonts, the undecorated stage,
@@ -97,6 +99,11 @@ public class HelloApplication extends Application {
             }
         });
 
+        // every size, so Windows picks the right one for the title bar, taskbar and Alt-Tab
+        for (int s : new int[]{16, 32, 48, 64, 128, 256}) {
+            stage.getIcons().add(new Image(Objects.requireNonNull(
+                    HelloApplication.class.getResourceAsStream("icons/coldstart-" + s + ".png"))));
+        }
         stage.setScene(scene);
         stage.show();
 
