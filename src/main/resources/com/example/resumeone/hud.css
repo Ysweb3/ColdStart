@@ -258,6 +258,9 @@
 }
 .btn-ghost:hover, .btn-ghost:armed { -fx-background-color: -rw-raised; -fx-text-fill: -rw-tx; }
 .btn-ghost:hover .ico { -fx-stroke: -rw-tx; }
+/* Settings Back is the way out of a full view, so it gets an outline the other ghosts don't */
+#btnSettingsBack { -fx-border-color: -rw-ln; }
+#btnSettingsBack:hover { -fx-border-color: -rw-ln2; }
 .button:disabled { -fx-opacity: 0.45; }
 
 /* ── main column ───────────────────────────────────────────────────── */
