@@ -21,7 +21,8 @@ class HelloControllerSegregateAppsTest {
         HashMap<String, HashSet<String>> result = controller.segregateApps(new HashSet<>());
 
         assertEquals(java.util.Set.of("IDE", "Browser", "Music", "Communication", "Notes", "Terminal",
-                "AI", "Database", "API", "Containers", "VersionControl", "Design", "Video", "Office", "Files", "Other", "Apps"),
+                "AI", "Database", "API", "Containers", "VersionControl", "Design", "Video", "Office", "Files", "Other", "Apps",
+                "CAD", "Research", "Finance", "Games", "Planning"),
                 result.keySet());
         result.values().forEach(bucket -> assertTrue(bucket.isEmpty()));
     }
@@ -105,16 +106,118 @@ class HelloControllerSegregateAppsTest {
     @Test
     void claudeCapturedInsideTerminalIsLaunchedThroughWt() {
         // regression: `start wt` + `start claude` left an empty PowerShell window next to claude's
-        java.util.List<String> inWt = HelloController.claudeCommand("C:\\proj", true);
+        java.util.List<String> inWt = HelloController.cliCommand("claude.exe", "C:\\proj", true);
         assertEquals(java.util.List.of("cmd.exe", "/c", "start", "wt", "-d", "C:\\proj",
                 "claude", "agents", "--cwd", "C:\\proj"), inWt);
 
-        java.util.List<String> bare = HelloController.claudeCommand("C:\\proj", false);
+        java.util.List<String> bare = HelloController.cliCommand("claude.exe", "C:\\proj", false);
         assertEquals(java.util.List.of("cmd.exe", "/c", "start", "claude", "agents", "--cwd", "C:\\proj"), bare);
 
         // regression: a project saved without a folder used to launch nothing at all
         assertEquals(java.util.List.of("cmd.exe", "/c", "start", "wt", "claude", "agents"),
-                HelloController.claudeCommand(null, true));
+                HelloController.cliCommand("claude.exe", null, true));
+    }
+
+    @Test
+    void otherCliesReopenTheirLastChatInTheProjectFolder() {
+        assertEquals(java.util.List.of("cmd.exe", "/c", "start", "wt", "-d", "C:\\proj", "codex", "resume", "--last"),
+                HelloController.cliCommand("codex-cli.exe", "C:\\proj", true));
+        assertEquals(java.util.List.of("cmd.exe", "/c", "start", "gemini", "--resume"),
+                HelloController.cliCommand("gemini-cli.exe", "C:\\proj", false));
+        // no folder, no "last chat here": a fresh one
+        assertEquals(java.util.List.of("cmd.exe", "/c", "start", "kiro-cli"),
+                HelloController.cliCommand("kiro-cli.exe", null, false));
+
+        // wt is not started on its own: each CLI brings its own terminal window
+        HashMap<String, HashSet<String>> apps = new HashMap<>();
+        apps.put("AI", new HashSet<>(java.util.Set.of("codex-cli.exe", "aider.exe")));
+        apps.put("Terminal", new HashSet<>(java.util.Set.of("WindowsTerminal.exe")));
+        Project p = new Project("P", "C:\\proj", apps, new java.util.ArrayList<>());
+        var plan = new HelloController().planResume(p, java.util.Set.of("codex-cli.exe"), new java.util.ArrayList<>());
+        assertEquals(java.util.List.of("Aider", "Codex CLI"), plan.steps().stream().map(s -> s.label).toList(),
+                "a CLI already running elsewhere still opens for this project");
+        assertTrue(HelloController.appsToClose(apps).stream().noneMatch(HelloController::isCli));
+    }
+
+    @Test
+    void desktopAppsAreToldApartFromTheirCliesByWhereTheyInstall() {
+        String store = "C:\\Program Files\\WindowsApps\\Claude_2.42304.2.0_x64__pzs8sxrjxfjjc\\app\\claude.exe";
+        assertEquals("Claude Desktop.exe", HelloController.capturedApp("claude.exe", true, store));
+        assertNull(HelloController.capturedApp("claude.exe", false, store), "a helper or the tray: no window");
+        assertEquals("claude.exe", HelloController.capturedApp("claude.exe", true, "C:\\Users\\y\\.local\\bin\\claude.exe"),
+                "a CLI in conhost owns a window too");
+        assertEquals("codex-cli.exe", HelloController.capturedApp("codex.exe", false,
+                "C:\\Users\\y\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\vendor\\codex.exe"));
+        assertEquals("Goose.exe", HelloController.capturedApp("Goose.exe", true, "C:\\Users\\y\\AppData\\Local\\Programs\\Goose\\Goose.exe"));
+        assertEquals("steam.exe", HelloController.capturedApp("steamwebhelper.exe", true, "C:\\Steam\\bin\\cef\\steamwebhelper.exe"));
+        assertEquals("Spotify.exe", HelloController.capturedApp("Spotify.exe", true, "C:\\x\\Spotify.exe"));
+
+        // the desktop app lands in AI and starts by its Store id; it is not closed by name
+        var result = controller.segregateApps(new HashSet<>(java.util.Set.of("Claude Desktop.exe")));
+        assertEquals(java.util.Set.of("Claude Desktop.exe"), result.get("AI"));
+        Project p = new Project("P", "C:\\proj", result, new java.util.ArrayList<>());
+        var plan = new HelloController().planResume(p, java.util.Set.of(), new java.util.ArrayList<>());
+        assertEquals(java.util.List.of("start Claude Desktop"), plan.steps().stream().map(s -> s.command).toList());
+        assertTrue(HelloController.appsToClose(result).isEmpty());
+    }
+
+    @Test
+    void nodeCliesAreFoundByThePackageInTheirCommandLine() {
+        assertEquals("gemini-cli.exe", HelloController.nodeCli(
+                "\"C:\\Program Files\\nodejs\\node.exe\" C:\\Users\\y\\AppData\\Roaming\\npm\\node_modules\\@google\\gemini-cli\\dist\\index.js"));
+        assertEquals("copilot-cli.exe", HelloController.nodeCli("node C:\\npm\\node_modules\\@github\\copilot\\index.js"));
+        assertNull(HelloController.nodeCli("node C:\\x\\node_modules\\@github\\copilot-language-server\\dist\\main.js --stdio"),
+                "an editor's copilot server is not the CLI");
+        assertNull(HelloController.nodeCli("node C:\\proj\\server.js"), "a dev server is not an app");
+    }
+
+    @Test
+    void storeAppsAreStartedByTheIdInTheirManifest(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tmp) throws Exception {
+        java.nio.file.Path pkg = tmp.resolve("WindowsApps").resolve("5319275A.WhatsAppDesktop_2.2640.100.0_x64__cv1g1gvanyjgm");
+        java.nio.file.Files.createDirectories(pkg);
+        // the real manifest's shape: Id before Executable, other attributes around them
+        java.nio.file.Files.writeString(pkg.resolve("AppxManifest.xml"), "<Package><Applications>"
+                + "<Application Id=\"Helper\" Executable=\"helper.exe\" EntryPoint=\"Windows.FullTrustApplication\"/>"
+                + "<Application Id=\"App\" Executable=\"WhatsApp.Root.exe\" EntryPoint=\"Windows.FullTrustApplication\">"
+                + "</Application></Applications></Package>");
+        assertEquals("5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App",
+                HelloController.storeAppId(pkg.resolve("whatsapp.root.exe").toString()));
+        assertNull(HelloController.storeAppId(pkg.resolve("other.exe").toString()));
+        assertNull(HelloController.storeAppId("C:\\Program Files\\Spotify\\Spotify.exe"));
+        assertNull(HelloController.storeAppId(tmp.resolve("WindowsApps").resolve("Gone_1.0_x64__abc").resolve("a.exe").toString()),
+                "updated away: no manifest");
+    }
+
+    @Test
+    void appsForEveryKindOfWorkHaveACategory() {
+        var result = controller.segregateApps(new HashSet<>(java.util.List.of(
+                "acad.exe", "zotero.exe", "tally.exe", "steam.exe", "Todoist.exe",
+                "WhatsApp.Root.exe", "soffice.exe", "Ableton Live 12 Suite.exe", "StataMP-64.exe", "gimp-2.10.exe")));
+        assertEquals(java.util.Set.of("acad.exe"), result.get("CAD"));
+        assertEquals(java.util.Set.of("zotero.exe", "StataMP-64.exe"), result.get("Research"), "a * entry matches by prefix");
+        assertEquals(java.util.Set.of("tally.exe"), result.get("Finance"));
+        assertEquals(java.util.Set.of("steam.exe"), result.get("Games"));
+        assertEquals(java.util.Set.of("Todoist.exe"), result.get("Planning"));
+        assertEquals(java.util.Set.of("WhatsApp.Root.exe"), result.get("Communication"));
+        assertEquals(java.util.Set.of("soffice.exe"), result.get("Office"));
+        assertEquals(java.util.Set.of("Ableton Live 12 Suite.exe"), result.get("Music"));
+        assertEquals(java.util.Set.of("gimp-2.10.exe"), result.get("Design"));
+        assertTrue(result.get("Other").isEmpty());
+        assertEquals("Stata", HelloController.appName("StataMP-64.exe"));
+        assertEquals("LibreOffice", HelloController.appName("soffice.exe"));
+        assertEquals("WhatsApp", HelloController.appName("WhatsApp.Root.exe"));
+        assertEquals("GIMP", HelloController.appName("gimp-2.10.exe"));
+        assertEquals("Ableton Live 12 Suite", HelloController.appName("Ableton Live 12 Suite.exe"));
+    }
+
+    @Test
+    void noAppIsListedInTwoCategories() {
+        // Map.ofEntries iterates in no fixed order: an exe under two keys would land in either
+        java.util.Map<String, String> seen = new HashMap<>();
+        HelloController.KNOWN_APPS.forEach((category, exes) -> exes.forEach(exe -> {
+            String before = seen.put(exe.toLowerCase(), category);
+            assertNull(before, exe + " is under " + before + " and " + category);
+        }));
     }
 
     @Test

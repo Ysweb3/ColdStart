@@ -1616,7 +1616,8 @@ public class HelloController {
     // built, so every non-empty category is listed rather than hidden behind a dead link
     private static final List<String> CATEGORY_ORDER = List.of(
             "IDE", "AI", "Terminal", "Browser", "Database", "API", "Containers",
-            "VersionControl", "Design", "Video", "Office", "Communication", "Notes", "Files", "Music", "Apps");
+            "VersionControl", "Design", "Video", "CAD", "Research", "Office", "Finance", "Communication",
+            "Notes", "Planning", "Files", "Music", "Games", "Apps");
 
     /** "2h ago" under Checkpoint: when the last one was taken. It used to read "overwrite \u00b7
         2h old", a warning on every press; a checkpoint is now one Ctrl+Z from undone. */
@@ -1756,16 +1757,84 @@ public class HelloController {
             Map.entry("outlook", "Outlook"), Map.entry("olk", "Outlook"), Map.entry("onenote", "OneNote"),
             Map.entry("obs", "OBS Studio"), Map.entry("camtasiastudio", "Camtasia"), Map.entry("fl", "FL Studio"),
             Map.entry("itunes", "iTunes"), Map.entry("azuredatastudio", "Azure Data Studio"),
-            Map.entry("xournalpp", "Xournal++"), Map.entry("aimp", "AIMP"), Map.entry("xd", "Adobe XD"));
+            Map.entry("xournalpp", "Xournal++"), Map.entry("aimp", "AIMP"), Map.entry("xd", "Adobe XD"),
+            // AI
+            Map.entry("codex-cli", "Codex CLI"), Map.entry("gemini-cli", "Gemini CLI"),
+            Map.entry("copilot-cli", "Copilot CLI"), Map.entry("qwen-cli", "Qwen Code"),
+            Map.entry("goose-cli", "Goose CLI"), Map.entry("kiro-cli", "Kiro CLI"),
+            Map.entry("cursor-agent", "Cursor CLI"), Map.entry("opencode", "OpenCode"), Map.entry("deepl", "DeepL"),
+            Map.entry("comfyui", "ComfyUI"), Map.entry("stabilitymatrix", "Stability Matrix"),
+            // Design, Video
+            Map.entry("gimp-2.10", "GIMP"), Map.entry("gimp-3.0", "GIMP"), Map.entry("gimp-3", "GIMP"),
+            Map.entry("photo", "Affinity Photo"), Map.entry("designer", "Affinity Designer"),
+            Map.entry("publisher", "Affinity Publisher"), Map.entry("coreldrw", "CorelDRAW"),
+            Map.entry("clipstudiopaint", "Clip Studio Paint"), Map.entry("sai2", "PaintTool SAI"),
+            Map.entry("medibangpaintpro", "MediBang Paint"), Map.entry("firealpaca", "FireAlpaca"),
+            Map.entry("animate", "Adobe Animate"), Map.entry("photoshopelementseditor", "Photoshop Elements"),
+            Map.entry("captureone", "Capture One"), Map.entry("dxo.photolab", "DxO PhotoLab"),
+            Map.entry("protopie", "ProtoPie"), Map.entry("snagiteditor", "Snagit"), Map.entry("i_view", "IrfanView"),
+            Map.entry("xnviewmp", "XnView MP"), Map.entry("digikam", "digiKam"), Map.entry("pdr", "PowerDirector"),
+            Map.entry("avidmediacomposer", "Media Composer"), Map.entry("openshot-qt", "OpenShot"),
+            Map.entry("streamlabs obs", "Streamlabs"), Map.entry("xsplit.core", "XSplit"), Map.entry("vmix", "vMix"),
+            Map.entry("bdcam", "Bandicam"), Map.entry("mpc-hc", "MPC-HC"), Map.entry("potplayermini", "PotPlayer"),
+            // Office, Communication, Notes, Planning
+            Map.entry("soffice", "LibreOffice"), Map.entry("desktopeditors", "ONLYOFFICE"),
+            Map.entry("pdfxedit", "PDF-XChange Editor"), Map.entry("nitropdf", "Nitro PDF"),
+            Map.entry("pbidesktop", "Power BI"), Map.entry("memoq", "memoQ"),
+            Map.entry("digitaleditions", "Adobe Digital Editions"), Map.entry("whatsapp.root", "WhatsApp"),
+            Map.entry("ciscocollabhost", "Webex"), Map.entry("ringcentral", "RingCentral"),
+            Map.entry("wechat", "WeChat"), Map.entry("weixin", "WeChat"), Map.entry("line", "LINE"),
+            Map.entry("kakaotalk", "KakaoTalk"), Map.entry("qq", "QQ"), Map.entry("dingtalk", "DingTalk"),
+            Map.entry("mailclient", "eM Client"), Map.entry("remnote", "RemNote"), Map.entry("upnote", "UpNote"),
+            Map.entry("siyuan", "SiYuan"), Map.entry("microsoft.notes", "Sticky Notes"),
+            Map.entry("focuswriter", "FocusWriter"), Map.entry("todo", "Microsoft To Do"),
+            Map.entry("ticktick", "TickTick"), Map.entry("clickup", "ClickUp"),
+            Map.entry("mindmanager", "MindManager"), Map.entry("toggltrack", "Toggl Track"),
+            // CAD
+            Map.entry("acad", "AutoCAD"), Map.entry("acadlt", "AutoCAD LT"), Map.entry("sketchup", "SketchUp"),
+            Map.entry("fusion360", "Fusion"), Map.entry("sldworks", "SolidWorks"), Map.entry("freecad", "FreeCAD"),
+            Map.entry("cnext", "CATIA"), Map.entry("xtop", "Creo"), Map.entry("ugraf", "Siemens NX"),
+            Map.entry("keyshot", "KeyShot"), Map.entry("3dsmax", "3ds Max"), Map.entry("zbrush", "ZBrush"),
+            Map.entry("houdinifx", "Houdini"), Map.entry("houdinicore", "Houdini"), Map.entry("kicad", "KiCad"),
+            Map.entry("x2", "Altium Designer"), Map.entry("ltspice", "LTspice"),
+            Map.entry("bambu-studio", "Bambu Studio"), Map.entry("prusa-slicer", "PrusaSlicer"),
+            Map.entry("orca-slicer", "OrcaSlicer"), Map.entry("ultimaker-cura", "Cura"),
+            // Research
+            Map.entry("mendeley reference manager", "Mendeley"), Map.entry("endnote", "EndNote"),
+            Map.entry("jabref", "JabRef"), Map.entry("stats", "SPSS Statistics"), Map.entry("statamp", "Stata"),
+            Map.entry("statase", "Stata"), Map.entry("statabe", "Stata"), Map.entry("jasp", "JASP"),
+            Map.entry("sas", "SAS"), Map.entry("mtb", "Minitab"), Map.entry("prism", "GraphPad Prism"),
+            Map.entry("maplew", "Maple"), Map.entry("geogebra", "GeoGebra"), Map.entry("labview", "LabVIEW"),
+            Map.entry("imagej-win", "Fiji"), Map.entry("fiji-windows-x", "Fiji"), Map.entry("snapgene", "SnapGene"),
+            Map.entry("chemdraw", "ChemDraw"), Map.entry("qgis-bin", "QGIS"), Map.entry("qgis-ltr-bin", "QGIS"),
+            Map.entry("arcgispro", "ArcGIS Pro"), Map.entry("googleearth", "Google Earth Pro"),
+            Map.entry("nvivo", "NVivo"), Map.entry("texstudio", "TeXstudio"), Map.entry("texworks", "TeXworks"),
+            Map.entry("lyx", "LyX"),
+            // Finance
+            Map.entry("qbw", "QuickBooks"), Map.entry("qbw32", "QuickBooks"), Map.entry("tally", "TallyPrime"),
+            Map.entry("qw", "Quicken"), Map.entry("peachw", "Sage 50"), Map.entry("gnucash", "GnuCash"),
+            Map.entry("tradingview", "TradingView"), Map.entry("tws", "Trader Workstation"),
+            Map.entry("ninjatrader", "NinjaTrader"), Map.entry("ctrader", "cTrader"),
+            Map.entry("terminal", "MetaTrader 5"),
+            // Games
+            Map.entry("epicgameslauncher", "Epic Games"), Map.entry("eadesktop", "EA app"),
+            Map.entry("ubisoftconnect", "Ubisoft Connect"), Map.entry("upc", "Ubisoft Connect"),
+            Map.entry("galaxyclient", "GOG Galaxy"), Map.entry("xboxpcapp", "Xbox"),
+            Map.entry("riotclientux", "Riot Client"), Map.entry("minecraftlauncher", "Minecraft Launcher"),
+            Map.entry("playnite.desktopapp", "Playnite"), Map.entry("curseforge", "CurseForge"),
+            Map.entry("prismlauncher", "Prism Launcher"),
+            // Music
+            Map.entry("mediamonkey", "MediaMonkey"), Map.entry("protools", "Pro Tools"), Map.entry("lmms", "LMMS"),
+            Map.entry("virtualdj", "VirtualDJ"));
 
     /** "idea64.exe" -> "IntelliJ IDEA", "WindowsTerminal.exe" -> "Windows Terminal",
         "obsidian.exe" -> "Obsidian": what a person calls the app, not what Windows does. */
     static String appName(String exe) {
         String base = exe.replaceFirst("(?i)\\.exe$", "");
-        String key = base.toLowerCase().replaceFirst("64$", "");
+        String key = base.toLowerCase().replaceFirst("[-_]?64$", "");
         String known = APP_NAMES.get(key);
         if (known != null) return known;
-        String name = base.replaceFirst("64$", "");
+        String name = base.replaceFirst("[-_]?64$", "");
         return name.isEmpty() ? exe : Character.toUpperCase(name.charAt(0)) + name.substring(1);
     }
 
@@ -1781,7 +1850,7 @@ public class HelloController {
         agent view, any app its saved folders or files ("…\atlas-api +1"), else VS Code the
         project folder. */
     static String trailingNote(String category, Project projectObj) {
-        if ("AI".equals(category) && hasApp(projectObj, "claude.exe")) {
+        if ("AI".equals(category) && hasCli(projectObj)) {
             return "reopens chats";
         }
         List<String> paths = notePaths(category, projectObj);
@@ -2996,7 +3065,10 @@ public class HelloController {
     static Set<String> appsToClose(Map<String, HashSet<String>> apps) {
         Set<String> out = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         apps.forEach((category, exes) -> { if (!KEEP_OPEN.contains(category)) out.addAll(exes); });
-        out.remove("claude.exe");   // under AI, but it lives in a terminal tab
+        out.removeIf(HelloController::isCli);   // under AI, but they live in a terminal tab
+        // closed by process name it would be "claude", which also has the console window of a
+        // claude CLI running in conhost
+        out.remove("Claude Desktop.exe");
         return out;
     }
 
@@ -3508,20 +3580,25 @@ public class HelloController {
     }
 
     /**
-     * Every process that owns a visible window, as "name.exe" (e.g. "Code.exe", "chrome.exe").
-     * Runs a PowerShell one-liner that prints "pid|name.exe" per line and parses it.
+     * Every process that owns a visible window, as "name.exe" (e.g. "Code.exe", "chrome.exe"),
+     * plus the AI CLIs, under the names capturedApp() and nodeCli() give them.
+     * Runs a PowerShell one-liner that prints "pid|name.exe|window 1/0|path" per line and parses it.
      */
     public HashSet<String> captureRunningApps() throws IOException {
         // only processes that own a visible main window count as apps the user opened.
         // .NET's MainWindowTitle is EnumWindows + GetWindowThreadProcessId under the hood,
         // single quotes only: a double quote inside this argument breaks ProcessBuilder's
         // windows quoting and powershell ends up echoing the rest of the script back
-        // claude runs as a console app inside a terminal window (Windows Terminal, conhost, ...),
+        // a CLI runs as a console app inside a terminal window (Windows Terminal, conhost, ...),
         // so the OS attributes MainWindowTitle to the terminal host, never to claude.exe itself -
-        // it must be matched by process name too or it's invisible to capture/resume entirely
+        // it must be matched by process name too or it's invisible to capture/resume entirely.
+        // The ones that run on node are all node.exe: their lines carry the command line instead
         ProcessBuilder pb = new ProcessBuilder("powershell.exe", "-NoProfile", "-Command",
-                "Get-Process | Where-Object { $_.MainWindowTitle -ne '' -or $_.ProcessName -ieq 'claude' } | " +
-                        "ForEach-Object { $_.Id.ToString() + '|' + $_.ProcessName + '.exe' }");
+                "$cli = @(" + String.join(",", NATIVE_CLIS.stream().map(c -> "'" + c + "'").toList()) + "); " +
+                "Get-Process | Where-Object { $_.MainWindowTitle -ne '' -or $cli -contains $_.ProcessName } | " +
+                        "ForEach-Object { $_.Id.ToString() + '|' + $_.ProcessName + '.exe|' + [int]($_.MainWindowTitle -ne '') + '|' + $_.Path }; " +
+                "Get-CimInstance Win32_Process -Filter 'Name=''node.exe''' | " +
+                        "ForEach-Object { $_.ProcessId.ToString() + '|node|0|' + $_.CommandLine }");
         pb.redirectErrorStream(true);
         Process process = pb.start();
         BufferedReader reader = new BufferedReader(
@@ -3531,28 +3608,144 @@ public class HelloController {
         HashSet<String> appset = new HashSet<>();
         long ownPid = ProcessHandle.current().pid();
         while ((line = reader.readLine()) != null) {
-            String[] parts = line.split("\\|", 2);
-            if (parts.length != 2) continue;
+            String[] parts = line.split("\\|", 4);
+            if (parts.length < 2) continue;
             // our own JavaFX window is owned by java.exe and would otherwise relaunch itself
             if (parts[0].trim().equals(String.valueOf(ownPid))) continue;
-            String name = parts[1].trim();
-            if (name.isBlank() || isIgnoredWindow(name)) continue;
-            appset.add(name);
+            String name = parts[1].trim(), where = parts.length > 3 ? parts[3].trim() : "";
+            String app = name.equals("node") ? nodeCli(where)
+                    : capturedApp(name, parts.length > 2 && parts[2].trim().equals("1"), where);
+            if (app == null || app.isBlank() || isIgnoredWindow(app)) continue;
+            appset.add(app);
         }
         return appset;
     }
 
+    // == AI CLIs and their desktop twins =====================================
+
+    /** CLIs that run as their own exe, by process name: captured with or without a window. */
+    static final List<String> NATIVE_CLIS = List.of("claude", "codex", "copilot", "goose", "opencode",
+            "aider", "kiro-cli", "droid");
+
+    // claude, codex, copilot and goose each ship a desktop app and a CLI under one exe name:
+    // exe -> {desktop app, CLI}. claude keeps claude.exe for the CLI, which is what every
+    // project saved before the desktop app was told apart already means by it
+    private static final Map<String, List<String>> TWINS = Map.of(
+            "claude.exe", List.of("Claude Desktop.exe", "claude.exe"),
+            "codex.exe", List.of("Codex.exe", "codex-cli.exe"),
+            "copilot.exe", List.of("Copilot.exe", "copilot-cli.exe"),
+            "goose.exe", List.of("Goose.exe", "goose-cli.exe"));
+    // where the desktop twins install: the Store, Claude's old installer, Electron's per-user
+    // folder. The CLIs land in .local\bin, npm, WinGet\Packages, cargo or scoop instead
+    private static final List<String> DESKTOP_DIRS = List.of("\\windowsapps\\", "\\anthropicclaude\\",
+            "\\appdata\\local\\programs\\");
+
+    /** What a captured process is saved as. A desktop twin counts only with a window open:
+        its helpers have none, nor does one left running in the tray. A window cannot tell
+        the CLI apart - in a conhost console it owns one too - so the install folder does.
+        Steam's window belongs to its web helper. */
+    static String capturedApp(String name, boolean windowed, String path) {
+        String lower = name.toLowerCase();
+        if (lower.equals("steamwebhelper.exe")) return "steam.exe";
+        List<String> twin = TWINS.get(lower);
+        if (twin == null) return name;
+        String dir = path.toLowerCase();
+        if (DESKTOP_DIRS.stream().anyMatch(dir::contains)) return windowed ? twin.get(0) : null;
+        return twin.get(1);
+    }
+
+    // node CLIs: the package in the command line -> the name they are saved as. The trailing
+    // slash keeps @github/copilot-language-server (editors run it on node) from counting
+    private static final Map<String, String> NODE_CLIS = Map.of(
+            "/@google/gemini-cli/", "gemini-cli.exe",
+            "/@github/copilot/", "copilot-cli.exe",
+            "/@qwen-code/qwen-code/", "qwen-cli.exe",
+            "/@sourcegraph/amp/", "amp.exe",
+            "/cursor-agent/", "cursor-agent.exe",
+            // npm installs of these wrap a native exe, which capturedApp already names
+            "/@openai/codex/", "codex-cli.exe",
+            "/opencode-ai/", "opencode.exe");
+
+    /** A node process's command line -> the CLI it runs, or null for any other node process. */
+    static String nodeCli(String commandLine) {
+        String cmd = commandLine.replace('\\', '/').toLowerCase();
+        return NODE_CLIS.entrySet().stream().filter(e -> cmd.contains(e.getKey()))
+                .map(Map.Entry::getValue).findFirst().orElse(null);
+    }
+
+    // the AI CLIs, as captured -> the command that reopens their last chat in the project
+    // folder (each keeps its sessions per directory). claude's agent view takes --cwd instead
+    static final Map<String, List<String>> CLI_RESUME = Map.ofEntries(
+            Map.entry("claude.exe", List.of("claude", "agents")),
+            Map.entry("codex-cli.exe", List.of("codex", "resume", "--last")),
+            Map.entry("gemini-cli.exe", List.of("gemini", "--resume")),
+            Map.entry("copilot-cli.exe", List.of("copilot", "--continue")),
+            Map.entry("qwen-cli.exe", List.of("qwen", "--continue")),
+            Map.entry("goose-cli.exe", List.of("goose", "session", "--resume")),
+            Map.entry("opencode.exe", List.of("opencode", "--continue")),
+            Map.entry("aider.exe", List.of("aider", "--restore-chat-history")),
+            Map.entry("kiro-cli.exe", List.of("kiro-cli", "chat", "--resume")),
+            Map.entry("cursor-agent.exe", List.of("cursor-agent", "resume")),
+            Map.entry("droid.exe", List.of("droid", "--resume")),
+            // no "latest thread" flag, only thread ids: a new thread, in the project
+            Map.entry("amp.exe", List.of("amp")));
+
+    static boolean isCli(String app) {
+        return CLI_RESUME.containsKey(app.toLowerCase());
+    }
+
+    static boolean hasCli(Project projectObj) {
+        return projectObj.apps.values().stream().flatMap(Set::stream).anyMatch(HelloController::isCli);
+    }
+
+    /** "...\WindowsApps\Claude_2.4.0.0_x64__pzs8sxrjxfjjc\app\claude.exe" -> "Claude_pzs8sxrjxfjjc!Claude":
+        the package family (the folder name's first and last parts) and the id of the manifest's
+        Application that runs this exe. Null outside WindowsApps or when the manifest is gone.
+        ponytail: an update between checkpoint and resume moves the folder, so that resume
+        misses; the next checkpoint saves the new path */
+    static String storeAppId(String exePath) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?i)(.*\\\\WindowsApps\\\\([^\\\\]+))\\\\(.+)")
+                .matcher(exePath);
+        if (!m.matches()) return null;
+        String[] pkg = m.group(2).split("_");
+        try {
+            String manifest = Files.readString(Path.of(m.group(1), "AppxManifest.xml"));
+            java.util.regex.Matcher app = java.util.regex.Pattern.compile("<Application\\s[^>]*").matcher(manifest);
+            while (app.find()) {
+                String id = xmlAttr(app.group(), "Id"), exe = xmlAttr(app.group(), "Executable");
+                if (id != null && m.group(3).equalsIgnoreCase(exe)) return pkg[0] + "_" + pkg[pkg.length - 1] + "!" + id;
+            }
+        } catch (IOException | RuntimeException ex) {
+            // unreadable: the exe path is all there is
+        }
+        return null;
+    }
+
+    private static String xmlAttr(String tag, String name) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\s" + name + "=\"([^\"]*)\"").matcher(tag);
+        return m.find() ? m.group(1) : null;
+    }
+
     static final String OTHER = "Other";
 
-    /** exe -> Store app id, for packaged apps `start` cannot find (no PATH alias, no App Paths).
-        ponytail: one entry per app; look the id up with Get-StartApps if more turn up. */
-    static final Map<String, String> STORE_APPS = Map.of(
-            "mscopilot.exe", "Microsoft.Copilot_8wekyb3d8bbwe!App");
+    /** exe -> what explorer.exe opens to start it, for apps `start` cannot find by name and
+        whose saved exe is no use: a Store app's id (Get-StartApps lists them), a launcher's url.
+        Other Store apps need no entry - storeAppId reads theirs from the saved exe's package. */
+    static final Map<String, String> SHELL_APPS = Map.of(
+            "mscopilot.exe", "shell:AppsFolder\\Microsoft.Copilot_8wekyb3d8bbwe!App",
+            // capturedApp's name, so there is no exe saved under it
+            // ponytail: the Store build only; the old AnthropicClaude installer would need its exe
+            "claude desktop.exe", "shell:AppsFolder\\Claude_pzs8sxrjxfjjc!Claude",
+            // no App Paths entry, and the window - so the saved exe - is steamwebhelper's
+            "steam.exe", "steam://open/main");
 
-    // purely for labelling: an app missing from this map is still captured, under OTHER
-    private static final Map<String, List<String>> KNOWN_APPS = Map.ofEntries(
+    // purely for labelling: an app missing from this map is still captured, under OTHER.
+    // An entry ending in * matches by prefix, for exes named after their version
+    static final Map<String, List<String>> KNOWN_APPS = Map.ofEntries(
             Map.entry("Browser", List.of("chrome.exe", "brave.exe", "firefox.exe", "msedge.exe",
-                    "opera.exe", "vivaldi.exe", "arc.exe", "zen.exe", "librewolf.exe", "chromium.exe")),
+                    "opera.exe", "vivaldi.exe", "arc.exe", "zen.exe", "librewolf.exe", "chromium.exe",
+                    "comet.exe", "floorp.exe", "waterfox.exe", "thorium.exe", "mullvadbrowser.exe",
+                    "palemoon.exe", "whale.exe", "DuckDuckGo.exe")),
             Map.entry("IDE", List.of("Code.exe", "Code - Insiders.exe", "cursor.exe", "windsurf.exe",
                     "zed.exe", "trae.exe", "fleet.exe", "idea64.exe", "devenv.exe", "eclipse.exe",
                     "sublime_text.exe", "notepad++.exe", "pycharm64.exe", "webstorm64.exe",
@@ -3560,14 +3753,22 @@ public class HelloController {
                     "studio64.exe", "netbeans64.exe", "qtcreator.exe", "gvim.exe", "emacs.exe",
                     "Kiro.exe", "Antigravity.exe", "Positron.exe", "dataspell64.exe", "neovide.exe",
                     "rstudio.exe", "MATLAB.exe", "Arduino IDE.exe", "Unity.exe", "Unity Hub.exe",
-                    "UnrealEditor.exe")),
+                    "UnrealEditor.exe", "Godot*", "GameMaker.exe", "RobloxStudioBeta.exe",
+                    // the ones schools teach with
+                    "thonny.exe", "bluej.exe", "codeblocks.exe", "devcpp.exe", "Scratch 3.exe",
+                    "processing.exe", "spyder.exe")),
             // powershell/cmd stay Other on purpose: with claude in a conhost window they'd come
             // back as an empty shell beside claude, the case the wt special-case already avoids
             Map.entry("Terminal", List.of("WindowsTerminal.exe", "alacritty.exe", "wezterm-gui.exe",
                     "Hyper.exe", "ConEmu64.exe", "mintty.exe", "Tabby.exe", "warp.exe")),
             Map.entry("AI", List.of("claude.exe", "ChatGPT.exe", "Perplexity.exe", "LM Studio.exe",
                     "ollama app.exe", "Copilot.exe", "mscopilot.exe", "Msty.exe", "Jan.exe", "AnythingLLM.exe",
-                    "Cherry Studio.exe")),
+                    "Cherry Studio.exe", "Claude Desktop.exe", "Codex.exe", "Goose.exe", "Poe.exe",
+                    "Chatbox.exe", "Pinokio.exe", "ComfyUI.exe", "StabilityMatrix.exe", "Granola.exe",
+                    "DeepL.exe",
+                    // CLI_RESUME's: reopened in a terminal on their last chat
+                    "codex-cli.exe", "gemini-cli.exe", "copilot-cli.exe", "qwen-cli.exe", "goose-cli.exe",
+                    "opencode.exe", "aider.exe", "kiro-cli.exe", "cursor-agent.exe", "droid.exe", "amp.exe")),
             Map.entry("Database", List.of("dbeaver.exe", "datagrip64.exe", "pgAdmin4.exe", "Ssms.exe",
                     "MySQLWorkbench.exe", "TablePlus.exe", "MongoDBCompass.exe", "redisinsight.exe",
                     "HeidiSQL.exe", "azuredatastudio.exe", "Beekeeper Studio.exe", "SQLiteStudio.exe",
@@ -3580,26 +3781,86 @@ public class HelloController {
                     "Fork.exe", "smartgit.exe", "sublime_merge.exe", "GitExtensions.exe")),
             Map.entry("Design", List.of("Figma.exe", "Photoshop.exe", "Illustrator.exe", "blender.exe",
                     "inkscape.exe", "krita.exe", "Canva.exe", "InDesign.exe", "Lightroom.exe",
-                    "mspaint.exe", "PaintDotNet.exe", "XD.exe", "draw.io.exe", "Lunacy.exe", "Affinity.exe")),
+                    "mspaint.exe", "PaintDotNet.exe", "XD.exe", "draw.io.exe", "Lunacy.exe", "Affinity.exe",
+                    "gimp-*", "Photo.exe", "Designer.exe", "Publisher.exe", "CorelDRW.exe",
+                    "Corel PaintShop Pro.exe", "CLIPStudioPaint.exe", "sai2.exe", "MediBangPaintPro.exe",
+                    "FireAlpaca.exe", "Aseprite.exe", "Animate.exe", "Adobe Bridge.exe",
+                    "PhotoshopElementsEditor.exe", "CaptureOne.exe", "darktable.exe", "rawtherapee.exe",
+                    "Luminar Neo.exe", "DxO.PhotoLab.exe", "Adobe Substance 3D Painter.exe", "Framer.exe",
+                    "ProtoPie.exe", "Balsamiq Wireframes.exe", "SnagitEditor.exe", "i_view64.exe",
+                    "xnviewmp.exe", "digikam.exe")),
             Map.entry("Video", List.of("Adobe Premiere Pro.exe", "AfterFX.exe", "Resolve.exe", "CapCut.exe",
                     "Adobe Media Encoder.exe", "shotcut.exe", "kdenlive.exe", "obs64.exe",
-                    "CamtasiaStudio.exe", "HandBrake.exe", "Descript.exe")),
+                    "CamtasiaStudio.exe", "HandBrake.exe", "Descript.exe", "Clipchamp.exe", "Filmora.exe",
+                    "Wondershare Filmora*", "vegas*", "PDR.exe", "AvidMediaComposer.exe", "lightworks.exe",
+                    "openshot-qt.exe", "Adobe Character Animator.exe", "Topaz Video AI.exe",
+                    // streaming and recording
+                    "Streamlabs OBS.exe", "XSplit.Core.exe", "vMix64.exe", "Loom.exe", "bdcam.exe", "Medal.exe",
+                    // players
+                    "mpc-hc64.exe", "PotPlayerMini64.exe", "Plex.exe")),
             Map.entry("Office", List.of("WINWORD.exe", "EXCEL.exe", "POWERPNT.exe", "MSACCESS.exe",
                     "VISIO.exe", "MSPUB.exe", "WINPROJ.exe", "Acrobat.exe", "AcroRd32.exe",
-                    "SumatraPDF.exe", "FoxitPDFReader.exe", "wps.exe", "et.exe", "wpp.exe")),
+                    "SumatraPDF.exe", "FoxitPDFReader.exe", "wps.exe", "et.exe", "wpp.exe",
+                    // LibreOffice's soffice.bin, whose ProcessName drops the .bin
+                    "soffice.exe", "DesktopEditors.exe", "PDFXEdit.exe", "NitroPDF.exe", "okular.exe",
+                    "PBIDesktop.exe", "tableau.exe", "Scrivener.exe", "Final Draft*", "MemoQ.exe",
+                    // reading
+                    "Kindle.exe", "calibre.exe", "DigitalEditions.exe")),
             Map.entry("Communication", List.of("discord.exe", "slack.exe", "teams.exe", "ms-teams.exe",
                     "Zoom.exe", "Telegram.exe", "WhatsApp.exe", "Signal.exe", "Skype.exe", "Element.exe",
                     "OUTLOOK.exe", "olk.exe", "thunderbird.exe", "Mailspring.exe", "Mattermost.exe",
-                    "Viber.exe", "Messenger.exe", "Zulip.exe", "Beeper.exe")),
+                    "Viber.exe", "Messenger.exe", "Zulip.exe", "Beeper.exe",
+                    // the Store WhatsApp's process today
+                    "WhatsApp.Root.exe", "CiscoCollabHost.exe", "RingCentral.exe", "Lark.exe", "Feishu.exe",
+                    "WeChat.exe", "Weixin.exe", "LINE.exe", "KakaoTalk.exe", "QQ.exe", "DingTalk.exe",
+                    "Rocket.Chat.exe", "Wire.exe", "Ferdium.exe", "Rambox.exe", "MailClient.exe",
+                    "Mailbird.exe", "Proton Mail.exe", "Superhuman.exe")),
             Map.entry("Notes", List.of("notion.exe", "obsidian.exe", "onenote.exe", "Logseq.exe",
                     "Typora.exe", "Joplin.exe", "anytype.exe", "notepad.exe", "Evernote.exe",
-                    "Zettlr.exe", "Todoist.exe", "AFFiNE.exe", "xournalpp.exe")),
+                    "Zettlr.exe", "AFFiNE.exe", "xournalpp.exe", "Simplenote.exe", "Standard Notes.exe",
+                    "Craft.exe", "Capacities.exe", "Heptabase.exe", "Tana.exe", "RemNote.exe", "UpNote.exe",
+                    "SiYuan.exe", "Microsoft.Notes.exe", "anki.exe", "FocusWriter.exe", "iA Writer.exe")),
+            Map.entry("Planning", List.of("Todoist.exe", "Todo.exe", "TickTick.exe", "Trello.exe", "Asana.exe",
+                    "ClickUp.exe", "Linear.exe", "Airtable.exe", "Notion Calendar.exe", "Morgen.exe",
+                    "Sunsama.exe", "Akiflow.exe", "Miro.exe", "Xmind.exe", "MindManager.exe", "TogglTrack.exe")),
+            // engineering, architecture, 3D modelling and printing
+            Map.entry("CAD", List.of("acad.exe", "acadlt.exe", "Revit.exe", "Inventor.exe", "SketchUp.exe",
+                    "Fusion360.exe", "SLDWORKS.exe", "Rhino.exe", "FreeCAD.exe", "Archicad.exe",
+                    "Vectorworks*", "CNEXT.exe", "xtop.exe", "ugraf.exe", "Shapr3D.exe", "Plasticity.exe",
+                    "Lumion.exe", "Twinmotion.exe", "keyshot.exe", "Cinema 4D.exe", "maya.exe", "3dsmax.exe",
+                    "ZBrush.exe", "houdini.exe", "houdinifx.exe", "houdinicore.exe", "kicad.exe", "X2.EXE",
+                    "LTspice.exe", "bambu-studio.exe", "prusa-slicer.exe", "orca-slicer.exe",
+                    "UltiMaker-Cura.exe")),
+            // references, statistics, maths, GIS, qualitative analysis, the lab, LaTeX
+            Map.entry("Research", List.of("zotero.exe", "Mendeley Reference Manager.exe", "EndNote.exe",
+                    "JabRef.exe", "Citavi.exe", "stats.exe", "Stata*", "JASP.exe", "jamovi.exe", "sas.exe",
+                    "Mtb.exe", "Origin64.exe", "prism.exe", "Mathematica.exe", "maplew.exe", "GeoGebra.exe",
+                    "LabVIEW.exe", "ImageJ-win64.exe", "fiji-windows-x64.exe", "SnapGene.exe", "ChemDraw.exe",
+                    "qgis-bin.exe", "qgis-ltr-bin.exe", "ArcGISPro.exe", "googleearth.exe", "NVivo.exe",
+                    "ATLAS.ti.exe", "MAXQDA*", "texstudio.exe", "texworks.exe", "lyx.exe")),
+            // accounting, tax, trading
+            Map.entry("Finance", List.of("QBW.exe", "QBW32.exe", "tally.exe", "qw.exe", "Peachw.exe",
+                    "gnucash.exe", "Moneydance.exe", "TurboTax*", "TradingView.exe", "thinkorswim.exe",
+                    "tws.exe", "NinjaTrader.exe", "cTrader.exe", "terminal64.exe", "Ledger Live.exe",
+                    "Exodus.exe")),
+            // launchers only: a game itself is left to them
+            Map.entry("Games", List.of("steam.exe", "EpicGamesLauncher.exe", "Battle.net.exe", "EADesktop.exe",
+                    "UbisoftConnect.exe", "upc.exe", "GalaxyClient.exe", "XboxPcApp.exe", "Riot Client.exe",
+                    "RiotClientUx.exe", "MinecraftLauncher.exe", "Playnite.DesktopApp.exe", "itch.exe",
+                    "heroic.exe", "Amazon Games UI.exe", "Overwolf.exe", "CurseForge.exe", "Modrinth App.exe",
+                    "prismlauncher.exe")),
             // only its folder windows count (AppFolders); with none saved it is always running,
             // so resume never starts a bare one
             Map.entry("Files", List.of("explorer.exe")),
             Map.entry("Music", List.of("spotify.exe", "amazonmusic.exe", "AppleMusic.exe", "Tidal.exe",
                     "MusicBee.exe", "foobar2000.exe", "vlc.exe", "iTunes.exe", "Deezer.exe", "AIMP.exe",
-                    "Audacity.exe", "reaper.exe", "FL64.exe"))
+                    "Audacity.exe", "reaper.exe", "FL64.exe", "Qobuz.exe", "winamp.exe", "MediaMonkey.exe",
+                    "Plexamp.exe", "Cider.exe", "YouTube Music.exe", "Pocket Casts.exe",
+                    // making it
+                    "Ableton Live*", "Cubase*", "Studio One.exe", "ProTools.exe", "Bitwig Studio.exe",
+                    "Reason.exe", "Cakewalk.exe", "lmms.exe", "Adobe Audition.exe", "ocenaudio.exe",
+                    "iZotope RX*", "Melodyne.exe", "MuseScore*", "Sibelius.exe", "Dorico*", "GuitarPro*",
+                    "Serato DJ Pro.exe", "rekordbox.exe", "virtualdj.exe", "Traktor.exe"))
     );
 
     /** Buckets captured exe names by category: {"IDE": [Code.exe], "Browser": [chrome.exe], ...}.
@@ -3645,7 +3906,9 @@ public class HelloController {
     static String categoryOf(String app) {
         for (Map.Entry<String, List<String>> entry : KNOWN_APPS.entrySet()) {
             for (String known : entry.getValue()) {
-                if (known.equalsIgnoreCase(app)) {
+                boolean prefix = known.endsWith("*");
+                if (prefix ? app.toLowerCase().startsWith(known.substring(0, known.length() - 1).toLowerCase())
+                        : known.equalsIgnoreCase(app)) {
                     return entry.getKey();
                 }
             }
@@ -4038,9 +4301,11 @@ public class HelloController {
     // those tabs as arguments, so launching it here too is what creates the duplicate window.
     // browsers with no saved urls are not skipped: nothing else would bring their window back.
     static boolean shouldLaunch(String app, Set<String> running, Set<String> handledBrowsers) {
-        // claude sessions are per-project-folder, not a singleton: a claude window open for
+        // CLI sessions are per-project-folder, not a singleton: a claude window open for
         // some other project must never suppress opening this project's own session.
-        if (app.replace(".exe", "").equalsIgnoreCase("claude")) {
+        // ponytail: only claude can tell which folder it runs in (claudeRunningIn); another CLI
+        // already open on this project comes back twice
+        if (isCli(app)) {
             return true;
         }
         for (String open : running) {
@@ -4051,19 +4316,26 @@ public class HelloController {
         return !handledBrowsers.contains(app.toLowerCase());
     }
 
-    // claude was captured next to WindowsTerminal.exe because it ran inside a terminal tab.
+    // a CLI was captured next to WindowsTerminal.exe because it ran inside a terminal tab.
     // launched separately, `start wt` only brings back an empty PowerShell window beside the
-    // one claude's console opens - so claude is launched *through* wt and wt itself is skipped.
-    static List<String> claudeCommand(String folder, boolean inTerminal) {
+    // one the CLI's console opens - so the CLI is launched *through* wt and wt itself is skipped.
+    static List<String> cliCommand(String exe, String folder, boolean inTerminal) {
         List<String> command = new ArrayList<>(List.of("cmd.exe", "/c", "start"));
         if (inTerminal) {
             command.add("wt");
             if (folder != null) command.addAll(List.of("-d", folder));
         }
-        // the agent view lists every conversation for the project, not just the latest one;
-        // --cwd scopes it to sessions started under this folder - with no folder it shows them all
-        command.addAll(List.of("claude", "agents"));
-        if (folder != null) command.addAll(List.of("--cwd", folder));
+        List<String> resume = CLI_RESUME.get(exe.toLowerCase());
+        if (exe.equalsIgnoreCase("claude.exe")) {
+            // the agent view lists every conversation for the project, not just the latest one;
+            // --cwd scopes it to sessions started under this folder - with no folder it shows them all
+            command.addAll(resume);
+            if (folder != null) command.addAll(List.of("--cwd", folder));
+        } else {
+            // the others' "last chat" is the last one in the folder they start in: with no
+            // project folder there is none to go back to, so a new one
+            command.addAll(folder != null ? resume : resume.subList(0, 1));
+        }
         return command;
     }
 
@@ -4195,7 +4467,7 @@ public class HelloController {
         //TODO:add multiple apps checking for path list
         System.out.println("projectName:" + projectObj.projectName);
         migrateLegacyUrls(projectObj);
-        boolean claudeInTerminal = hasApp(projectObj, "claude.exe") && hasApp(projectObj, "WindowsTerminal.exe");
+        boolean cliInTerminal = hasCli(projectObj) && hasApp(projectObj, "WindowsTerminal.exe");
         List<LaunchStep> steps = new ArrayList<>();
         List<String> skipped = new ArrayList<>();
 
@@ -4309,14 +4581,14 @@ public class HelloController {
                 }
                 String appName = app.replace(".exe", "");
 
-                if (appName.equalsIgnoreCase("claude")) {
-                    if (folder != null && claudeRunningIn(folder)) {
+                if (isCli(app)) {
+                    if (appName.equalsIgnoreCase("claude") && folder != null && claudeRunningIn(folder)) {
                         skipped.add(app);
                         log.add("skipping claude: already running in " + folder);
                         continue;
                     }
-                    List<String> cmd = claudeCommand(folder, claudeInTerminal);
-                    // open claude's agent view, in the project folder when there is one
+                    List<String> cmd = cliCommand(app, folder, cliInTerminal);
+                    // open the CLI on its last chat, in the project folder when there is one
                     steps.add(new LaunchStep(appName(app), String.join(" ", cmd.subList(2, cmd.size())), false, () ->
                             new ProcessBuilder(cmd).directory(folder == null ? null : new File(folder)).start()));
 
@@ -4329,8 +4601,8 @@ public class HelloController {
                             new ProcessBuilder(cmd).start()));
 
                 } else if (appName.equalsIgnoreCase("WindowsTerminal")) {
-                    if (claudeInTerminal) {
-                        log.add("skipping wt: claude launches inside it");
+                    if (cliInTerminal) {
+                        log.add("skipping wt: the CLIs launch inside it");
                         continue;
                     }
                     // WindowsTerminal.exe is the process name, but "wt" is the actual
@@ -4338,12 +4610,12 @@ public class HelloController {
                     steps.add(new LaunchStep(appName(app), "start wt", false, () ->
                             new ProcessBuilder("cmd.exe", "/c", "start", "wt").start()));
 
-                } else if (STORE_APPS.containsKey(app.toLowerCase())) {
+                } else if (SHELL_APPS.containsKey(app.toLowerCase())) {
                     // a Store app with no exe on PATH or in App Paths: started by its app id,
-                    // the way the Start menu does it
-                    String id = STORE_APPS.get(app.toLowerCase());
+                    // the way the Start menu does it - or a launcher by its url
+                    String target = SHELL_APPS.get(app.toLowerCase());
                     steps.add(new LaunchStep(appName(app), "start " + appName(app), false, () ->
-                            new ProcessBuilder("explorer.exe", "shell:AppsFolder\\" + id).start()));
+                            new ProcessBuilder("explorer.exe", target).start()));
 
                 } else {
                     // no folder needed: this used to sit under the folderPath guard too, so a
@@ -4352,11 +4624,19 @@ public class HelloController {
                     // own dialog and the step would read as launched - so look first, the way
                     // start does: PATH, then the App Paths keys
                     String exePath = projectObj.exePaths == null ? null : projectObj.exePaths.get(app);
+                    // a desktop twin's name finds its CLI on PATH (codex.exe for Codex.exe)
+                    boolean twin = TWINS.values().stream().anyMatch(t -> t.get(0).equalsIgnoreCase(app));
                     steps.add(new LaunchStep(appName(app), "start " + appName, false, () -> {
-                        if (!onPath(app, System.getenv("PATH")) && appPath(app) == null) {
+                        if (twin || !onPath(app, System.getenv("PATH")) && appPath(app) == null) {
                             // not findable by name (most apps moved out of Other): the exe the
                             // last checkpoint saw it run from
                             if (exePath == null || !new File(exePath).isFile()) throw new IOException("cannot find " + app);
+                            // a Store app's exe only runs with its package's identity: by app id
+                            String storeId = storeAppId(exePath);
+                            if (storeId != null) {
+                                new ProcessBuilder("explorer.exe", "shell:AppsFolder\\" + storeId).start();
+                                return;
+                            }
                             new ProcessBuilder(exePath).redirectOutput(ProcessBuilder.Redirect.DISCARD)
                                     .redirectError(ProcessBuilder.Redirect.DISCARD).start();
                             return;
