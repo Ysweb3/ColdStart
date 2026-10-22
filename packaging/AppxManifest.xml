@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- MSIX manifest for the Microsoft Store build. The package root is a jpackage app-image named
+     coldstart (main module com.example.resumeone/com.example.resumeone.Launcher, icon
+     packaging/coldstart.ico), with a second launcher coldstart-tray from
+     packaging/coldstart-tray.properties (jpackage's add-launcher option).
+     Identity Name/Publisher and PublisherDisplayName are placeholders: Partner Center gives the
+     real ones when the name is reserved. Assets\ holds the tile logos made from the icon handoff. -->
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+         xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+         xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+         IgnorableNamespaces="uap desktop rescap">
+
+  <Identity Name="coldstart" Publisher="CN=TODO-PartnerCenter" Version="1.0.0.0" ProcessorArchitecture="x64"/>
+
+  <Properties>
+    <DisplayName>coldstart</DisplayName>
+    <PublisherDisplayName>TODO-PartnerCenter</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.26100.0"/>
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us"/>
+  </Resources>
+
+  <Applications>
+    <Application Id="coldstart" Executable="coldstart.exe" EntryPoint="Windows.FullTrustApplication">
+      <uap:VisualElements DisplayName="coldstart" Description="Save your working context and resume it"
+                          BackgroundColor="transparent"
+                          Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png"/>
+      <Extensions>
+        <!-- Settings > "Start coldstart with Windows": off until the user ticks it
+             (HelloController.startupTask). A startup task takes no arguments, so it runs the
+             second launcher, which passes --tray and so opens to the tray when that is on. -->
+        <desktop:Extension Category="windows.startupTask" Executable="coldstart-tray.exe"
+                           EntryPoint="Windows.FullTrustApplication">
+          <desktop:StartupTask TaskId="coldstartStartup" Enabled="false" DisplayName="coldstart"/>
+        </desktop:Extension>
+      </Extensions>
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <rescap:Capability Name="runFullTrust"/>
+  </Capabilities>
+</Package>

@@ -206,6 +206,16 @@ public class HelloController {
     static final String EDGE_EXTENSION_URL = "https://example.com/coldstart-extension-edge";
     @FXML public Label settingsFoot;
     @FXML public CheckBox motionToggle;
+    /** Settings > Startup. startupToggle mirrors the package's StartupTask, which Windows'
+        Startup apps page can flip too; trayToggle is ours: the X hides to the tray, and the
+        startup launch (coldstart-tray.exe, --tray) stays there. */
+    @FXML public CheckBox startupToggle, trayToggle;
+    @FXML public Label startupHint;
+    private static final String TRAY_KEY = "closeToTray";
+    /** packaging/AppxManifest.xml's desktop:StartupTask TaskId. */
+    static final String STARTUP_TASK = "coldstartStartup";
+    static final List<String> STARTUP_STATES =
+            List.of("Disabled", "DisabledByUser", "Enabled", "DisabledByPolicy", "EnabledByPolicy");
     @FXML public Label deleteSub, deleteBody, deletePath;
     @FXML public Button btnDeleteOk, btnDeleteCancel, btnSettingsBack;
     @FXML public HBox btnResume, statusBox;
@@ -304,6 +314,12 @@ public class HelloController {
         motionToggle.setSelected(!Motion.REDUCED);
         // everything simply plays, or not, next time
         motionToggle.selectedProperty().addListener((o, was, on) -> Motion.setEnabled(on));
+        trayToggle.setSelected(PREFS.getBoolean(TRAY_KEY, true));
+        trayToggle.selectedProperty().addListener((o, was, on) -> {
+            PREFS.putBoolean(TRAY_KEY, on);
+            HelloApplication.tray(on);
+        });
+        installStartup();
         installGlyphs();
         // the scene arrives after initialize(); accelerators and Escape hang off it once
         detailPane.sceneProperty().addListener((o, was, scene) -> {
@@ -656,7 +672,9 @@ public class HelloController {
         graphic(btnNewProjectEmpty, Icons.NEW, TX);
         graphic(btnNpBrowse, Icons.BROWSE, TX2);
         graphic(btnNpCreate, Icons.BOOKMARK_PLUS, TX);
-        for (CheckBox cb : List.of(pinToggle, motionToggle, sidebarToggle, npCapture)) iconCheck(cb);
+        for (CheckBox cb : List.of(pinToggle, motionToggle, sidebarToggle, startupToggle, trayToggle, npCapture)) {
+            iconCheck(cb);
+        }
 
         Pane play = Icons.node(Icons.RESUME, 30, GOI, 2.4);
         resumeGlyphBox.getChildren().add(play);
@@ -2710,7 +2728,97 @@ public class HelloController {
     /** Owed tabs landed or ran out: the tab groups say where they stand, and a held quit goes. */
     private void owedSettled() {
         if (activeProject != null && isHud()) renderDetail(activeProject);
-        if (exitWaiting && owedBrowsers().isEmpty()) ((Stage) btnCheckpoint.getScene().getWindow()).close();
+        if (exitWaiting && owedBrowsers().isEmpty()) Platform.exit();
+    }
+
+    /** Close to the tray (Settings > Startup): on unless unticked, and only where Windows has a tray. */
+    static boolean trayOn() {
+        return PREFS.getBoolean(TRAY_KEY, true) && SystemTray.isSupported();
+    }
+
+    /** A real quit - the tray's Quit, or the X with the tray off. A held quit needs its scrim seen. */
+    public void quit() {
+        if (holdExit()) bringForward(); else Platform.exit();
+    }
+
+    /** Shows the window from the tray, or from behind other windows for a second launch. */
+    public void bringForward() {
+        Stage st = (Stage) btnCheckpoint.getScene().getWindow();
+        st.show();
+        st.setIconified(false);
+        st.toFront();
+        // Windows only lets the foreground process raise a window; a moment on top gets past it
+        st.setAlwaysOnTop(true);
+        st.setAlwaysOnTop(false);
+        st.requestFocus();
+    }
+
+    /** The startup box waits on Windows: it reads the task once at launch and after each click. */
+    private void installStartup() {
+        startupHint.managedProperty().bind(startupHint.visibleProperty());
+        startupToggle.setDisable(true);
+        CompletableFuture.runAsync(() -> {
+            String state = startupTask(null);
+            Platform.runLater(() -> showStartup(state));
+        });
+        // an action, not a selected listener: showStartup sets the box too
+        startupToggle.setOnAction(e -> {
+            boolean on = startupToggle.isSelected();
+            startupToggle.setDisable(true);
+            CompletableFuture.runAsync(() -> {
+                String state = startupTask(on);
+                Platform.runLater(() -> showStartup(state));
+            });
+        });
+    }
+
+    /** The box shows what Windows did, which is not always what was clicked. */
+    private void showStartup(String state) {
+        startupToggle.setSelected(state.startsWith("Enabled"));
+        startupToggle.setDisable(state.isEmpty() || state.endsWith("ByPolicy"));
+        startupHint.setText(startupHint(state));
+        startupHint.setVisible(!startupHint.getText().isEmpty());
+    }
+
+    static String startupHint(String state) {
+        return switch (state) {
+            case "" -> "Only in the installed app";
+            // RequestEnableAsync can't undo the user's own off; only Windows can
+            case "DisabledByUser" -> "Turned off in Windows: Settings > Apps > Startup";
+            case "DisabledByPolicy", "EnabledByPolicy" -> "Set by your organisation";
+            default -> "";
+        };
+    }
+
+    /** Asks Windows for coldstart's StartupTask - null reads it, true/false enables/disables it -
+        and returns its StartupTaskState, or "" outside the package (a dev run has no identity to
+        ask with). PowerShell can ask because a packaged app's child processes share its package. */
+    static String startupTask(Boolean on) {
+        String state = "[Windows.ApplicationModel.StartupTaskState,Windows.ApplicationModel,ContentType=WindowsRuntime]";
+        String script = "$ErrorActionPreference='Stop'; Add-Type -AssemblyName System.Runtime.WindowsRuntime; "
+                + "$as=[System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' "
+                + "-and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' } "
+                + "| Select-Object -First 1; "
+                + "function Await($op, $t) { $k = $as.MakeGenericMethod($t).Invoke($null, @($op)); $k.Wait(); $k.Result }; "
+                + "$st=[Windows.ApplicationModel.StartupTask,Windows.ApplicationModel,ContentType=WindowsRuntime]; "
+                + "$task = Await ($st::GetAsync('" + STARTUP_TASK + "')) $st; "
+                + (on == null ? "" : on ? "[void](Await ($task.RequestEnableAsync()) " + state + "); " : "$task.Disable(); ")
+                + "$task.State.ToString()";
+        try {
+            Process p = new ProcessBuilder("powershell.exe", "-NoProfile", "-EncodedCommand",
+                    Base64.getEncoder().encodeToString(script.getBytes(StandardCharsets.UTF_16LE)))
+                    .redirectError(ProcessBuilder.Redirect.DISCARD).start();
+            return startupState(new String(p.getInputStream().readAllBytes()));
+        } catch (IOException ex) {
+            return "";
+        }
+    }
+
+    /** The state PowerShell printed last, or "" for anything else (an error, no package). */
+    static String startupState(String out) {
+        String all = out.strip();
+        String last = all.substring(all.lastIndexOf('\n') + 1).strip();
+        return STARTUP_STATES.contains(last) ? last : "";
     }
 
     /** The window's close: a browser still owing a checkpoint its tabs holds it on a scrim that
@@ -2722,7 +2830,7 @@ public class HelloController {
         confirm("Waiting for tabs", String.join(" · ", owed),
                 "Its extension is waking up and sends this checkpoint its tabs in under a minute; "
                         + "this window closes once they land. Quit now and it keeps the tabs from the checkpoint before.",
-                "Quit anyway", () -> ((Stage) btnCheckpoint.getScene().getWindow()).close());
+                "Quit anyway", Platform::exit);
         exitWaiting = true;   // after confirm: its showOverlay clears it
         return true;
     }
@@ -4929,15 +5037,7 @@ public class HelloController {
         // a second launch (HelloApplication.focusRunning) asks this one forward instead of failing
         // on the taken port; POST, so a web page's request carries an Origin and the gate stops it
         app.post("/focus", ctx -> {
-            Platform.runLater(() -> {
-                Stage st = (Stage) btnCheckpoint.getScene().getWindow();
-                st.setIconified(false);
-                st.toFront();
-                // Windows only lets the foreground process raise a window; a moment on top gets past it
-                st.setAlwaysOnTop(true);
-                st.setAlwaysOnTop(false);
-                st.requestFocus();
-            });
+            Platform.runLater(this::bringForward);
             ctx.result("coldstart");
         });
         app.post("/tabs", ctx -> {

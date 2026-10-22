@@ -441,6 +441,15 @@
                 </Label>
                 <CheckBox fx:id="sidebarToggle" selected="true" text="Show project names in the sidebar"/>
               </VBox>
+              <VBox spacing="12.0">
+                <VBox.margin><Insets top="24.0"/></VBox.margin>
+                <Label styleClass="rail-label" text="STARTUP">
+                  <VBox.margin><Insets bottom="4.0"/></VBox.margin>
+                </Label>
+                <CheckBox fx:id="startupToggle" text="Start coldstart with Windows"/>
+                <Label fx:id="startupHint" styleClass="cat-foot" visible="false"/>
+                <CheckBox fx:id="trayToggle" selected="true" text="Close to the tray, and open there when Windows starts"/>
+              </VBox>
             </VBox>
 
             <!-- three stat rows from real state, re-rendered on socket events. Storage is the one that acts. -->
