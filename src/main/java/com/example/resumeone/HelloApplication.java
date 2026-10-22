@@ -124,10 +124,14 @@ public class HelloApplication extends Application {
         if (!getParameters().getRaw().contains("--tray") || trayIcon == null) stage.show();
     }
 
-    /** The tray icon keeps AWT's thread, and so the JVM, alive; it goes with the app. */
+    /** Every quit ends here (Platform.exit), and so must the process: Javalin's Jetty threads
+        are not daemons, so the JVM outlived the window, kept :8765, and the next launch's
+        /focus went to a copy with no window to show. The tray icon held AWT alive the same way.
+        projects.json is only ever swapped in whole, so no write is cut in half. */
     @Override
     public void stop() {
         tray(false);
+        System.exit(0);
     }
 
     private static HelloController controller;
