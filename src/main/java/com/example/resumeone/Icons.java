@@ -55,6 +55,14 @@ final class Icons {
         OFFICE = g("M14.6 2 H6.4 A2.4 2.4 0 0 0 4 4.4 V19.6 A2.4 2.4 0 0 0 6.4 22 H17.6 A2.4 2.4 0 0 0 20 19.6 V7.4 Z "
              + "M14.6 2 V7.4 H20 M8 13 H16 M8 17 H13"),
         MUSIC = g(circ(7.4, 18.6, 3.4) + " M10.8 18.6 V2 M10.8 2 L20 4.8 V9.2 L10.8 6.4 Z"),
+        // not on the slide: lucide's box / flask-conical / circle-dollar-sign / gamepad /
+        // calendar-check, redrawn in absolute commands for the categories beyond development
+        CAD = g("M12 2 L21 7 V17 L12 22 L3 17 V7 Z M3 7 L12 12 L21 7 M12 12 V22"),
+        RESEARCH = g("M9 2 H15 M10 2 V9.5 L4.6 19.4 A1.8 1.8 0 0 0 6.2 22 H17.8 A1.8 1.8 0 0 0 19.4 19.4 L14 9.5 V2 M7 16 H17"),
+        FINANCE = g(circ(12, 12, 10.4) + " M15.6 8.4 H10.6 A2 2 0 0 0 10.6 12.4 H13.4 A2 2 0 0 1 13.4 16.4 H8.4 "
+             + "M12 5.6 V8.4 M12 16.4 V18.4"),
+        GAMES = g(rr(2, 6, 20, 12, 6) + " M6.4 12 H10.4 M8.4 10 V14 M15 11 H15.01 M17.6 13.4 H17.61"),
+        PLANNING = g(rr(3, 4, 18, 18, 2.4) + " M8 2 V6 M16 2 V6 M3 10 H21 M8.6 15.6 L11 18 L15.6 13.4"),
         OTHER = g("M2 18.6 V5.4 A1.4 1.4 0 0 1 3.4 4 H8.8 L11.4 7 H20.6 A1.4 1.4 0 0 1 22 8.4 V18.6 A1.4 1.4 0 0 1 20.6 20 H3.4 A1.4 1.4 0 0 1 2 18.6 Z");
 
     // ── actions (hover / press animated) ─────────────────────────────────────
@@ -105,7 +113,9 @@ final class Icons {
             Map.entry("Browser", BROWSER), Map.entry("VersionControl", VERSION), Map.entry("Database", DATABASE),
             Map.entry("API", API), Map.entry("Containers", CONTAINERS), Map.entry("Design", DESIGN),
             Map.entry("Video", VIDEO), Map.entry("Office", OFFICE), Map.entry("Communication", COMMS),
-            Map.entry("Notes", NOTES), Map.entry("Music", MUSIC),
+            Map.entry("Notes", NOTES), Map.entry("Music", MUSIC), Map.entry("CAD", CAD),
+            Map.entry("Research", RESEARCH), Map.entry("Finance", FINANCE), Map.entry("Games", GAMES),
+            Map.entry("Planning", PLANNING),
             // Explorer's folder windows: the slide's folder, otherwise unused
             Map.entry("Files", OTHER),
             // apps the user moved out of Other: the same app-window Other is drawn with

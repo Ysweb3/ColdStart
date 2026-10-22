@@ -30,9 +30,9 @@ class IconsTest {
     @Test
     void everyGlyphParsesAndStaysInTheBox() throws Exception {
         List<Icons.Glyph> all = glyphs();
-        // 15 categories + 15 actions + check / chevron / app-window + bookmark-plus + power /
+        // 20 categories + 15 actions + check / chevron / app-window + bookmark-plus + power /
         // circle-alert + the checkpoint block's bookmark + onboarding's external-link
-        assertEquals(38, all.size());
+        assertEquals(43, all.size());
         for (Icons.Glyph g : all) {
             for (Icons.Part p : g.parts()) {
                 String d = p.d().trim();
@@ -45,7 +45,9 @@ class IconsTest {
                 if (p.anim() != null) assertTrue(ANIMS.contains(p.anim()), "unknown anim " + p.anim());
             }
         }
-        assertEquals(16, Icons.CATEGORY.size());
+        assertEquals(21, Icons.CATEGORY.size());
+        // every category the card lists has its own glyph, not the app-window fallback
+        assertTrue(Icons.CATEGORY.keySet().containsAll(List.of("CAD", "Research", "Finance", "Games", "Planning")));
     }
 
     @Test
