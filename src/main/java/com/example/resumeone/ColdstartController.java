@@ -236,7 +236,6 @@ public class ColdstartController {
     @FXML public HBox ckProgressRow;
     @FXML public StackPane ckProgress;
     @FXML public Region ckProgressFill, ckProgressTip;
-    @FXML public Label ckProgressPct;
     private final DoubleProperty ckFrac = new SimpleDoubleProperty();
     private final ColorAdjust ckGlow = new ColorAdjust();
     private Timeline ckProgressRun, ckTipPulse;
@@ -409,10 +408,11 @@ public class ColdstartController {
         restoredFill.prefWidthProperty().bind(restoredMeter.widthProperty().multiply(restoredFrac));
         restoredFailFill.prefWidthProperty().bind(restoredMeter.widthProperty().multiply(restoredFailFrac));
         countdownFill.prefWidthProperty().bind(countdownTrack.widthProperty().multiply(countdownFrac));
-        ckProgressFill.prefWidthProperty().bind(ckProgress.widthProperty().multiply(ckFrac));
+        // scaleX pivots on the middle, so the fill shifts left by the half it lost to stay pinned
+        ckProgressFill.scaleXProperty().bind(ckFrac);
+        ckProgressFill.translateXProperty().bind(ckProgress.widthProperty().multiply(ckFrac.subtract(1)).divide(2));
         ckProgressFill.setEffect(ckGlow);
-        ckProgressTip.translateXProperty().bind(ckProgressFill.widthProperty().subtract(2));
-        ckFrac.addListener((o, was, now) -> ckProgressPct.setText(Math.round(now.doubleValue() * 100) + "%"));
+        ckProgressTip.translateXProperty().bind(ckProgress.widthProperty().multiply(ckFrac).subtract(2));
         ckSparks.setMouseTransparent(true);
         btnCheckpoint.getChildren().add(btnCheckpoint.getChildren().indexOf(btnCheckpointMenu), ckSparks);
         // the action on top in bold, the path under it in the card's own path style
@@ -3023,11 +3023,9 @@ public class ColdstartController {
         Motion.run(btnCheckpoint, t);
     }
 
-    /** While a checkpoint captures, a bar and its percentage in the sub-line's place. The capture
-        gives no progress to show, so the bar makes it up: bursts with short holds between them,
-        like real work arriving, then a long creep, and it never fills on its own - only the save
-        landing runs it out (finishProgress). Its leading edge pulses while it climbs. Motion off
-        keeps the words. */
+    /** While a checkpoint captures, a bar in the sub-line's place. The capture gives no progress
+        to show, so the bar makes it up, and it never fills on its own - only the save landing runs
+        it out (finishProgress). Its leading edge pulses while it climbs. Motion off keeps the words. */
     private void showProgress(boolean on) {
         on &= !Motion.REDUCED;
         if (ckProgressRow == null || ckFinishing || on == ckProgressRow.isVisible()) return;
@@ -3039,27 +3037,21 @@ public class ColdstartController {
         ckFrac.set(0);
         ckGlow.setBrightness(0);
         ckProgress.setScaleY(1);
-        // ponytail: timed, not measured; a capture past ~8s sits at 93% until it lands
-        ckProgressRun = new Timeline(
-                new KeyFrame(Duration.millis(160), kv(ckFrac, .16, Motion.OUT)),
-                new KeyFrame(Duration.millis(300), kv(ckFrac, .16)),
-                new KeyFrame(Duration.millis(520), kv(ckFrac, .38, Motion.OUT)),
-                new KeyFrame(Duration.millis(760), kv(ckFrac, .38)),
-                new KeyFrame(Duration.millis(980), kv(ckFrac, .55, Motion.OUT)),
-                new KeyFrame(Duration.millis(1300), kv(ckFrac, .55)),
-                new KeyFrame(Duration.millis(1560), kv(ckFrac, .71, Motion.OUT)),
-                new KeyFrame(Duration.millis(8000), kv(ckFrac, .93, Motion.OUT)));
+        // one unbroken ease-out: quick off the mark, then ever slower, never a stop or a jolt
+        // (~55% at 0.6s, ~80% at 2s). ponytail: timed, not measured; a capture past ~8s sits
+        // at 93% until it lands
+        ckProgressRun = new Timeline(new KeyFrame(Duration.millis(8000), kv(ckFrac, .93, Motion.OUT)));
         ckProgressRun.play();
         ckTipPulse = new Timeline(
                 new KeyFrame(Duration.ZERO, kv(ckProgressTip.opacityProperty(), 1)),
-                new KeyFrame(Duration.millis(420), kv(ckProgressTip.opacityProperty(), .15, Motion.IN_OUT)));
+                new KeyFrame(Duration.millis(700), kv(ckProgressTip.opacityProperty(), .25, Motion.IN_OUT)));
         ckTipPulse.setAutoReverse(true);
         ckTipPulse.setCycleCount(Animation.INDEFINITE);
         ckTipPulse.play();
     }
 
-    /** The save landed, and it should feel like it: the bar rushes to 100%, flashes near-white and
-        jumps to twice its height, sparks fly off its end and the whole block springs. Then `then`
+    /** The save landed, and it should feel like it: the bar glides to full, flashes near-white and
+        swells, sparks fly off its end and the whole block breathes out and back. Then `then`
         (the Saved swap) lifts it away with the rest of the idle line. False when no bar is up. */
     private boolean finishProgress(Runnable then) {
         if (ckProgressRow == null || !ckProgressRow.isVisible()) return false;
@@ -3069,18 +3061,20 @@ public class ColdstartController {
         ckProgressTip.setOpacity(0);   // full: no leading edge left to show
         DoubleProperty glow = ckGlow.brightnessProperty(), thick = ckProgress.scaleYProperty(),
                 bx = btnCheckpoint.scaleXProperty(), by = btnCheckpoint.scaleYProperty();
+        // every move eases in and out of its own, overlapping the next: a glide, no overshoot
         ckProgressRun = new Timeline(
-                new KeyFrame(Duration.millis(200), kv(ckFrac, 1, Motion.OUT), kv(glow, .2)),
-                new KeyFrame(Duration.millis(200), e -> sparks()),
-                new KeyFrame(Duration.millis(200), kv(bx, 1), kv(by, 1), kv(thick, 1)),
-                new KeyFrame(Duration.millis(300), kv(glow, .9, Motion.OUT), kv(thick, 2, Motion.OUT),
-                        kv(bx, 1.035, Motion.OUT), kv(by, 1.035, Motion.OUT)),
-                new KeyFrame(Duration.millis(520), e -> {
+                new KeyFrame(Duration.millis(260), kv(glow, 0)),
+                new KeyFrame(Duration.millis(380), kv(ckFrac, 1, Motion.GLIDE), kv(thick, 1), kv(bx, 1), kv(by, 1)),
+                new KeyFrame(Duration.millis(380), e -> sparks()),
+                new KeyFrame(Duration.millis(440), kv(glow, .85, Motion.OUT)),
+                new KeyFrame(Duration.millis(500), kv(thick, 1.8, Motion.OUT)),
+                new KeyFrame(Duration.millis(540), kv(bx, 1.025, Motion.OUT), kv(by, 1.025, Motion.OUT)),
+                new KeyFrame(Duration.millis(660), e -> {
                     ckFinishing = false;
                     then.run();
                 }),
-                new KeyFrame(Duration.millis(680), kv(glow, 0, Motion.STANDARD), kv(thick, 1, Motion.SNAP),
-                        kv(bx, 1, Motion.SNAP), kv(by, 1, Motion.SNAP)));
+                new KeyFrame(Duration.millis(960), kv(glow, 0, Motion.STANDARD), kv(thick, 1, Motion.IN_OUT)),
+                new KeyFrame(Duration.millis(1020), kv(bx, 1, Motion.IN_OUT), kv(by, 1, Motion.IN_OUT)));
         ckProgressRun.play();
         return true;
     }
