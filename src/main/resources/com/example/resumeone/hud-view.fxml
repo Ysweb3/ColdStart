@@ -153,13 +153,19 @@
                      the label keeps its room, so the word above never moves -->
                 <StackPane alignment="CENTER_LEFT">
                   <Label fx:id="checkpointSub" styleClass="checkpoint-sub" text=""/>
-                  <StackPane fx:id="ckProgress" styleClass="meter-track" alignment="CENTER_LEFT" visible="false"
-                             accessibleText="Checkpointing"
-                             minWidth="132.0" prefWidth="132.0" maxWidth="132.0"
-                             minHeight="4.0" prefHeight="4.0" maxHeight="4.0">
-                    <Region fx:id="ckProgressFill" styleClass="ck-progress-fill" minWidth="0.0" maxWidth="-Infinity"
-                            minHeight="4.0" prefHeight="4.0" maxHeight="4.0"/>
-                  </StackPane>
+                  <HBox fx:id="ckProgressRow" alignment="CENTER_LEFT" spacing="8.0" visible="false"
+                        accessibleText="Checkpointing">
+                    <StackPane fx:id="ckProgress" styleClass="meter-track" alignment="CENTER_LEFT"
+                               minWidth="92.0" prefWidth="92.0" maxWidth="92.0"
+                               minHeight="4.0" prefHeight="4.0" maxHeight="4.0">
+                      <Region fx:id="ckProgressFill" styleClass="ck-progress-fill" minWidth="0.0" maxWidth="-Infinity"
+                              minHeight="4.0" prefHeight="4.0" maxHeight="4.0"/>
+                      <!-- the fill's leading edge, pulsing while it climbs -->
+                      <Region fx:id="ckProgressTip" styleClass="ck-progress-tip" minWidth="2.0" prefWidth="2.0" maxWidth="2.0"
+                              minHeight="4.0" prefHeight="4.0" maxHeight="4.0"/>
+                    </StackPane>
+                    <Label fx:id="ckProgressPct" styleClass="checkpoint-sub" text="0%" minWidth="-Infinity"/>
+                  </HBox>
                 </StackPane>
               </VBox>
             </HBox>

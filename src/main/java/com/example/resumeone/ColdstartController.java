@@ -23,7 +23,9 @@ import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
+import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
+import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
 import javafx.scene.control.ContextMenu;
@@ -50,6 +52,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.css.PseudoClass;
 import javafx.animation.Animation;
+import javafx.animation.AnimationTimer;
 import javafx.animation.Interpolator;
 import javafx.animation.PauseTransition;
 import javafx.scene.transform.Rotate;
@@ -79,6 +82,7 @@ import java.util.List; // explicit: java.awt.* also exports List
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -229,11 +233,15 @@ public class ColdstartController {
     @FXML public HBox ckIdle, ckDone;
     @FXML public Region ckRing, ckBar;
     // the capture's bar in the sub-line's place: made-up progress, run out to full when the save lands
+    @FXML public HBox ckProgressRow;
     @FXML public StackPane ckProgress;
-    @FXML public Region ckProgressFill;
+    @FXML public Region ckProgressFill, ckProgressTip;
+    @FXML public Label ckProgressPct;
     private final DoubleProperty ckFrac = new SimpleDoubleProperty();
     private final ColorAdjust ckGlow = new ColorAdjust();
-    private Timeline ckProgressRun;
+    private Timeline ckProgressRun, ckTipPulse;
+    /** over the block, under the chevron: where the landing's sparks fly (sparks) */
+    private final Pane ckSparks = new Pane();
     /** The bar is running out to full: renderCkPanel leaves it up until Saved takes over. */
     private boolean ckFinishing;
     @FXML public StackPane btnDelete;
@@ -403,6 +411,10 @@ public class ColdstartController {
         countdownFill.prefWidthProperty().bind(countdownTrack.widthProperty().multiply(countdownFrac));
         ckProgressFill.prefWidthProperty().bind(ckProgress.widthProperty().multiply(ckFrac));
         ckProgressFill.setEffect(ckGlow);
+        ckProgressTip.translateXProperty().bind(ckProgressFill.widthProperty().subtract(2));
+        ckFrac.addListener((o, was, now) -> ckProgressPct.setText(Math.round(now.doubleValue() * 100) + "%"));
+        ckSparks.setMouseTransparent(true);
+        btnCheckpoint.getChildren().add(btnCheckpoint.getChildren().indexOf(btnCheckpointMenu), ckSparks);
         // the action on top in bold, the path under it in the card's own path style
         Label editLine = new Label("Click to edit");
         editLine.getStyleClass().add("tip-action");
@@ -3011,42 +3023,107 @@ public class ColdstartController {
         Motion.run(btnCheckpoint, t);
     }
 
-    /** While a checkpoint captures, a bar in the sub-line's place. The capture gives no progress
-        to show, so the bar makes it up: a quick start, a long slow-down, and it never fills on its
-        own - only the save landing runs it out (finishProgress). Motion off keeps the words. */
+    /** While a checkpoint captures, a bar and its percentage in the sub-line's place. The capture
+        gives no progress to show, so the bar makes it up: bursts with short holds between them,
+        like real work arriving, then a long creep, and it never fills on its own - only the save
+        landing runs it out (finishProgress). Its leading edge pulses while it climbs. Motion off
+        keeps the words. */
     private void showProgress(boolean on) {
         on &= !Motion.REDUCED;
-        if (ckProgress == null || ckFinishing || on == ckProgress.isVisible()) return;
+        if (ckProgressRow == null || ckFinishing || on == ckProgressRow.isVisible()) return;
         if (ckProgressRun != null) ckProgressRun.stop();
-        ckProgress.setVisible(on);
+        if (ckTipPulse != null) ckTipPulse.stop();
+        ckProgressRow.setVisible(on);
         checkpointSub.setVisible(!on);
         if (!on) return;
         ckFrac.set(0);
         ckGlow.setBrightness(0);
-        // ponytail: timed, not measured; a capture past ~8s sits at 94% until it lands
+        ckProgress.setScaleY(1);
+        // ponytail: timed, not measured; a capture past ~8s sits at 93% until it lands
         ckProgressRun = new Timeline(
-                new KeyFrame(Duration.millis(240), new KeyValue(ckFrac, .24, Motion.OUT)),
-                new KeyFrame(Duration.millis(1800), new KeyValue(ckFrac, .7, Motion.STANDARD)),
-                new KeyFrame(Duration.millis(8000), new KeyValue(ckFrac, .94, Motion.OUT)));
+                new KeyFrame(Duration.millis(160), kv(ckFrac, .16, Motion.OUT)),
+                new KeyFrame(Duration.millis(300), kv(ckFrac, .16)),
+                new KeyFrame(Duration.millis(520), kv(ckFrac, .38, Motion.OUT)),
+                new KeyFrame(Duration.millis(760), kv(ckFrac, .38)),
+                new KeyFrame(Duration.millis(980), kv(ckFrac, .55, Motion.OUT)),
+                new KeyFrame(Duration.millis(1300), kv(ckFrac, .55)),
+                new KeyFrame(Duration.millis(1560), kv(ckFrac, .71, Motion.OUT)),
+                new KeyFrame(Duration.millis(8000), kv(ckFrac, .93, Motion.OUT)));
         ckProgressRun.play();
+        ckTipPulse = new Timeline(
+                new KeyFrame(Duration.ZERO, kv(ckProgressTip.opacityProperty(), 1)),
+                new KeyFrame(Duration.millis(420), kv(ckProgressTip.opacityProperty(), .15, Motion.IN_OUT)));
+        ckTipPulse.setAutoReverse(true);
+        ckTipPulse.setCycleCount(Animation.INDEFINITE);
+        ckTipPulse.play();
     }
 
-    /** The save landed: the bar runs out to full and brightens, then `then` (the Saved swap) lifts
-        it away with the rest of the idle line. False when no bar is up to finish. */
+    /** The save landed, and it should feel like it: the bar rushes to 100%, flashes near-white and
+        jumps to twice its height, sparks fly off its end and the whole block springs. Then `then`
+        (the Saved swap) lifts it away with the rest of the idle line. False when no bar is up. */
     private boolean finishProgress(Runnable then) {
-        if (ckProgress == null || !ckProgress.isVisible()) return false;
+        if (ckProgressRow == null || !ckProgressRow.isVisible()) return false;
         ckFinishing = true;
         if (ckProgressRun != null) ckProgressRun.stop();
-        DoubleProperty glow = ckGlow.brightnessProperty();
+        ckTipPulse.stop();
+        ckProgressTip.setOpacity(0);   // full: no leading edge left to show
+        DoubleProperty glow = ckGlow.brightnessProperty(), thick = ckProgress.scaleYProperty(),
+                bx = btnCheckpoint.scaleXProperty(), by = btnCheckpoint.scaleYProperty();
         ckProgressRun = new Timeline(
-                new KeyFrame(Duration.millis(260), new KeyValue(ckFrac, 1, Motion.OUT), new KeyValue(glow, .45, Motion.OUT)),
-                new KeyFrame(Duration.millis(400), e -> {
+                new KeyFrame(Duration.millis(200), kv(ckFrac, 1, Motion.OUT), kv(glow, .2)),
+                new KeyFrame(Duration.millis(200), e -> sparks()),
+                new KeyFrame(Duration.millis(200), kv(bx, 1), kv(by, 1), kv(thick, 1)),
+                new KeyFrame(Duration.millis(300), kv(glow, .9, Motion.OUT), kv(thick, 2, Motion.OUT),
+                        kv(bx, 1.035, Motion.OUT), kv(by, 1.035, Motion.OUT)),
+                new KeyFrame(Duration.millis(520), e -> {
                     ckFinishing = false;
                     then.run();
                 }),
-                new KeyFrame(Duration.millis(560), new KeyValue(glow, 0, Motion.STANDARD)));
+                new KeyFrame(Duration.millis(680), kv(glow, 0, Motion.STANDARD), kv(thick, 1, Motion.SNAP),
+                        kv(bx, 1, Motion.SNAP), kv(by, 1, Motion.SNAP)));
         ckProgressRun.play();
         return true;
+    }
+
+    /** Squares thrown off the full bar's end, falling and fading inside the block (its clip keeps
+        them there). Squares, not dots: the HUD has no round marks but the ring. */
+    private void sparks() {
+        Bounds bar = ckProgress.localToScene(ckProgress.getBoundsInLocal());
+        Point2D from = ckSparks.sceneToLocal(bar.getMaxX(), bar.getCenterY());
+        ThreadLocalRandom rnd = ThreadLocalRandom.current();
+        List<Region> bits = new ArrayList<>();
+        List<double[]> motion = new ArrayList<>();   // x, y, vx, vy
+        for (int i = 0; i < 16; i++) {
+            double angle = Math.toRadians(rnd.nextDouble(-165, 30)), speed = rnd.nextDouble(80, 260);
+            double size = rnd.nextInt(2, 5);
+            Region bit = new Region();
+            bit.getStyleClass().add(i % 3 == 0 ? "ck-spark-bone" : "ck-spark");
+            bit.setPrefSize(size, size);
+            bit.relocate(from.getX(), from.getY());
+            bits.add(bit);
+            motion.add(new double[]{from.getX(), from.getY(), Math.cos(angle) * speed, Math.sin(angle) * speed});
+        }
+        ckSparks.getChildren().addAll(bits);
+        new AnimationTimer() {
+            long start = -1, last;
+            @Override public void handle(long now) {
+                if (start < 0) start = last = now;
+                double dt = (now - last) / 1e9, age = (now - start) / 1e9;
+                last = now;
+                for (int i = 0; i < bits.size(); i++) {
+                    double[] m = motion.get(i);
+                    m[3] += 620 * dt;   // gravity, px/s²
+                    m[0] += m[2] * dt;
+                    m[1] += m[3] * dt;
+                    bits.get(i).relocate(m[0], m[1]);
+                    bits.get(i).setOpacity(Math.max(0, 1 - age / .8));
+                }
+                if (age > .8) {
+                    stop();
+                    ckSparks.getChildren().removeAll(bits);
+                }
+            }
+        }.start();
     }
 
     private static KeyValue kv(DoubleProperty p, double v) { return new KeyValue(p, v); }

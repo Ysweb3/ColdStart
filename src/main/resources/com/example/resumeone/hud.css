@@ -308,6 +308,9 @@
 .ck-bar  { -fx-background-color: -rw-ck; }
 /* the capture's bar in the sub-line's place: the resume meter's track, filled in checkpoint blue */
 .ck-progress-fill { -fx-background-color: -rw-ckt; -fx-background-radius: 0; }
+/* its leading edge, and the squares thrown off when the save lands: blue and bone, never round */
+.ck-progress-tip, .ck-spark-bone { -fx-background-color: -rw-tx; }
+.ck-spark { -fx-background-color: -rw-ckt; }
 /* split segment: the block's right 52px. Same notch as the block (its last 14px are the cut),
    so the hover fill never pokes outside the shape; the divider is its own 1px region. */
 .ck-divider { -fx-background-color: -rw-ln; }
