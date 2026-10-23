@@ -21,12 +21,12 @@ class ProfileIdTest {
         Files.write(a.resolve("000003.log"), ("\u0001\u0002rwProfileId\"" + yash + "\"\u0000").getBytes(StandardCharsets.ISO_8859_1));
         Files.write(b.resolve("000005.ldb"), ("xx\"" + ys + "\"yy").getBytes(StandardCharsets.ISO_8859_1));
 
-        assertEquals("Default", HelloController.pidDir(userData.toFile(), yash));
-        assertEquals("Profile 1", HelloController.pidDir(userData.toFile(), ys));
-        assertNull(HelloController.pidDir(userData.toFile(), "00000000-0000-4000-8000-000000000000"));
+        assertEquals("Default", Browsers.pidDir(userData.toFile(), yash));
+        assertEquals("Profile 1", Browsers.pidDir(userData.toFile(), ys));
+        assertNull(Browsers.pidDir(userData.toFile(), "00000000-0000-4000-8000-000000000000"));
         // only an id goes into the search, never anything else a socket url carries
-        assertNull(HelloController.pidDir(userData.toFile(), "..\\..\\x"));
-        assertNull(HelloController.pidDir(userData.toFile(), null));
+        assertNull(Browsers.pidDir(userData.toFile(), "..\\..\\x"));
+        assertNull(Browsers.pidDir(userData.toFile(), null));
     }
 
     @Test
@@ -36,16 +36,16 @@ class ProfileIdTest {
                 {"profile":{"info_cache":{
                   "Default":{"name":"Yash","user_name":""},
                   "Profile 1":{"name":"ys","user_name":"me@x.com"}}}}""");
-        assertEquals("Profile 1", HelloController.profileDir(localState.toFile(), "me@x.com"));
-        assertEquals("Default", HelloController.profileDir(localState.toFile(), "Yash"));
-        assertEquals("Default", HelloController.profileDir(localState.toFile(), "Default"));
-        assertEquals("ys", HelloController.profileName(localState.toFile(), "Profile 1"));
+        assertEquals("Profile 1", Browsers.profileDir(localState.toFile(), "me@x.com"));
+        assertEquals("Default", Browsers.profileDir(localState.toFile(), "Yash"));
+        assertEquals("Default", Browsers.profileDir(localState.toFile(), "Default"));
+        assertEquals("ys", Browsers.profileName(localState.toFile(), "Profile 1"));
     }
 
     @Test
     void indexOfFindsBytesAnywhere() {
         byte[] hay = "abcabd".getBytes(StandardCharsets.US_ASCII);
-        assertEquals(3, HelloController.indexOf(hay, "abd".getBytes(StandardCharsets.US_ASCII)));
-        assertEquals(-1, HelloController.indexOf(hay, "abe".getBytes(StandardCharsets.US_ASCII)));
+        assertEquals(3, Browsers.indexOf(hay, "abd".getBytes(StandardCharsets.US_ASCII)));
+        assertEquals(-1, Browsers.indexOf(hay, "abe".getBytes(StandardCharsets.US_ASCII)));
     }
 }

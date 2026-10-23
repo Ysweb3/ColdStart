@@ -20,74 +20,74 @@ class HandoffCopyTest {
     @Test
     void checkpointSubLineSaysWhenTheLastOneWasTaken() {
         assertEquals("2h ago",
-                HelloController.checkpointLine(Instant.now().minusSeconds(2 * 3600 + 60).toString()));
-        assertEquals("just now", HelloController.checkpointLine(Instant.now().toString()));
-        assertEquals("no checkpoint yet", HelloController.checkpointLine(null));
+                ColdstartController.checkpointLine(Instant.now().minusSeconds(2 * 3600 + 60).toString()));
+        assertEquals("just now", ColdstartController.checkpointLine(Instant.now().toString()));
+        assertEquals("no checkpoint yet", ColdstartController.checkpointLine(null));
     }
 
     @Test
     void aFailedLaunchSaysWhyInTheSystemsWords() {
-        HelloController.LaunchStep step = new HelloController.LaunchStep("chrome.exe", "start chrome", false, () -> { });
-        assertEquals("failed to launch", HelloController.failure(step));
+        ResumePlanner.LaunchStep step = new ResumePlanner.LaunchStep("chrome.exe", "start chrome", false, () -> { });
+        assertEquals("failed to launch", ColdstartController.failure(step));
         step.error = "Cannot run program \"C:\\x\\chrome.exe\": CreateProcess error=2, The system cannot find the file specified";
-        assertEquals("The system cannot find the file specified", HelloController.failure(step));
+        assertEquals("The system cannot find the file specified", ColdstartController.failure(step));
         step.error = "access denied";
-        assertEquals("access denied", HelloController.failure(step));
+        assertEquals("access denied", ColdstartController.failure(step));
     }
 
     @Test
     void appsWearTheirOwnNamesNotTheirExes() {
-        assertEquals("IntelliJ IDEA", HelloController.appName("idea64.exe"));
-        assertEquals("Windows Terminal", HelloController.appName("WindowsTerminal.exe"));
-        assertEquals("VS Code", HelloController.appName("Code.exe"));
-        assertEquals("PyCharm", HelloController.appName("pycharm64.exe"));
-        assertEquals("Obsidian", HelloController.appName("obsidian.exe"));
-        assertEquals("Claude", HelloController.appName("claude.exe"));
-        assertEquals("Brave", HelloController.appName("brave"));
+        assertEquals("IntelliJ IDEA", AppCatalog.appName("idea64.exe"));
+        assertEquals("Windows Terminal", AppCatalog.appName("WindowsTerminal.exe"));
+        assertEquals("VS Code", AppCatalog.appName("Code.exe"));
+        assertEquals("PyCharm", AppCatalog.appName("pycharm64.exe"));
+        assertEquals("Obsidian", AppCatalog.appName("obsidian.exe"));
+        assertEquals("Claude", AppCatalog.appName("claude.exe"));
+        assertEquals("Brave", AppCatalog.appName("brave"));
     }
 
     @Test
     void categoriesReadInSentenceCaseAndKeepAcronyms() {
-        assertEquals("Version control", HelloController.categoryLabel("VersionControl"));
-        assertEquals("Communication", HelloController.categoryLabel("Communication"));
-        assertEquals("IDE", HelloController.categoryLabel("IDE"));
-        assertEquals("API", HelloController.categoryLabel("API"));
+        assertEquals("Version control", ColdstartController.categoryLabel("VersionControl"));
+        assertEquals("Communication", ColdstartController.categoryLabel("Communication"));
+        assertEquals("IDE", ColdstartController.categoryLabel("IDE"));
+        assertEquals("API", ColdstartController.categoryLabel("API"));
     }
 
     @Test
     void tabRowsKeepThePathSoSameSiteTabsDiffer() {
         assertEquals("github.com/atlas-api/pull/42",
-                HelloController.tabLabel("https://www.github.com/atlas-api/pull/42?tab=files#diff"));
-        assertEquals("javalin.io", HelloController.tabLabel("https://javalin.io/"));
+                ColdstartController.tabLabel("https://www.github.com/atlas-api/pull/42?tab=files#diff"));
+        assertEquals("javalin.io", ColdstartController.tabLabel("https://javalin.io/"));
     }
 
     @Test
     void resumeSaysWhatOnePressBringsBack() {
-        assertEquals("10 APPS · 14 TABS", HelloController.resumeCountLine(10, 14));
-        assertEquals("1 APP · 1 TAB", HelloController.resumeCountLine(1, 1));
+        assertEquals("10 APPS · 14 TABS", ColdstartController.resumeCountLine(10, 14));
+        assertEquals("1 APP · 1 TAB", ColdstartController.resumeCountLine(1, 1));
     }
 
     @Test
     void titleBarSaysWhoIsConnectedOrThatOneIsComing() {
-        assertEquals("Brave connected", HelloController.statusLine(List.of("brave"), false));
-        assertEquals("2 browsers connected", HelloController.statusLine(List.of("brave", "Chrome"), true));
-        assertEquals("connecting…", HelloController.statusLine(List.of(), true));
-        assertEquals("no browser connected", HelloController.statusLine(List.of(), false));
+        assertEquals("Brave connected", ColdstartController.statusLine(List.of("brave"), false));
+        assertEquals("2 browsers connected", ColdstartController.statusLine(List.of("brave", "Chrome"), true));
+        assertEquals("connecting…", ColdstartController.statusLine(List.of(), true));
+        assertEquals("no browser connected", ColdstartController.statusLine(List.of(), false));
     }
 
     @Test
     void connectingOnlyWhileABrowserThatRunsTheExtensionIsOpen() {
-        assertTrue(HelloController.extensionBrowserOpen(Set.of("Code.exe", "chrome.exe")));
-        assertTrue(HelloController.extensionBrowserOpen(Set.of("MSEdge.exe")));
-        assertFalse(HelloController.extensionBrowserOpen(Set.of("Code.exe", "firefox.exe")));
-        assertFalse(HelloController.extensionBrowserOpen(Set.of()));
+        assertTrue(ColdstartController.extensionBrowserOpen(Set.of("Code.exe", "chrome.exe")));
+        assertTrue(ColdstartController.extensionBrowserOpen(Set.of("MSEdge.exe")));
+        assertFalse(ColdstartController.extensionBrowserOpen(Set.of("Code.exe", "firefox.exe")));
+        assertFalse(ColdstartController.extensionBrowserOpen(Set.of()));
     }
 
     @Test
     void tabGroupsAreHeadedByTheBrowsersName() {
-        assertEquals("Brave", HelloController.browserLabel("brave"));
-        assertEquals("Chrome", HelloController.browserLabel("Chrome"));
-        assertEquals("Default browser", HelloController.browserLabel(HelloController.DEFAULT_BROWSER));
+        assertEquals("Brave", Browsers.browserLabel("brave"));
+        assertEquals("Chrome", Browsers.browserLabel("Chrome"));
+        assertEquals("Default browser", Browsers.browserLabel(Browsers.DEFAULT_BROWSER));
     }
 
     @Test
@@ -95,15 +95,15 @@ class HandoffCopyTest {
         HashMap<String, HashSet<String>> apps = new HashMap<>();
         apps.put("IDE", new HashSet<>(Set.of("Code.exe")));
         Project p = new Project("atlas-api", "C:\\dev\\atlas-api", apps, new ArrayList<>());
-        assertEquals("\u2026\\atlas-api", HelloController.trailingNote("IDE", p));
+        assertEquals("\u2026\\atlas-api", ColdstartController.trailingNote("IDE", p));
         p.folderPath = null;
-        assertNull(HelloController.trailingNote("IDE", p));
+        assertNull(ColdstartController.trailingNote("IDE", p));
     }
 
     @Test
     void notchCutsTheTopRightAndBottomLeftCorners() {
         assertEquals(List.of(0.0, 0.0, 282.0, 0.0, 296.0, 14.0, 296.0, 104.0, 14.0, 104.0, 0.0, 90.0),
-                HelloController.notchPoints(296, 104, 14));
+                ColdstartController.notchPoints(296, 104, 14));
     }
 
     @Test

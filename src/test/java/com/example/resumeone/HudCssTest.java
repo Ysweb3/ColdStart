@@ -19,7 +19,7 @@ class HudCssTest {
     @Test
     void hudCssParsesWithoutErrors() throws Exception {
         CssParser.errorsProperty().clear();
-        new CssParser().parse(HelloController.class.getResource("hud.css"));
+        new CssParser().parse(ColdstartController.class.getResource("hud.css"));
         assertEquals(java.util.List.of(), CssParser.errorsProperty().stream().map(Object::toString).toList());
     }
 }

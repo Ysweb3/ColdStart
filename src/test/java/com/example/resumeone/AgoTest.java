@@ -19,44 +19,44 @@ class AgoTest {
 
     @Test
     void hoursBeforeDays() {
-        assertEquals("just now", HelloController.ago(Instant.now().toString()));
-        assertEquals("4m", HelloController.ago(minus(4, ChronoUnit.MINUTES)));
-        assertEquals("2h", HelloController.ago(minus(2, ChronoUnit.HOURS)));
-        assertEquals("3d", HelloController.ago(minus(3, ChronoUnit.DAYS)));
-        assertEquals("2w", HelloController.ago(minus(15, ChronoUnit.DAYS)));
-        assertEquals("2mo", HelloController.ago(minus(65, ChronoUnit.DAYS)));
+        assertEquals("just now", ColdstartController.ago(Instant.now().toString()));
+        assertEquals("4m", ColdstartController.ago(minus(4, ChronoUnit.MINUTES)));
+        assertEquals("2h", ColdstartController.ago(minus(2, ChronoUnit.HOURS)));
+        assertEquals("3d", ColdstartController.ago(minus(3, ChronoUnit.DAYS)));
+        assertEquals("2w", ColdstartController.ago(minus(15, ChronoUnit.DAYS)));
+        assertEquals("2mo", ColdstartController.ago(minus(65, ChronoUnit.DAYS)));
     }
 
     @Test
     void bareDatesFromOlderFilesStillRead() {
-        assertEquals("3d", HelloController.ago(LocalDate.now().minusDays(3).toString()));
-        assertEquals("never", HelloController.ago(null));
-        assertEquals("never", HelloController.ago(""));
+        assertEquals("3d", ColdstartController.ago(LocalDate.now().minusDays(3).toString()));
+        assertEquals("never", ColdstartController.ago(null));
+        assertEquals("never", ColdstartController.ago(""));
     }
 
     @Test
     void siteIsTheHostWithoutSchemeOrWww() {
-        assertEquals("github.com", HelloController.site("https://www.github.com/atlas-api/pull/42"));
-        assertEquals("javalin.io", HelloController.site("https://javalin.io/documentation#websockets"));
-        assertEquals("localhost:8765", HelloController.site("http://localhost:8765/tabs"));
-        assertEquals("settings", HelloController.site("chrome://settings/"));
-        assertEquals("about:blank", HelloController.site("about:blank"));
+        assertEquals("github.com", ColdstartController.site("https://www.github.com/atlas-api/pull/42"));
+        assertEquals("javalin.io", ColdstartController.site("https://javalin.io/documentation#websockets"));
+        assertEquals("localhost:8765", ColdstartController.site("http://localhost:8765/tabs"));
+        assertEquals("settings", ColdstartController.site("chrome://settings/"));
+        assertEquals("about:blank", ColdstartController.site("about:blank"));
     }
 
     @Test
     void browserInternalPagesAreNotTabsWorthKeeping() {
-        assertEquals(true, HelloController.isPageUrl("https://github.com/x"));
-        assertEquals(true, HelloController.isPageUrl("http://localhost:8765/"));
-        assertEquals(false, HelloController.isPageUrl("chrome://newtab/"));
-        assertEquals(false, HelloController.isPageUrl("edge://extensions"));
-        assertEquals(false, HelloController.isPageUrl("about:blank"));
-        assertEquals(false, HelloController.isPageUrl(null));
+        assertEquals(true, ColdstartController.isPageUrl("https://github.com/x"));
+        assertEquals(true, ColdstartController.isPageUrl("http://localhost:8765/"));
+        assertEquals(false, ColdstartController.isPageUrl("chrome://newtab/"));
+        assertEquals(false, ColdstartController.isPageUrl("edge://extensions"));
+        assertEquals(false, ColdstartController.isPageUrl("about:blank"));
+        assertEquals(false, ColdstartController.isPageUrl(null));
     }
 
     @Test
     void whenTurnsAnAgeIntoAPhrase() {
-        assertEquals("just now", HelloController.when("just now"));
-        assertEquals("3d ago", HelloController.when("3d"));
-        assertEquals("never", HelloController.when("never"));
+        assertEquals("just now", ColdstartController.when("just now"));
+        assertEquals("3d ago", ColdstartController.when("3d"));
+        assertEquals("never", ColdstartController.when("never"));
     }
 }

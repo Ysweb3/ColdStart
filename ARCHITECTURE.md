@@ -22,12 +22,15 @@ package would orphan the saved preferences (they are keyed to it). Project data 
 | File | What it is |
 |---|---|
 | `Launcher.java` | 3-line `main`. Exists only because JavaFX can't launch an `Application` subclass straight from the classpath. |
-| `HelloApplication.java` | Window shell: loads fonts, loads `hud-view.fxml`, makes the stage undecorated and re-implements drag / resize / min / max / close. |
-| `HelloController.java` | **Everything else.** UI controller, persistence, capture, resume, and the HTTP/WS server, in one class. Read it top-to-bottom; it is split into `// == Section ==` blocks in that order. |
+| `ColdstartApplication.java` | Window shell: loads fonts, loads `hud-view.fxml`, makes the stage undecorated and re-implements drag / resize / min / max / close. |
+| `ColdstartController.java` | **Everything else.** UI controller, persistence, capture, the browser half of resume, and the HTTP/WS server, in one class. Read it top-to-bottom; it is split into `// == Section ==` blocks in that order. The three files below are statically imported, so their names read as if they were still inside it. |
+| `AppCatalog.java` | What a captured exe is: its category (`KNOWN_APPS`, `IGNORED_WINDOWS`, the user's + / x choices for Other), its display name (`appName`), and whether it is an AI CLI, a desktop twin or a Store app. |
+| `Browsers.java` | Which browser and profile a tab bucket is: the `"Chrome · me@x.com"` keys, each brand's `Local State` profiles, the exe per brand. The live extension sockets stay in the controller. |
+| `ResumePlanner.java` | What Resume launches: `LaunchStep` / `ResumePlan` / `ResumeRun`, the launch commands, and `appPlan` (every app but the browsers). `planResume` in the controller adds the browser steps, which need the sockets. |
 | `Project.java` | The data class that is written to disk. Its public field names are the JSON keys. |
-| `hud-view.fxml` | The UI tree. `fx:id`s here are injected into `@FXML` fields in the controller. `fx:controller="HelloController"` is what binds them. |
+| `hud-view.fxml` | The UI tree. `fx:id`s here are injected into `@FXML` fields in the controller. `fx:controller="ColdstartController"` is what binds them. |
 | `hud.css` | All styling. FXML nodes carry `styleClass="..."`, the css matches on `.that-class`. |
-| `hello-view.fxml` | The old, plain UI. Still loadable (swap the filename in `HelloApplication`); every HUD-only field is null then, guarded by `isHud()`. |
+| `coldstart-view.fxml` | The old, plain UI. Still loadable (swap the filename in `ColdstartApplication`); every HUD-only field is null then, guarded by `isHud()`. |
 | `module-info.java` | Java module declaration. `opens ... to javafx.fxml` is what lets FXMLLoader inject private-ish fields. |
 | `src/test/...` | JUnit 5 tests for the pure helpers (categorising, persistence, launch commands). No UI tests. |
 | `%APPDATA%\Coldstart\projects.json` | Where your projects actually live. Delete it to reset the app. |
@@ -75,9 +78,9 @@ resumeProject(project)
  │    profileDir(browser)                     "Chrome · me@x.com" → Local State → "Profile 2"
  │    ProcessBuilder(exe, --profile-directory, url1)   rest go to its extension when it connects,
  │                                            or all at once after 15s; no exe → Desktop.browse()
- └─ for each app in project.apps (named categories only, never Other):
+ └─ appPlan: for each app in project.apps (named categories only, never Other):   (ResumePlanner)
       shouldLaunch(app, running, handled)?    skip if already open, skip browsers handled above
-      claude  → cmd /c start [wt -d folder] claude agents [--cwd folder]   (claudeCommand())
+      claude  → cmd /c start [wt -d folder] claude agents [--cwd folder]   (cliCommand())
       Code    → cmd /c code [folder]          (no folder: VS Code reopens its last workspace)
       wt      → cmd /c start wt              (skipped when claude launches inside it)
       others  → cmd /c start <name>          (only after onPath()/appPath() find the exe)
@@ -164,5 +167,5 @@ moves it into `urlsByBrowser["default"]` on load, so old files keep working.
   (lower-case, deliberately). `BROWSER_EXE` lower-cases on lookup; the JSON keeps what was sent.
 - **Uncaught `IOException`s become `RuntimeException`s** in the button handlers — an error
   during checkpoint/resume shows up in the console, not in the UI.
-- **Tests construct `HelloController` directly**, so nothing that needs the JavaFX toolkit may
+- **Tests construct `ColdstartController` directly**, so nothing that needs the JavaFX toolkit may
   run in a field initialiser or the constructor — put it in `initialize()`.

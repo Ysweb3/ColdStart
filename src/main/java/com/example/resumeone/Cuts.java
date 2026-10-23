@@ -44,7 +44,7 @@ final class Cuts {
         double w = r.getWidth(), h = r.getHeight();
         if (w <= 0 || h <= 0) return;
         Polygon shape = new Polygon();
-        shape.getPoints().setAll(HelloController.notchPoints(w, h, CUT));
+        shape.getPoints().setAll(ColdstartController.notchPoints(w, h, CUT));
         r.setShape(shape);
     }
 }

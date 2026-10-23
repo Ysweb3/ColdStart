@@ -20,7 +20,7 @@ class CheckpointCloseTest {
         apps.put("Other", new HashSet<>(List.of("someTool.exe")));
         apps.put("Apps", new HashSet<>(List.of("Spotify.exe")));
 
-        Set<String> close = HelloController.appsToClose(apps);
+        Set<String> close = ColdstartController.appsToClose(apps);
 
         assertEquals(new TreeSet<>(List.of("blender.exe", "ChatGPT.exe", "Code.exe", "Spotify.exe")), new TreeSet<>(close));
     }
@@ -29,8 +29,8 @@ class CheckpointCloseTest {
     void stillOpenIsTheClosedAppsThatKeptAWindow() {
         Set<String> closed = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         closed.addAll(List.of("Code.exe", "blender.exe"));
-        assertEquals(List.of("blender.exe"), HelloController.stillOpen(closed, Set.of("Blender.exe", "chrome.exe")));
-        assertTrue(HelloController.stillOpen(closed, Set.of("chrome.exe")).isEmpty());
+        assertEquals(List.of("blender.exe"), ColdstartController.stillOpen(closed, Set.of("Blender.exe", "chrome.exe")));
+        assertTrue(ColdstartController.stillOpen(closed, Set.of("chrome.exe")).isEmpty());
     }
 
     @Test
@@ -40,7 +40,7 @@ class CheckpointCloseTest {
             assertTrue(AppFolders.looksUnsaved(t), t);
         }
         for (String t : List.of("notes.txt - Notepad", "background.js - ResumeOneExtension - Visual Studio Code",
-                "Blender [C:\\x\\scene.blend]", "photo.png - Paint", "ResumeOne \u2013 HelloController.java")) {
+                "Blender [C:\\x\\scene.blend]", "photo.png - Paint", "ResumeOne \u2013 ColdstartController.java")) {
             assertFalse(AppFolders.looksUnsaved(t), t);
         }
         // Word reports no marker in its title; a document with no folder was never saved
@@ -62,16 +62,16 @@ class CheckpointCloseTest {
 
     @Test
     void countLineReadsAsTheHandoffDoes() {
-        assertEquals("6 apps \u00b7 8 tabs", HelloController.countLine(6, 8));
-        assertEquals("1 app \u00b7 1 tab", HelloController.countLine(1, 1));
+        assertEquals("6 apps \u00b7 8 tabs", ColdstartController.countLine(6, 8));
+        assertEquals("1 app \u00b7 1 tab", ColdstartController.countLine(1, 1));
     }
 
     @Test
     void scriptQuotesNamesAndOnlyTouchesExplorerWhenAsked() {
-        String s = HelloController.closeScript(List.of("Code.exe", "Bob's App.exe"), false);
+        String s = ColdstartController.closeScript(List.of("Code.exe", "Bob's App.exe"), false);
         assertTrue(s.contains("$n = @('Code','Bob''s App')"), s);
         assertFalse(s.contains("Shell.Application"));
-        assertTrue(HelloController.closeScript(List.of(), true).contains("$n = @(); "));
-        assertTrue(HelloController.closeScript(List.of(), true).contains("Shell.Application"));
+        assertTrue(ColdstartController.closeScript(List.of(), true).contains("$n = @(); "));
+        assertTrue(ColdstartController.closeScript(List.of(), true).contains("Shell.Application"));
     }
 }

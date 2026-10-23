@@ -323,7 +323,7 @@ final class AppFolders {
     }
 
     // == JetBrains ==========================================================
-    //   title: "ResumeOne – HelloApplication.java" (an en dash), or "name [C:\path] – file" on
+    //   title: "ResumeOne – ColdstartApplication.java" (an en dash), or "name [C:\path] – file" on
     //   older builds. recentProjects.xml keys each project by its path and keeps the title its
     //   window last had, which carries the project name when that differs from the folder's.
 

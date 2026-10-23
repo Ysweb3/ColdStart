@@ -37,9 +37,9 @@ import java.util.Objects;
  * JavaFX entry point. Owns only window-level concerns: bundled fonts, the undecorated stage,
  * the drag/resize/min/max/close handling that an undecorated stage loses, and the tray icon
  * the close can hide to. Everything
- * inside the window is hud-view.fxml + HelloController.
+ * inside the window is hud-view.fxml + ColdstartController.
  */
-public class HelloApplication extends Application {
+public class ColdstartApplication extends Application {
 
     /** How close to an edge the pointer has to be to start a resize drag. */
     private static final int EDGE = 6;
@@ -53,8 +53,8 @@ public class HelloApplication extends Application {
         logErrors();
         loadFonts();
 
-        // HUD v2 prototype. Swap back to "hello-view.fxml" (and 800x600) for the real app.
-        FXMLLoader fxmlLoader = new FXMLLoader(HelloApplication.class.getResource("hud-view.fxml"));
+        // HUD v2 prototype. Swap back to "coldstart-view.fxml" (and 800x600) for the real app.
+        FXMLLoader fxmlLoader = new FXMLLoader(ColdstartApplication.class.getResource("hud-view.fxml"));
         Parent root = fxmlLoader.load();
         Scene scene = new Scene(root, 1000, 640);
         Cuts.watch(root);
@@ -85,7 +85,7 @@ public class HelloApplication extends Application {
         Platform.setImplicitExit(false);
         stage.setOnCloseRequest(e -> {
             e.consume();
-            if (HelloController.trayOn()) stage.hide(); else controller.quit();
+            if (ColdstartController.trayOn()) stage.hide(); else controller.quit();
         });
         windowButton(root.lookup("#btnClose"), Icons.CLOSE,
                 () -> stage.fireEvent(new WindowEvent(stage, WindowEvent.WINDOW_CLOSE_REQUEST)));
@@ -116,10 +116,10 @@ public class HelloApplication extends Application {
         // every size, so Windows picks the right one for the title bar, taskbar and Alt-Tab
         for (int s : new int[]{16, 32, 48, 64, 128, 256}) {
             stage.getIcons().add(new Image(Objects.requireNonNull(
-                    HelloApplication.class.getResourceAsStream("icons/coldstart-" + s + ".png"))));
+                    ColdstartApplication.class.getResourceAsStream("icons/coldstart-" + s + ".png"))));
         }
         stage.setScene(scene);
-        tray(HelloController.trayOn());
+        tray(ColdstartController.trayOn());
         // the startup task's launcher passes --tray; a tray that failed to appear opens the window
         if (!getParameters().getRaw().contains("--tray") || trayIcon == null) stage.show();
     }
@@ -134,7 +134,7 @@ public class HelloApplication extends Application {
         System.exit(0);
     }
 
-    private static HelloController controller;
+    private static ColdstartController controller;
     private static TrayIcon trayIcon;
 
     /** The notification-area icon while Settings > "Close to the tray" is on: a click opens the
@@ -155,7 +155,7 @@ public class HelloApplication extends Application {
         menu.add(open);
         menu.add(quit);
         TrayIcon icon = new TrayIcon(Toolkit.getDefaultToolkit().getImage(
-                HelloApplication.class.getResource("icons/coldstart-32.png")), "coldstart", menu);
+                ColdstartApplication.class.getResource("icons/coldstart-32.png")), "coldstart", menu);
         icon.setImageAutoSize(true);
         icon.addMouseListener(new MouseAdapter() {
             @Override public void mouseClicked(java.awt.event.MouseEvent e) {
@@ -200,7 +200,7 @@ public class HelloApplication extends Application {
     static boolean focusRunning() {
         try {
             HttpURLConnection c = (HttpURLConnection) URI.create(
-                    "http://127.0.0.1:" + HelloController.PORT + "/focus").toURL().openConnection();
+                    "http://127.0.0.1:" + ColdstartController.PORT + "/focus").toURL().openConnection();
             c.setRequestMethod("POST");
             c.setConnectTimeout(1000);
             c.setReadTimeout(2000);
@@ -218,7 +218,7 @@ public class HelloApplication extends Application {
     private static void logErrors() {
         // slf4j-simple logs INFO to System.err: ~20 lines of Jetty startup and a Javalin banner per launch
         System.setProperty("org.slf4j.simpleLogger.defaultLogLevel", "warn");
-        File log = new File(HelloController.projectsFile().getParentFile(), "error.log");
+        File log = new File(ColdstartController.projectsFile().getParentFile(), "error.log");
         PrintStream console = System.err;
         try {
             FileOutputStream file = new FileOutputStream(log, log.length() < 1_000_000);
@@ -241,7 +241,7 @@ public class HelloApplication extends Application {
     private static void loadFonts() throws IOException {
         for (String name : new String[]{"IBMPlexSans-Regular", "IBMPlexSans-SemiBold", "IBMPlexSans-Bold",
                                         "IBMPlexMono-Regular", "IBMPlexMono-Bold"}) {
-            try (InputStream in = HelloApplication.class.getResourceAsStream("fonts/" + name + ".ttf")) {
+            try (InputStream in = ColdstartApplication.class.getResourceAsStream("fonts/" + name + ".ttf")) {
                 Font.loadFont(in, 12);
             }
         }

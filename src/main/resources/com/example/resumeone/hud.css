@@ -6,7 +6,7 @@
    Press is .985 for 80ms, from Motion.pressable. */
 
 /* IBM Plex Sans (400/600/700) + IBM Plex Mono (400/700) ship with the app and are registered by
-   HelloApplication.loadFonts() — JavaFX CSS has no @font-face. */
+   ColdstartApplication.loadFonts() — JavaFX CSS has no @font-face. */
 
 /* No rounding anywhere: square corners on every node, Modena's defaults included (an author
    rule outranks the user-agent sheet whatever its selector). Anything you act on (buttons,
@@ -557,7 +557,7 @@
 .stat-link:hover { -fx-background-color: -rw-g2; -fx-border-color: -rw-ln2; }
 .stat-link:focus-visible { -fx-effect: dropshadow(gaussian, -rw-act, 3, 1.0, 0, 0); }
 
-/* Checkboxes wear the icon system's CHECKBOX glyph (HelloController.iconCheck): Modena's
+/* Checkboxes wear the icon system's CHECKBOX glyph (ColdstartController.iconCheck): Modena's
    box and mark collapse to nothing, the glyph is the graphic. The tick shows only when
    selected and draws itself in on the way. Ink, not a fill, says which state it is in. */
 .check-box { -fx-font-size: 13px; -fx-text-fill: -rw-tx2; -fx-label-padding: 0; -fx-graphic-text-gap: 10; -fx-cursor: hand; }

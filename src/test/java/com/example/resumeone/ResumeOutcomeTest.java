@@ -32,35 +32,35 @@ class ResumeOutcomeTest {
 
         // every chip on the card: Brave returns as its tabs and the terminal with claude, but
         // both still open; only Other is left out
-        assertEquals(5, HelloController.launchableApps(p));
-        assertEquals(6, HelloController.countApps(p));
+        assertEquals(5, ColdstartController.launchableApps(p));
+        assertEquals(6, ColdstartController.countApps(p));
     }
 
     @Test
     void aStoppedOrFailedRunNeverSaysResumed() {
-        HelloController.ResumeRun r = new HelloController.ResumeRun(new Project("atlas", null, new HashMap<>(), new ArrayList<>()));
-        assertEquals("RESUMED", HelloController.outcome(r));
+        ResumePlanner.ResumeRun r = new ResumePlanner.ResumeRun(new Project("atlas", null, new HashMap<>(), new ArrayList<>()));
+        assertEquals("RESUMED", ColdstartController.outcome(r));
         r.stopped = true;
-        assertEquals("STOPPED", HelloController.outcome(r));
+        assertEquals("STOPPED", ColdstartController.outcome(r));
         r.error = "powershell exited 1";
-        assertEquals("NOT RESUMED", HelloController.outcome(r));
+        assertEquals("NOT RESUMED", ColdstartController.outcome(r));
     }
 
     @Test
     void aBrowserWithEveryTabOpenIsAlreadyOpenNotLaunched() {
-        HelloController.LaunchStep chrome = new HelloController.LaunchStep("chrome", "", true,
-                () -> { throw new HelloController.AlreadyOpen(); });
-        HelloController.LaunchStep brave = new HelloController.LaunchStep("brave", "", true, () -> { });
-        HelloController.ResumeRun r = new HelloController.ResumeRun(new Project("atlas", null, new HashMap<>(), new ArrayList<>()));
-        r.plan = new HelloController.ResumePlan(List.of(chrome, brave), List.of("idea64.exe"));
+        ResumePlanner.LaunchStep chrome = new ResumePlanner.LaunchStep("chrome", "", true,
+                () -> { throw new ResumePlanner.AlreadyOpen(); });
+        ResumePlanner.LaunchStep brave = new ResumePlanner.LaunchStep("brave", "", true, () -> { });
+        ResumePlanner.ResumeRun r = new ResumePlanner.ResumeRun(new Project("atlas", null, new HashMap<>(), new ArrayList<>()));
+        r.plan = new ResumePlanner.ResumePlan(List.of(chrome, brave), List.of("idea64.exe"));
         chrome.run();
         brave.run();
 
-        assertEquals(HelloController.LaunchStep.State.SKIPPED, chrome.state);
-        assertEquals(HelloController.LaunchStep.State.DONE, brave.state);
+        assertEquals(ResumePlanner.LaunchStep.State.SKIPPED, chrome.state);
+        assertEquals(ResumePlanner.LaunchStep.State.DONE, brave.state);
         assertEquals(2, r.done());   // both finished, so the run still reads 2 / 2
         assertEquals(List.of("idea64.exe", "chrome"), r.alreadyOpen());
-        assertEquals("RESUMED", HelloController.outcome(r));
+        assertEquals("RESUMED", ColdstartController.outcome(r));
     }
 
     @Test
@@ -68,27 +68,27 @@ class ResumeOutcomeTest {
         Project p = new Project("atlas", null, new HashMap<>(), new ArrayList<>());
         p.urlsByBrowser.put("Edge", new ArrayList<>(List.of("https://a/", "https://b/", "https://c/", "https://d/")));
         p.urlsByBrowser.put("Chrome", new ArrayList<>(List.of("https://e/", "https://f/")));
-        HelloController.LaunchStep edge = new HelloController.LaunchStep("Edge", "", true, () -> { });
-        HelloController.LaunchStep chrome = new HelloController.LaunchStep("Chrome", "", true, () -> { });
-        HelloController.ResumeRun r = new HelloController.ResumeRun(p);
-        r.plan = new HelloController.ResumePlan(List.of(edge, chrome), List.of());
+        ResumePlanner.LaunchStep edge = new ResumePlanner.LaunchStep("Edge", "", true, () -> { });
+        ResumePlanner.LaunchStep chrome = new ResumePlanner.LaunchStep("Chrome", "", true, () -> { });
+        ResumePlanner.ResumeRun r = new ResumePlanner.ResumeRun(p);
+        r.plan = new ResumePlanner.ResumePlan(List.of(edge, chrome), List.of());
         edge.run();
         chrome.run();
         edge.opened = 1;   // its extension: three of the four were up already
         // chrome gave no count (command line), so both of its urls count as opened
 
-        assertEquals(3, HelloController.tabsOpened(r));
-        assertEquals(3, HelloController.tabsAlreadyOpen(r));
-        assertEquals("1 app", HelloController.count(1, "app"));
-        assertEquals("0 tabs", HelloController.count(0, "tab"));
+        assertEquals(3, ColdstartController.tabsOpened(r));
+        assertEquals(3, ColdstartController.tabsAlreadyOpen(r));
+        assertEquals("1 app", ColdstartController.count(1, "app"));
+        assertEquals("0 tabs", ColdstartController.count(0, "tab"));
     }
 
     @Test
     void pathLookupFindsAnExeAndSkipsBadEntries(@TempDir Path dir) throws IOException {
         Files.createFile(dir.resolve("tool.exe"));
         String path = "\"C:\\bad<entry\";" + ";" + dir;
-        assertTrue(HelloController.onPath("tool.exe", path));
-        assertFalse(HelloController.onPath("missing.exe", path));
-        assertFalse(HelloController.onPath("tool.exe", null));
+        assertTrue(ResumePlanner.onPath("tool.exe", path));
+        assertFalse(ResumePlanner.onPath("missing.exe", path));
+        assertFalse(ResumePlanner.onPath("tool.exe", null));
     }
 }
