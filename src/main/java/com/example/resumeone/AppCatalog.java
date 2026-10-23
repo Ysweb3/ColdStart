@@ -1,5 +1,9 @@
 package com.example.resumeone;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -209,5 +213,240 @@ final class AppCatalog {
         }
         // a known category wins, so an app that KNOWN_APPS learns later gets its real row
         return relaunched.contains(app.toLowerCase()) ? USER_APPS : OTHER;
+    }
+
+    // the design folds at four categories and links to an inspector; that artboard is not
+    // built, so every non-empty category is listed rather than hidden behind a dead link
+    static final List<String> CATEGORY_ORDER = List.of(
+            "IDE", "AI", "Terminal", "Browser", "Database", "API", "Containers",
+            "VersionControl", "Design", "Video", "CAD", "Research", "Office", "Finance", "Communication",
+            "Notes", "Planning", "Files", "Music", "Games", "Apps");
+
+    // only where the exe name is not the app's name; everything else is the exe, capitalised
+    private static final Map<String, String> APP_NAMES = Map.ofEntries(
+            Map.entry("code", "VS Code"), Map.entry("code - insiders", "VS Code Insiders"),
+            Map.entry("explorer", "File Explorer"), Map.entry("mscopilot", "Copilot"),
+            Map.entry("idea", "IntelliJ IDEA"), Map.entry("pycharm", "PyCharm"), Map.entry("webstorm", "WebStorm"),
+            Map.entry("phpstorm", "PhpStorm"), Map.entry("clion", "CLion"), Map.entry("goland", "GoLand"),
+            Map.entry("rubymine", "RubyMine"), Map.entry("datagrip", "DataGrip"), Map.entry("studio", "Android Studio"),
+            Map.entry("devenv", "Visual Studio"), Map.entry("sublime_text", "Sublime Text"),
+            Map.entry("sublime_merge", "Sublime Merge"), Map.entry("notepad++", "Notepad++"),
+            Map.entry("windowsterminal", "Windows Terminal"), Map.entry("wezterm-gui", "WezTerm"),
+            Map.entry("conemu", "ConEmu"), Map.entry("msedge", "Edge"), Map.entry("githubdesktop", "GitHub Desktop"),
+            Map.entry("sourcetree", "Sourcetree"), Map.entry("gitkraken", "GitKraken"), Map.entry("ms-teams", "Teams"),
+            Map.entry("ssms", "SSMS"), Map.entry("pgadmin4", "pgAdmin"), Map.entry("mysqlworkbench", "MySQL Workbench"),
+            Map.entry("mongodbcompass", "MongoDB Compass"), Map.entry("dbeaver", "DBeaver"),
+            Map.entry("heidisql", "HeidiSQL"), Map.entry("tableplus", "TablePlus"), Map.entry("chatgpt", "ChatGPT"),
+            Map.entry("afterfx", "After Effects"), Map.entry("resolve", "DaVinci Resolve"),
+            Map.entry("capcut", "CapCut"), Map.entry("indesign", "InDesign"),
+            Map.entry("mspaint", "Paint"), Map.entry("paintdotnet", "Paint.NET"), Map.entry("winword", "Word"),
+            Map.entry("excel", "Excel"), Map.entry("powerpnt", "PowerPoint"), Map.entry("msaccess", "Access"),
+            Map.entry("visio", "Visio"), Map.entry("mspub", "Publisher"), Map.entry("winproj", "Project"),
+            Map.entry("acrord32", "Acrobat Reader"), Map.entry("foxitpdfreader", "Foxit PDF Reader"),
+            Map.entry("wps", "WPS Writer"), Map.entry("et", "WPS Spreadsheets"), Map.entry("wpp", "WPS Presentation"),
+            Map.entry("outlook", "Outlook"), Map.entry("olk", "Outlook"), Map.entry("onenote", "OneNote"),
+            Map.entry("obs", "OBS Studio"), Map.entry("camtasiastudio", "Camtasia"), Map.entry("fl", "FL Studio"),
+            Map.entry("itunes", "iTunes"), Map.entry("azuredatastudio", "Azure Data Studio"),
+            Map.entry("xournalpp", "Xournal++"), Map.entry("aimp", "AIMP"), Map.entry("xd", "Adobe XD"),
+            // AI
+            Map.entry("codex-cli", "Codex CLI"), Map.entry("gemini-cli", "Gemini CLI"),
+            Map.entry("copilot-cli", "Copilot CLI"), Map.entry("qwen-cli", "Qwen Code"),
+            Map.entry("goose-cli", "Goose CLI"), Map.entry("kiro-cli", "Kiro CLI"),
+            Map.entry("cursor-agent", "Cursor CLI"), Map.entry("opencode", "OpenCode"), Map.entry("deepl", "DeepL"),
+            Map.entry("comfyui", "ComfyUI"), Map.entry("stabilitymatrix", "Stability Matrix"),
+            // Design, Video
+            Map.entry("gimp-2.10", "GIMP"), Map.entry("gimp-3.0", "GIMP"), Map.entry("gimp-3", "GIMP"),
+            Map.entry("photo", "Affinity Photo"), Map.entry("designer", "Affinity Designer"),
+            Map.entry("publisher", "Affinity Publisher"), Map.entry("coreldrw", "CorelDRAW"),
+            Map.entry("clipstudiopaint", "Clip Studio Paint"), Map.entry("sai2", "PaintTool SAI"),
+            Map.entry("medibangpaintpro", "MediBang Paint"), Map.entry("firealpaca", "FireAlpaca"),
+            Map.entry("animate", "Adobe Animate"), Map.entry("photoshopelementseditor", "Photoshop Elements"),
+            Map.entry("captureone", "Capture One"), Map.entry("dxo.photolab", "DxO PhotoLab"),
+            Map.entry("protopie", "ProtoPie"), Map.entry("snagiteditor", "Snagit"), Map.entry("i_view", "IrfanView"),
+            Map.entry("xnviewmp", "XnView MP"), Map.entry("digikam", "digiKam"), Map.entry("pdr", "PowerDirector"),
+            Map.entry("avidmediacomposer", "Media Composer"), Map.entry("openshot-qt", "OpenShot"),
+            Map.entry("streamlabs obs", "Streamlabs"), Map.entry("xsplit.core", "XSplit"), Map.entry("vmix", "vMix"),
+            Map.entry("bdcam", "Bandicam"), Map.entry("mpc-hc", "MPC-HC"), Map.entry("potplayermini", "PotPlayer"),
+            // Office, Communication, Notes, Planning
+            Map.entry("soffice", "LibreOffice"), Map.entry("desktopeditors", "ONLYOFFICE"),
+            Map.entry("pdfxedit", "PDF-XChange Editor"), Map.entry("nitropdf", "Nitro PDF"),
+            Map.entry("pbidesktop", "Power BI"), Map.entry("memoq", "memoQ"),
+            Map.entry("digitaleditions", "Adobe Digital Editions"), Map.entry("whatsapp.root", "WhatsApp"),
+            Map.entry("ciscocollabhost", "Webex"), Map.entry("ringcentral", "RingCentral"),
+            Map.entry("wechat", "WeChat"), Map.entry("weixin", "WeChat"), Map.entry("line", "LINE"),
+            Map.entry("kakaotalk", "KakaoTalk"), Map.entry("qq", "QQ"), Map.entry("dingtalk", "DingTalk"),
+            Map.entry("mailclient", "eM Client"), Map.entry("remnote", "RemNote"), Map.entry("upnote", "UpNote"),
+            Map.entry("siyuan", "SiYuan"), Map.entry("microsoft.notes", "Sticky Notes"),
+            Map.entry("focuswriter", "FocusWriter"), Map.entry("todo", "Microsoft To Do"),
+            Map.entry("ticktick", "TickTick"), Map.entry("clickup", "ClickUp"),
+            Map.entry("mindmanager", "MindManager"), Map.entry("toggltrack", "Toggl Track"),
+            // CAD
+            Map.entry("acad", "AutoCAD"), Map.entry("acadlt", "AutoCAD LT"), Map.entry("sketchup", "SketchUp"),
+            Map.entry("fusion360", "Fusion"), Map.entry("sldworks", "SolidWorks"), Map.entry("freecad", "FreeCAD"),
+            Map.entry("cnext", "CATIA"), Map.entry("xtop", "Creo"), Map.entry("ugraf", "Siemens NX"),
+            Map.entry("keyshot", "KeyShot"), Map.entry("3dsmax", "3ds Max"), Map.entry("zbrush", "ZBrush"),
+            Map.entry("houdinifx", "Houdini"), Map.entry("houdinicore", "Houdini"), Map.entry("kicad", "KiCad"),
+            Map.entry("x2", "Altium Designer"), Map.entry("ltspice", "LTspice"),
+            Map.entry("bambu-studio", "Bambu Studio"), Map.entry("prusa-slicer", "PrusaSlicer"),
+            Map.entry("orca-slicer", "OrcaSlicer"), Map.entry("ultimaker-cura", "Cura"),
+            // Research
+            Map.entry("mendeley reference manager", "Mendeley"), Map.entry("endnote", "EndNote"),
+            Map.entry("jabref", "JabRef"), Map.entry("stats", "SPSS Statistics"), Map.entry("statamp", "Stata"),
+            Map.entry("statase", "Stata"), Map.entry("statabe", "Stata"), Map.entry("jasp", "JASP"),
+            Map.entry("sas", "SAS"), Map.entry("mtb", "Minitab"), Map.entry("prism", "GraphPad Prism"),
+            Map.entry("maplew", "Maple"), Map.entry("geogebra", "GeoGebra"), Map.entry("labview", "LabVIEW"),
+            Map.entry("imagej-win", "Fiji"), Map.entry("fiji-windows-x", "Fiji"), Map.entry("snapgene", "SnapGene"),
+            Map.entry("chemdraw", "ChemDraw"), Map.entry("qgis-bin", "QGIS"), Map.entry("qgis-ltr-bin", "QGIS"),
+            Map.entry("arcgispro", "ArcGIS Pro"), Map.entry("googleearth", "Google Earth Pro"),
+            Map.entry("nvivo", "NVivo"), Map.entry("texstudio", "TeXstudio"), Map.entry("texworks", "TeXworks"),
+            Map.entry("lyx", "LyX"),
+            // Finance
+            Map.entry("qbw", "QuickBooks"), Map.entry("qbw32", "QuickBooks"), Map.entry("tally", "TallyPrime"),
+            Map.entry("qw", "Quicken"), Map.entry("peachw", "Sage 50"), Map.entry("gnucash", "GnuCash"),
+            Map.entry("tradingview", "TradingView"), Map.entry("tws", "Trader Workstation"),
+            Map.entry("ninjatrader", "NinjaTrader"), Map.entry("ctrader", "cTrader"),
+            Map.entry("terminal", "MetaTrader 5"),
+            // Games
+            Map.entry("epicgameslauncher", "Epic Games"), Map.entry("eadesktop", "EA app"),
+            Map.entry("ubisoftconnect", "Ubisoft Connect"), Map.entry("upc", "Ubisoft Connect"),
+            Map.entry("galaxyclient", "GOG Galaxy"), Map.entry("xboxpcapp", "Xbox"),
+            Map.entry("riotclientux", "Riot Client"), Map.entry("minecraftlauncher", "Minecraft Launcher"),
+            Map.entry("playnite.desktopapp", "Playnite"), Map.entry("curseforge", "CurseForge"),
+            Map.entry("prismlauncher", "Prism Launcher"),
+            // Music
+            Map.entry("mediamonkey", "MediaMonkey"), Map.entry("protools", "Pro Tools"), Map.entry("lmms", "LMMS"),
+            Map.entry("virtualdj", "VirtualDJ"));
+
+    /** "idea64.exe" -> "IntelliJ IDEA", "WindowsTerminal.exe" -> "Windows Terminal",
+        "obsidian.exe" -> "Obsidian": what a person calls the app, not what Windows does. */
+    static String appName(String exe) {
+        String base = exe.replaceFirst("(?i)\\.exe$", "");
+        String key = base.toLowerCase().replaceFirst("[-_]?64$", "");
+        String known = APP_NAMES.get(key);
+        if (known != null) return known;
+        String name = base.replaceFirst("[-_]?64$", "");
+        return name.isEmpty() ? exe : Character.toUpperCase(name.charAt(0)) + name.substring(1);
+    }
+
+    // == AI CLIs and their desktop twins =====================================
+
+    /** CLIs that run as their own exe, by process name: captured with or without a window. */
+    static final List<String> NATIVE_CLIS = List.of("claude", "codex", "copilot", "goose", "opencode",
+            "aider", "kiro-cli", "droid");
+
+    // claude, codex, copilot and goose each ship a desktop app and a CLI under one exe name:
+    // exe -> {desktop app, CLI}. claude keeps claude.exe for the CLI, which is what every
+    // project saved before the desktop app was told apart already means by it
+    static final Map<String, List<String>> TWINS = Map.of(
+            "claude.exe", List.of("Claude Desktop.exe", "claude.exe"),
+            "codex.exe", List.of("Codex.exe", "codex-cli.exe"),
+            "copilot.exe", List.of("Copilot.exe", "copilot-cli.exe"),
+            "goose.exe", List.of("Goose.exe", "goose-cli.exe"));
+    // where the desktop twins install: the Store, Claude's old installer, Electron's per-user
+    // folder. The CLIs land in .local\bin, npm, WinGet\Packages, cargo or scoop instead
+    private static final List<String> DESKTOP_DIRS = List.of("\\windowsapps\\", "\\anthropicclaude\\",
+            "\\appdata\\local\\programs\\");
+
+    /** What a captured process is saved as. A desktop twin counts only with a window open:
+        its helpers have none, nor does one left running in the tray. A window cannot tell
+        the CLI apart - in a conhost console it owns one too - so the install folder does.
+        Steam's window belongs to its web helper. */
+    static String capturedApp(String name, boolean windowed, String path) {
+        String lower = name.toLowerCase();
+        if (lower.equals("steamwebhelper.exe")) return "steam.exe";
+        List<String> twin = TWINS.get(lower);
+        if (twin == null) return name;
+        String dir = path.toLowerCase();
+        if (DESKTOP_DIRS.stream().anyMatch(dir::contains)) return windowed ? twin.get(0) : null;
+        return twin.get(1);
+    }
+
+    // node CLIs: the package in the command line -> the name they are saved as. The trailing
+    // slash keeps @github/copilot-language-server (editors run it on node) from counting
+    private static final Map<String, String> NODE_CLIS = Map.of(
+            "/@google/gemini-cli/", "gemini-cli.exe",
+            "/@github/copilot/", "copilot-cli.exe",
+            "/@qwen-code/qwen-code/", "qwen-cli.exe",
+            "/@sourcegraph/amp/", "amp.exe",
+            "/cursor-agent/", "cursor-agent.exe",
+            // npm installs of these wrap a native exe, which capturedApp already names
+            "/@openai/codex/", "codex-cli.exe",
+            "/opencode-ai/", "opencode.exe");
+
+    /** A node process's command line -> the CLI it runs, or null for any other node process. */
+    static String nodeCli(String commandLine) {
+        String cmd = commandLine.replace('\\', '/').toLowerCase();
+        return NODE_CLIS.entrySet().stream().filter(e -> cmd.contains(e.getKey()))
+                .map(Map.Entry::getValue).findFirst().orElse(null);
+    }
+
+    // the AI CLIs, as captured -> the command that reopens their last chat in the project
+    // folder (each keeps its sessions per directory). claude's agent view takes --cwd instead
+    static final Map<String, List<String>> CLI_RESUME = Map.ofEntries(
+            Map.entry("claude.exe", List.of("claude", "agents")),
+            Map.entry("codex-cli.exe", List.of("codex", "resume", "--last")),
+            Map.entry("gemini-cli.exe", List.of("gemini", "--resume")),
+            Map.entry("copilot-cli.exe", List.of("copilot", "--continue")),
+            Map.entry("qwen-cli.exe", List.of("qwen", "--continue")),
+            Map.entry("goose-cli.exe", List.of("goose", "session", "--resume")),
+            Map.entry("opencode.exe", List.of("opencode", "--continue")),
+            Map.entry("aider.exe", List.of("aider", "--restore-chat-history")),
+            Map.entry("kiro-cli.exe", List.of("kiro-cli", "chat", "--resume")),
+            Map.entry("cursor-agent.exe", List.of("cursor-agent", "resume")),
+            Map.entry("droid.exe", List.of("droid", "--resume")),
+            // no "latest thread" flag, only thread ids: a new thread, in the project
+            Map.entry("amp.exe", List.of("amp")));
+
+    static boolean isCli(String app) {
+        return CLI_RESUME.containsKey(app.toLowerCase());
+    }
+
+    static boolean hasCli(Project projectObj) {
+        return projectObj.apps.values().stream().flatMap(Set::stream).anyMatch(AppCatalog::isCli);
+    }
+
+    /** "...\WindowsApps\Claude_2.4.0.0_x64__pzs8sxrjxfjjc\app\claude.exe" -> "Claude_pzs8sxrjxfjjc!Claude":
+        the package family (the folder name's first and last parts) and the id of the manifest's
+        Application that runs this exe. Null outside WindowsApps or when the manifest is gone.
+        ponytail: an update between checkpoint and resume moves the folder, so that resume
+        misses; the next checkpoint saves the new path */
+    static String storeAppId(String exePath) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?i)(.*\\\\WindowsApps\\\\([^\\\\]+))\\\\(.+)")
+                .matcher(exePath);
+        if (!m.matches()) return null;
+        String[] pkg = m.group(2).split("_");
+        try {
+            String manifest = Files.readString(Path.of(m.group(1), "AppxManifest.xml"));
+            java.util.regex.Matcher app = java.util.regex.Pattern.compile("<Application\\s[^>]*").matcher(manifest);
+            while (app.find()) {
+                String id = xmlAttr(app.group(), "Id"), exe = xmlAttr(app.group(), "Executable");
+                if (id != null && m.group(3).equalsIgnoreCase(exe)) return pkg[0] + "_" + pkg[pkg.length - 1] + "!" + id;
+            }
+        } catch (IOException | RuntimeException ex) {
+            // unreadable: the exe path is all there is
+        }
+        return null;
+    }
+
+    private static String xmlAttr(String tag, String name) {
+        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\s" + name + "=\"([^\"]*)\"").matcher(tag);
+        return m.find() ? m.group(1) : null;
+    }
+
+    /** exe -> what explorer.exe opens to start it, for apps `start` cannot find by name and
+        whose saved exe is no use: a Store app's id (Get-StartApps lists them), a launcher's url.
+        Other Store apps need no entry - storeAppId reads theirs from the saved exe's package. */
+    static final Map<String, String> SHELL_APPS = Map.of(
+            "mscopilot.exe", "shell:AppsFolder\\Microsoft.Copilot_8wekyb3d8bbwe!App",
+            // capturedApp's name, so there is no exe saved under it
+            // ponytail: the Store build only; the old AnthropicClaude installer would need its exe
+            "claude desktop.exe", "shell:AppsFolder\\Claude_pzs8sxrjxfjjc!Claude",
+            // no App Paths entry, and the window - so the saved exe - is steamwebhelper's
+            "steam.exe", "steam://open/main");
+
+    static boolean hasApp(Project projectObj, String exe) {
+        return projectObj.apps.values().stream()
+                .flatMap(Set::stream)
+                .anyMatch(exe::equalsIgnoreCase);
     }
 }

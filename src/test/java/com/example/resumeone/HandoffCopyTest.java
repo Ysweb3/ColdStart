@@ -27,7 +27,7 @@ class HandoffCopyTest {
 
     @Test
     void aFailedLaunchSaysWhyInTheSystemsWords() {
-        ColdstartController.LaunchStep step = new ColdstartController.LaunchStep("chrome.exe", "start chrome", false, () -> { });
+        ResumePlanner.LaunchStep step = new ResumePlanner.LaunchStep("chrome.exe", "start chrome", false, () -> { });
         assertEquals("failed to launch", ColdstartController.failure(step));
         step.error = "Cannot run program \"C:\\x\\chrome.exe\": CreateProcess error=2, The system cannot find the file specified";
         assertEquals("The system cannot find the file specified", ColdstartController.failure(step));
@@ -37,13 +37,13 @@ class HandoffCopyTest {
 
     @Test
     void appsWearTheirOwnNamesNotTheirExes() {
-        assertEquals("IntelliJ IDEA", ColdstartController.appName("idea64.exe"));
-        assertEquals("Windows Terminal", ColdstartController.appName("WindowsTerminal.exe"));
-        assertEquals("VS Code", ColdstartController.appName("Code.exe"));
-        assertEquals("PyCharm", ColdstartController.appName("pycharm64.exe"));
-        assertEquals("Obsidian", ColdstartController.appName("obsidian.exe"));
-        assertEquals("Claude", ColdstartController.appName("claude.exe"));
-        assertEquals("Brave", ColdstartController.appName("brave"));
+        assertEquals("IntelliJ IDEA", AppCatalog.appName("idea64.exe"));
+        assertEquals("Windows Terminal", AppCatalog.appName("WindowsTerminal.exe"));
+        assertEquals("VS Code", AppCatalog.appName("Code.exe"));
+        assertEquals("PyCharm", AppCatalog.appName("pycharm64.exe"));
+        assertEquals("Obsidian", AppCatalog.appName("obsidian.exe"));
+        assertEquals("Claude", AppCatalog.appName("claude.exe"));
+        assertEquals("Brave", AppCatalog.appName("brave"));
     }
 
     @Test

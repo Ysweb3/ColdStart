@@ -38,7 +38,7 @@ class ResumeOutcomeTest {
 
     @Test
     void aStoppedOrFailedRunNeverSaysResumed() {
-        ColdstartController.ResumeRun r = new ColdstartController.ResumeRun(new Project("atlas", null, new HashMap<>(), new ArrayList<>()));
+        ResumePlanner.ResumeRun r = new ResumePlanner.ResumeRun(new Project("atlas", null, new HashMap<>(), new ArrayList<>()));
         assertEquals("RESUMED", ColdstartController.outcome(r));
         r.stopped = true;
         assertEquals("STOPPED", ColdstartController.outcome(r));
@@ -48,16 +48,16 @@ class ResumeOutcomeTest {
 
     @Test
     void aBrowserWithEveryTabOpenIsAlreadyOpenNotLaunched() {
-        ColdstartController.LaunchStep chrome = new ColdstartController.LaunchStep("chrome", "", true,
-                () -> { throw new ColdstartController.AlreadyOpen(); });
-        ColdstartController.LaunchStep brave = new ColdstartController.LaunchStep("brave", "", true, () -> { });
-        ColdstartController.ResumeRun r = new ColdstartController.ResumeRun(new Project("atlas", null, new HashMap<>(), new ArrayList<>()));
-        r.plan = new ColdstartController.ResumePlan(List.of(chrome, brave), List.of("idea64.exe"));
+        ResumePlanner.LaunchStep chrome = new ResumePlanner.LaunchStep("chrome", "", true,
+                () -> { throw new ResumePlanner.AlreadyOpen(); });
+        ResumePlanner.LaunchStep brave = new ResumePlanner.LaunchStep("brave", "", true, () -> { });
+        ResumePlanner.ResumeRun r = new ResumePlanner.ResumeRun(new Project("atlas", null, new HashMap<>(), new ArrayList<>()));
+        r.plan = new ResumePlanner.ResumePlan(List.of(chrome, brave), List.of("idea64.exe"));
         chrome.run();
         brave.run();
 
-        assertEquals(ColdstartController.LaunchStep.State.SKIPPED, chrome.state);
-        assertEquals(ColdstartController.LaunchStep.State.DONE, brave.state);
+        assertEquals(ResumePlanner.LaunchStep.State.SKIPPED, chrome.state);
+        assertEquals(ResumePlanner.LaunchStep.State.DONE, brave.state);
         assertEquals(2, r.done());   // both finished, so the run still reads 2 / 2
         assertEquals(List.of("idea64.exe", "chrome"), r.alreadyOpen());
         assertEquals("RESUMED", ColdstartController.outcome(r));
@@ -68,10 +68,10 @@ class ResumeOutcomeTest {
         Project p = new Project("atlas", null, new HashMap<>(), new ArrayList<>());
         p.urlsByBrowser.put("Edge", new ArrayList<>(List.of("https://a/", "https://b/", "https://c/", "https://d/")));
         p.urlsByBrowser.put("Chrome", new ArrayList<>(List.of("https://e/", "https://f/")));
-        ColdstartController.LaunchStep edge = new ColdstartController.LaunchStep("Edge", "", true, () -> { });
-        ColdstartController.LaunchStep chrome = new ColdstartController.LaunchStep("Chrome", "", true, () -> { });
-        ColdstartController.ResumeRun r = new ColdstartController.ResumeRun(p);
-        r.plan = new ColdstartController.ResumePlan(List.of(edge, chrome), List.of());
+        ResumePlanner.LaunchStep edge = new ResumePlanner.LaunchStep("Edge", "", true, () -> { });
+        ResumePlanner.LaunchStep chrome = new ResumePlanner.LaunchStep("Chrome", "", true, () -> { });
+        ResumePlanner.ResumeRun r = new ResumePlanner.ResumeRun(p);
+        r.plan = new ResumePlanner.ResumePlan(List.of(edge, chrome), List.of());
         edge.run();
         chrome.run();
         edge.opened = 1;   // its extension: three of the four were up already
@@ -87,8 +87,8 @@ class ResumeOutcomeTest {
     void pathLookupFindsAnExeAndSkipsBadEntries(@TempDir Path dir) throws IOException {
         Files.createFile(dir.resolve("tool.exe"));
         String path = "\"C:\\bad<entry\";" + ";" + dir;
-        assertTrue(ColdstartController.onPath("tool.exe", path));
-        assertFalse(ColdstartController.onPath("missing.exe", path));
-        assertFalse(ColdstartController.onPath("tool.exe", null));
+        assertTrue(ResumePlanner.onPath("tool.exe", path));
+        assertFalse(ResumePlanner.onPath("missing.exe", path));
+        assertFalse(ResumePlanner.onPath("tool.exe", null));
     }
 }

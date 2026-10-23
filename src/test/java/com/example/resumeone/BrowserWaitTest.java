@@ -33,14 +33,14 @@ class BrowserWaitTest {
     void tabsQueuedForASleepingExtensionAreWaitingNotSent() {
         Project p = new Project("P", null, new HashMap<>(), new ArrayList<>());
         p.urlsByBrowser.put("Chrome", new ArrayList<>(List.of("https://a.com", "https://b.com")));
-        ColdstartController.LaunchStep chrome = new ColdstartController.LaunchStep("Chrome", "", true,
-                () -> { throw new ColdstartController.Queued(); });
-        ColdstartController.ResumeRun r = new ColdstartController.ResumeRun(p);
-        r.plan = new ColdstartController.ResumePlan(List.of(chrome), List.of());
+        ResumePlanner.LaunchStep chrome = new ResumePlanner.LaunchStep("Chrome", "", true,
+                () -> { throw new ResumePlanner.Queued(); });
+        ResumePlanner.ResumeRun r = new ResumePlanner.ResumeRun(p);
+        r.plan = new ResumePlanner.ResumePlan(List.of(chrome), List.of());
 
         chrome.run();
 
-        assertEquals(ColdstartController.LaunchStep.State.DONE, chrome.state, "counts as done, so the run is clean");
+        assertEquals(ResumePlanner.LaunchStep.State.DONE, chrome.state, "counts as done, so the run is clean");
         assertTrue(chrome.waiting);
         assertEquals(2, ColdstartController.tabsWaiting(r));
         assertTrue(chrome.logLine().contains("wait for its extension"));

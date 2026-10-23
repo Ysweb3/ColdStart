@@ -85,6 +85,7 @@ import java.time.ZoneId;
 
 import static com.example.resumeone.AppCatalog.*;
 import static com.example.resumeone.Browsers.*;
+import static com.example.resumeone.ResumePlanner.*;
 
 
 /**
@@ -1633,13 +1634,6 @@ public class ColdstartController {
         }
     }
 
-    // the design folds at four categories and links to an inspector; that artboard is not
-    // built, so every non-empty category is listed rather than hidden behind a dead link
-    private static final List<String> CATEGORY_ORDER = List.of(
-            "IDE", "AI", "Terminal", "Browser", "Database", "API", "Containers",
-            "VersionControl", "Design", "Video", "CAD", "Research", "Office", "Finance", "Communication",
-            "Notes", "Planning", "Files", "Music", "Games", "Apps");
-
     /** "2h ago" under Checkpoint: when the last one was taken. It used to read "overwrite \u00b7
         2h old", a warning on every press; a checkpoint is now one Ctrl+Z from undone. */
     private String idleLine(Project projectObj) {
@@ -1751,112 +1745,6 @@ public class ColdstartController {
         TreeSet<String> out = new TreeSet<>(projectObj.apps.getOrDefault(category, new HashSet<>()));
         if (category.equals(OTHER)) out.removeIf(app -> hidden.contains(app.toLowerCase()));
         return out;
-    }
-
-    // only where the exe name is not the app's name; everything else is the exe, capitalised
-    private static final Map<String, String> APP_NAMES = Map.ofEntries(
-            Map.entry("code", "VS Code"), Map.entry("code - insiders", "VS Code Insiders"),
-            Map.entry("explorer", "File Explorer"), Map.entry("mscopilot", "Copilot"),
-            Map.entry("idea", "IntelliJ IDEA"), Map.entry("pycharm", "PyCharm"), Map.entry("webstorm", "WebStorm"),
-            Map.entry("phpstorm", "PhpStorm"), Map.entry("clion", "CLion"), Map.entry("goland", "GoLand"),
-            Map.entry("rubymine", "RubyMine"), Map.entry("datagrip", "DataGrip"), Map.entry("studio", "Android Studio"),
-            Map.entry("devenv", "Visual Studio"), Map.entry("sublime_text", "Sublime Text"),
-            Map.entry("sublime_merge", "Sublime Merge"), Map.entry("notepad++", "Notepad++"),
-            Map.entry("windowsterminal", "Windows Terminal"), Map.entry("wezterm-gui", "WezTerm"),
-            Map.entry("conemu", "ConEmu"), Map.entry("msedge", "Edge"), Map.entry("githubdesktop", "GitHub Desktop"),
-            Map.entry("sourcetree", "Sourcetree"), Map.entry("gitkraken", "GitKraken"), Map.entry("ms-teams", "Teams"),
-            Map.entry("ssms", "SSMS"), Map.entry("pgadmin4", "pgAdmin"), Map.entry("mysqlworkbench", "MySQL Workbench"),
-            Map.entry("mongodbcompass", "MongoDB Compass"), Map.entry("dbeaver", "DBeaver"),
-            Map.entry("heidisql", "HeidiSQL"), Map.entry("tableplus", "TablePlus"), Map.entry("chatgpt", "ChatGPT"),
-            Map.entry("afterfx", "After Effects"), Map.entry("resolve", "DaVinci Resolve"),
-            Map.entry("capcut", "CapCut"), Map.entry("indesign", "InDesign"),
-            Map.entry("mspaint", "Paint"), Map.entry("paintdotnet", "Paint.NET"), Map.entry("winword", "Word"),
-            Map.entry("excel", "Excel"), Map.entry("powerpnt", "PowerPoint"), Map.entry("msaccess", "Access"),
-            Map.entry("visio", "Visio"), Map.entry("mspub", "Publisher"), Map.entry("winproj", "Project"),
-            Map.entry("acrord32", "Acrobat Reader"), Map.entry("foxitpdfreader", "Foxit PDF Reader"),
-            Map.entry("wps", "WPS Writer"), Map.entry("et", "WPS Spreadsheets"), Map.entry("wpp", "WPS Presentation"),
-            Map.entry("outlook", "Outlook"), Map.entry("olk", "Outlook"), Map.entry("onenote", "OneNote"),
-            Map.entry("obs", "OBS Studio"), Map.entry("camtasiastudio", "Camtasia"), Map.entry("fl", "FL Studio"),
-            Map.entry("itunes", "iTunes"), Map.entry("azuredatastudio", "Azure Data Studio"),
-            Map.entry("xournalpp", "Xournal++"), Map.entry("aimp", "AIMP"), Map.entry("xd", "Adobe XD"),
-            // AI
-            Map.entry("codex-cli", "Codex CLI"), Map.entry("gemini-cli", "Gemini CLI"),
-            Map.entry("copilot-cli", "Copilot CLI"), Map.entry("qwen-cli", "Qwen Code"),
-            Map.entry("goose-cli", "Goose CLI"), Map.entry("kiro-cli", "Kiro CLI"),
-            Map.entry("cursor-agent", "Cursor CLI"), Map.entry("opencode", "OpenCode"), Map.entry("deepl", "DeepL"),
-            Map.entry("comfyui", "ComfyUI"), Map.entry("stabilitymatrix", "Stability Matrix"),
-            // Design, Video
-            Map.entry("gimp-2.10", "GIMP"), Map.entry("gimp-3.0", "GIMP"), Map.entry("gimp-3", "GIMP"),
-            Map.entry("photo", "Affinity Photo"), Map.entry("designer", "Affinity Designer"),
-            Map.entry("publisher", "Affinity Publisher"), Map.entry("coreldrw", "CorelDRAW"),
-            Map.entry("clipstudiopaint", "Clip Studio Paint"), Map.entry("sai2", "PaintTool SAI"),
-            Map.entry("medibangpaintpro", "MediBang Paint"), Map.entry("firealpaca", "FireAlpaca"),
-            Map.entry("animate", "Adobe Animate"), Map.entry("photoshopelementseditor", "Photoshop Elements"),
-            Map.entry("captureone", "Capture One"), Map.entry("dxo.photolab", "DxO PhotoLab"),
-            Map.entry("protopie", "ProtoPie"), Map.entry("snagiteditor", "Snagit"), Map.entry("i_view", "IrfanView"),
-            Map.entry("xnviewmp", "XnView MP"), Map.entry("digikam", "digiKam"), Map.entry("pdr", "PowerDirector"),
-            Map.entry("avidmediacomposer", "Media Composer"), Map.entry("openshot-qt", "OpenShot"),
-            Map.entry("streamlabs obs", "Streamlabs"), Map.entry("xsplit.core", "XSplit"), Map.entry("vmix", "vMix"),
-            Map.entry("bdcam", "Bandicam"), Map.entry("mpc-hc", "MPC-HC"), Map.entry("potplayermini", "PotPlayer"),
-            // Office, Communication, Notes, Planning
-            Map.entry("soffice", "LibreOffice"), Map.entry("desktopeditors", "ONLYOFFICE"),
-            Map.entry("pdfxedit", "PDF-XChange Editor"), Map.entry("nitropdf", "Nitro PDF"),
-            Map.entry("pbidesktop", "Power BI"), Map.entry("memoq", "memoQ"),
-            Map.entry("digitaleditions", "Adobe Digital Editions"), Map.entry("whatsapp.root", "WhatsApp"),
-            Map.entry("ciscocollabhost", "Webex"), Map.entry("ringcentral", "RingCentral"),
-            Map.entry("wechat", "WeChat"), Map.entry("weixin", "WeChat"), Map.entry("line", "LINE"),
-            Map.entry("kakaotalk", "KakaoTalk"), Map.entry("qq", "QQ"), Map.entry("dingtalk", "DingTalk"),
-            Map.entry("mailclient", "eM Client"), Map.entry("remnote", "RemNote"), Map.entry("upnote", "UpNote"),
-            Map.entry("siyuan", "SiYuan"), Map.entry("microsoft.notes", "Sticky Notes"),
-            Map.entry("focuswriter", "FocusWriter"), Map.entry("todo", "Microsoft To Do"),
-            Map.entry("ticktick", "TickTick"), Map.entry("clickup", "ClickUp"),
-            Map.entry("mindmanager", "MindManager"), Map.entry("toggltrack", "Toggl Track"),
-            // CAD
-            Map.entry("acad", "AutoCAD"), Map.entry("acadlt", "AutoCAD LT"), Map.entry("sketchup", "SketchUp"),
-            Map.entry("fusion360", "Fusion"), Map.entry("sldworks", "SolidWorks"), Map.entry("freecad", "FreeCAD"),
-            Map.entry("cnext", "CATIA"), Map.entry("xtop", "Creo"), Map.entry("ugraf", "Siemens NX"),
-            Map.entry("keyshot", "KeyShot"), Map.entry("3dsmax", "3ds Max"), Map.entry("zbrush", "ZBrush"),
-            Map.entry("houdinifx", "Houdini"), Map.entry("houdinicore", "Houdini"), Map.entry("kicad", "KiCad"),
-            Map.entry("x2", "Altium Designer"), Map.entry("ltspice", "LTspice"),
-            Map.entry("bambu-studio", "Bambu Studio"), Map.entry("prusa-slicer", "PrusaSlicer"),
-            Map.entry("orca-slicer", "OrcaSlicer"), Map.entry("ultimaker-cura", "Cura"),
-            // Research
-            Map.entry("mendeley reference manager", "Mendeley"), Map.entry("endnote", "EndNote"),
-            Map.entry("jabref", "JabRef"), Map.entry("stats", "SPSS Statistics"), Map.entry("statamp", "Stata"),
-            Map.entry("statase", "Stata"), Map.entry("statabe", "Stata"), Map.entry("jasp", "JASP"),
-            Map.entry("sas", "SAS"), Map.entry("mtb", "Minitab"), Map.entry("prism", "GraphPad Prism"),
-            Map.entry("maplew", "Maple"), Map.entry("geogebra", "GeoGebra"), Map.entry("labview", "LabVIEW"),
-            Map.entry("imagej-win", "Fiji"), Map.entry("fiji-windows-x", "Fiji"), Map.entry("snapgene", "SnapGene"),
-            Map.entry("chemdraw", "ChemDraw"), Map.entry("qgis-bin", "QGIS"), Map.entry("qgis-ltr-bin", "QGIS"),
-            Map.entry("arcgispro", "ArcGIS Pro"), Map.entry("googleearth", "Google Earth Pro"),
-            Map.entry("nvivo", "NVivo"), Map.entry("texstudio", "TeXstudio"), Map.entry("texworks", "TeXworks"),
-            Map.entry("lyx", "LyX"),
-            // Finance
-            Map.entry("qbw", "QuickBooks"), Map.entry("qbw32", "QuickBooks"), Map.entry("tally", "TallyPrime"),
-            Map.entry("qw", "Quicken"), Map.entry("peachw", "Sage 50"), Map.entry("gnucash", "GnuCash"),
-            Map.entry("tradingview", "TradingView"), Map.entry("tws", "Trader Workstation"),
-            Map.entry("ninjatrader", "NinjaTrader"), Map.entry("ctrader", "cTrader"),
-            Map.entry("terminal", "MetaTrader 5"),
-            // Games
-            Map.entry("epicgameslauncher", "Epic Games"), Map.entry("eadesktop", "EA app"),
-            Map.entry("ubisoftconnect", "Ubisoft Connect"), Map.entry("upc", "Ubisoft Connect"),
-            Map.entry("galaxyclient", "GOG Galaxy"), Map.entry("xboxpcapp", "Xbox"),
-            Map.entry("riotclientux", "Riot Client"), Map.entry("minecraftlauncher", "Minecraft Launcher"),
-            Map.entry("playnite.desktopapp", "Playnite"), Map.entry("curseforge", "CurseForge"),
-            Map.entry("prismlauncher", "Prism Launcher"),
-            // Music
-            Map.entry("mediamonkey", "MediaMonkey"), Map.entry("protools", "Pro Tools"), Map.entry("lmms", "LMMS"),
-            Map.entry("virtualdj", "VirtualDJ"));
-
-    /** "idea64.exe" -> "IntelliJ IDEA", "WindowsTerminal.exe" -> "Windows Terminal",
-        "obsidian.exe" -> "Obsidian": what a person calls the app, not what Windows does. */
-    static String appName(String exe) {
-        String base = exe.replaceFirst("(?i)\\.exe$", "");
-        String key = base.toLowerCase().replaceFirst("[-_]?64$", "");
-        String known = APP_NAMES.get(key);
-        if (known != null) return known;
-        String name = base.replaceFirst("[-_]?64$", "");
-        return name.isEmpty() ? exe : Character.toUpperCase(name.charAt(0)) + name.substring(1);
     }
 
     /** "VersionControl" -> "Version control": the map key, spaced and in sentence case, which
@@ -3165,7 +3053,7 @@ public class ColdstartController {
     static Set<String> appsToClose(Map<String, HashSet<String>> apps) {
         Set<String> out = new TreeSet<>(String.CASE_INSENSITIVE_ORDER);
         apps.forEach((category, exes) -> { if (!KEEP_OPEN.contains(category)) out.addAll(exes); });
-        out.removeIf(ColdstartController::isCli);   // under AI, but they live in a terminal tab
+        out.removeIf(AppCatalog::isCli);   // under AI, but they live in a terminal tab
         // closed by process name it would be "claude", which also has the console window of a
         // claude CLI running in conhost
         out.remove("Claude Desktop.exe");
@@ -3449,7 +3337,7 @@ public class ColdstartController {
         ckHint.setVisible(unsaved);
         ckHint.setManaged(unsaved);
         checkpointSub.setText(closingNow ? closeDone + " of " + closeTotal + " apps"
-                : unsaved ? String.join(" · ", warn.stream().map(ColdstartController::appName).toList())
+                : unsaved ? String.join(" · ", warn.stream().map(AppCatalog::appName).toList())
                 : idleLine(projectObj));
         checkpointSub.pseudoClassStateChanged(PC_WARN, unsaved);
         btnCheckpoint.pseudoClassStateChanged(PC_CLOSING, closingNow);
@@ -3702,122 +3590,6 @@ public class ColdstartController {
         return appset;
     }
 
-    // == AI CLIs and their desktop twins =====================================
-
-    /** CLIs that run as their own exe, by process name: captured with or without a window. */
-    static final List<String> NATIVE_CLIS = List.of("claude", "codex", "copilot", "goose", "opencode",
-            "aider", "kiro-cli", "droid");
-
-    // claude, codex, copilot and goose each ship a desktop app and a CLI under one exe name:
-    // exe -> {desktop app, CLI}. claude keeps claude.exe for the CLI, which is what every
-    // project saved before the desktop app was told apart already means by it
-    private static final Map<String, List<String>> TWINS = Map.of(
-            "claude.exe", List.of("Claude Desktop.exe", "claude.exe"),
-            "codex.exe", List.of("Codex.exe", "codex-cli.exe"),
-            "copilot.exe", List.of("Copilot.exe", "copilot-cli.exe"),
-            "goose.exe", List.of("Goose.exe", "goose-cli.exe"));
-    // where the desktop twins install: the Store, Claude's old installer, Electron's per-user
-    // folder. The CLIs land in .local\bin, npm, WinGet\Packages, cargo or scoop instead
-    private static final List<String> DESKTOP_DIRS = List.of("\\windowsapps\\", "\\anthropicclaude\\",
-            "\\appdata\\local\\programs\\");
-
-    /** What a captured process is saved as. A desktop twin counts only with a window open:
-        its helpers have none, nor does one left running in the tray. A window cannot tell
-        the CLI apart - in a conhost console it owns one too - so the install folder does.
-        Steam's window belongs to its web helper. */
-    static String capturedApp(String name, boolean windowed, String path) {
-        String lower = name.toLowerCase();
-        if (lower.equals("steamwebhelper.exe")) return "steam.exe";
-        List<String> twin = TWINS.get(lower);
-        if (twin == null) return name;
-        String dir = path.toLowerCase();
-        if (DESKTOP_DIRS.stream().anyMatch(dir::contains)) return windowed ? twin.get(0) : null;
-        return twin.get(1);
-    }
-
-    // node CLIs: the package in the command line -> the name they are saved as. The trailing
-    // slash keeps @github/copilot-language-server (editors run it on node) from counting
-    private static final Map<String, String> NODE_CLIS = Map.of(
-            "/@google/gemini-cli/", "gemini-cli.exe",
-            "/@github/copilot/", "copilot-cli.exe",
-            "/@qwen-code/qwen-code/", "qwen-cli.exe",
-            "/@sourcegraph/amp/", "amp.exe",
-            "/cursor-agent/", "cursor-agent.exe",
-            // npm installs of these wrap a native exe, which capturedApp already names
-            "/@openai/codex/", "codex-cli.exe",
-            "/opencode-ai/", "opencode.exe");
-
-    /** A node process's command line -> the CLI it runs, or null for any other node process. */
-    static String nodeCli(String commandLine) {
-        String cmd = commandLine.replace('\\', '/').toLowerCase();
-        return NODE_CLIS.entrySet().stream().filter(e -> cmd.contains(e.getKey()))
-                .map(Map.Entry::getValue).findFirst().orElse(null);
-    }
-
-    // the AI CLIs, as captured -> the command that reopens their last chat in the project
-    // folder (each keeps its sessions per directory). claude's agent view takes --cwd instead
-    static final Map<String, List<String>> CLI_RESUME = Map.ofEntries(
-            Map.entry("claude.exe", List.of("claude", "agents")),
-            Map.entry("codex-cli.exe", List.of("codex", "resume", "--last")),
-            Map.entry("gemini-cli.exe", List.of("gemini", "--resume")),
-            Map.entry("copilot-cli.exe", List.of("copilot", "--continue")),
-            Map.entry("qwen-cli.exe", List.of("qwen", "--continue")),
-            Map.entry("goose-cli.exe", List.of("goose", "session", "--resume")),
-            Map.entry("opencode.exe", List.of("opencode", "--continue")),
-            Map.entry("aider.exe", List.of("aider", "--restore-chat-history")),
-            Map.entry("kiro-cli.exe", List.of("kiro-cli", "chat", "--resume")),
-            Map.entry("cursor-agent.exe", List.of("cursor-agent", "resume")),
-            Map.entry("droid.exe", List.of("droid", "--resume")),
-            // no "latest thread" flag, only thread ids: a new thread, in the project
-            Map.entry("amp.exe", List.of("amp")));
-
-    static boolean isCli(String app) {
-        return CLI_RESUME.containsKey(app.toLowerCase());
-    }
-
-    static boolean hasCli(Project projectObj) {
-        return projectObj.apps.values().stream().flatMap(Set::stream).anyMatch(ColdstartController::isCli);
-    }
-
-    /** "...\WindowsApps\Claude_2.4.0.0_x64__pzs8sxrjxfjjc\app\claude.exe" -> "Claude_pzs8sxrjxfjjc!Claude":
-        the package family (the folder name's first and last parts) and the id of the manifest's
-        Application that runs this exe. Null outside WindowsApps or when the manifest is gone.
-        ponytail: an update between checkpoint and resume moves the folder, so that resume
-        misses; the next checkpoint saves the new path */
-    static String storeAppId(String exePath) {
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("(?i)(.*\\\\WindowsApps\\\\([^\\\\]+))\\\\(.+)")
-                .matcher(exePath);
-        if (!m.matches()) return null;
-        String[] pkg = m.group(2).split("_");
-        try {
-            String manifest = Files.readString(Path.of(m.group(1), "AppxManifest.xml"));
-            java.util.regex.Matcher app = java.util.regex.Pattern.compile("<Application\\s[^>]*").matcher(manifest);
-            while (app.find()) {
-                String id = xmlAttr(app.group(), "Id"), exe = xmlAttr(app.group(), "Executable");
-                if (id != null && m.group(3).equalsIgnoreCase(exe)) return pkg[0] + "_" + pkg[pkg.length - 1] + "!" + id;
-            }
-        } catch (IOException | RuntimeException ex) {
-            // unreadable: the exe path is all there is
-        }
-        return null;
-    }
-
-    private static String xmlAttr(String tag, String name) {
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\s" + name + "=\"([^\"]*)\"").matcher(tag);
-        return m.find() ? m.group(1) : null;
-    }
-
-    /** exe -> what explorer.exe opens to start it, for apps `start` cannot find by name and
-        whose saved exe is no use: a Store app's id (Get-StartApps lists them), a launcher's url.
-        Other Store apps need no entry - storeAppId reads theirs from the saved exe's package. */
-    static final Map<String, String> SHELL_APPS = Map.of(
-            "mscopilot.exe", "shell:AppsFolder\\Microsoft.Copilot_8wekyb3d8bbwe!App",
-            // capturedApp's name, so there is no exe saved under it
-            // ponytail: the Store build only; the old AnthropicClaude installer would need its exe
-            "claude desktop.exe", "shell:AppsFolder\\Claude_pzs8sxrjxfjjc!Claude",
-            // no App Paths entry, and the window - so the saved exe - is steamwebhelper's
-            "steam.exe", "steam://open/main");
-
     /** Writes the project to projects.json (replacing any entry with the same name). Both the
         in-memory list and the on-disk list are updated. It does not make the project active:
         tabs can now land on a project that is not on screen. Synchronized with deleteProject:
@@ -3898,46 +3670,6 @@ public class ColdstartController {
     //                       url and handed the rest when its extension connects - or all at once
     //                       after PENDING_OPEN_MS
 
-    /** `where <name>` - first PATH hit or null. Currently unused; browsers go via browserPath(). */
-    public String getAppPath(String appName) throws IOException {
-        ProcessBuilder pb = new  ProcessBuilder("cmd.exe","/c", "where", appName);
-        Process process = pb.start();
-        BufferedReader reader = new BufferedReader(
-                new InputStreamReader(process.getInputStream())
-        );
-        String path = reader.readLine();
-        return path != null ? path.trim() : null;
-    }
-    // every running claude writes ~/.claude/sessions/<pid>.json with its cwd. a live one for
-    // this folder (that is not a background one) means its window is already up, so opening
-    // another would only duplicate it.
-    boolean claudeRunningIn(String folderPath) {
-        return claudeRunningIn(folderPath, new File(System.getProperty("user.home"), ".claude/sessions"));
-    }
-
-    boolean claudeRunningIn(String folderPath, File sessionsDir) {
-        File[] files = sessionsDir.listFiles((d, name) -> name.endsWith(".json"));
-        if (files == null) return false;
-        for (File f : files) {
-            try (Reader r = new FileReader(f)) {
-                Map<String, Object> session = gson.fromJson(r, Map.class);
-                Object cwd = session.get("cwd");
-                Object pid = session.get("pid");
-                // a background session ("kind":"bg") outlives the terminal it started in and has
-                // no window, so a leftover one from yesterday must not stand in for an open claude
-                if ("bg".equals(session.get("kind"))) continue;
-                // the file outlives a crash, so the pid has to be checked too
-                if (cwd != null && pid != null && folderPath.equalsIgnoreCase(cwd.toString())
-                        && ProcessHandle.of(((Number) pid).longValue()).map(ProcessHandle::isAlive).orElse(false)) {
-                    return true;
-                }
-            } catch (IOException | RuntimeException ex) {
-                // a half-written or odd file is not a reason to skip the launch
-            }
-        }
-        return false;
-    }
-
     // projects saved before capture recorded the browser keep their urls in the legacy flat list
     static void migrateLegacyUrls(Project projectObj) {
         if (projectObj.urlsByBrowser == null) {
@@ -3950,225 +3682,11 @@ public class ColdstartController {
         projectObj.urlsByBrowser.values().forEach(urls -> urls.removeIf(u -> !isPageUrl(u)));
     }
 
-    // reg prints "    (Default)    REG_SZ    C:\Program Files\...\chrome.exe" - the path holds
-    // spaces, so only the trailing side can be trimmed
-    static String parseRegPath(String regOutput) {
-        for (String line : regOutput.split("\r?\n")) {
-            int marker = line.indexOf("REG_SZ");
-            if (marker >= 0) {
-                String value = line.substring(marker + "REG_SZ".length()).trim();
-                if (!value.isEmpty()) {
-                    return value;
-                }
-            }
-        }
-        return null;
-    }
-
-    // browsers are not on PATH, so `where chrome` finds nothing - windows resolves them through
-    // the App Paths registry keys instead. per-user installs (common for chrome and brave) land
-    // in HKCU, machine-wide ones in HKLM.
-    String browserPath(String browser) throws IOException {
-        String exe = browser == null ? null : BROWSER_EXE.get(brandOf(browser).toLowerCase());
-        return exe == null ? null : appPath(exe);
-    }
-
-    /** Is "name.exe" in one of the PATH directories - the first place `start name` looks.
-        NOFOLLOW_LINKS: Store apps live in WindowsApps as execution-alias reparse points, which
-        File.isFile and a following Files.exists both report as missing. */
-    static boolean onPath(String exe, String path) {
-        if (path == null) return false;
-        for (String dir : path.split(File.pathSeparator)) {
-            if (dir.isBlank()) continue;
-            try {
-                if (Files.exists(Path.of(dir.trim().replace("\"", ""), exe), LinkOption.NOFOLLOW_LINKS)) return true;
-            } catch (java.nio.file.InvalidPathException badEntry) {
-                // a malformed PATH entry is skipped, as cmd skips it
-            }
-        }
-        return false;
-    }
-
-    /** The exe's App Paths registration (HKCU, then HKLM) - where `start` looks after PATH. */
-    static String appPath(String exe) throws IOException {
-        for (String hive : List.of("HKCU", "HKLM")) {
-            ProcessBuilder pb = new ProcessBuilder("reg", "query",
-                    hive + "\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\App Paths\\" + exe, "/ve");
-            pb.redirectErrorStream(true);
-            Process process = pb.start();
-            StringBuilder output = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line).append('\n');
-                }
-            }
-            String path = parseRegPath(output.toString());
-            if (path != null && new File(path).exists()) {
-                return path;
-            }
-        }
-        return null;
-    }
-
-    // an app that is already open should be left alone rather than opened a second time.
-    // a browser we are about to hand urls to is skipped as well - resumeProject launches it with
-    // those tabs as arguments, so launching it here too is what creates the duplicate window.
-    // browsers with no saved urls are not skipped: nothing else would bring their window back.
-    static boolean shouldLaunch(String app, Set<String> running, Set<String> handledBrowsers) {
-        // CLI sessions are per-project-folder, not a singleton: a claude window open for
-        // some other project must never suppress opening this project's own session.
-        // ponytail: only claude can tell which folder it runs in (claudeRunningIn); another CLI
-        // already open on this project comes back twice
-        if (isCli(app)) {
-            return true;
-        }
-        for (String open : running) {
-            if (open.equalsIgnoreCase(app)) {
-                return false;
-            }
-        }
-        return !handledBrowsers.contains(app.toLowerCase());
-    }
-
-    // a CLI was captured next to WindowsTerminal.exe because it ran inside a terminal tab.
-    // launched separately, `start wt` only brings back an empty PowerShell window beside the
-    // one the CLI's console opens - so the CLI is launched *through* wt and wt itself is skipped.
-    static List<String> cliCommand(String exe, String folder, boolean inTerminal) {
-        List<String> command = new ArrayList<>(List.of("cmd.exe", "/c", "start"));
-        if (inTerminal) {
-            command.add("wt");
-            if (folder != null) command.addAll(List.of("-d", folder));
-        }
-        List<String> resume = CLI_RESUME.get(exe.toLowerCase());
-        if (exe.equalsIgnoreCase("claude.exe")) {
-            // the agent view lists every conversation for the project, not just the latest one;
-            // --cwd scopes it to sessions started under this folder - with no folder it shows them all
-            command.addAll(resume);
-            if (folder != null) command.addAll(List.of("--cwd", folder));
-        } else {
-            // the others' "last chat" is the last one in the folder they start in: with no
-            // project folder there is none to go back to, so a new one
-            command.addAll(folder != null ? resume : resume.subList(0, 1));
-        }
-        return command;
-    }
-
-    static boolean hasApp(Project projectObj, String exe) {
-        return projectObj.apps.values().stream()
-                .flatMap(Set::stream)
-                .anyMatch(exe::equalsIgnoreCase);
-    }
-
-    @FunctionalInterface
-    interface Launch { void start() throws IOException, URISyntaxException, AlreadyOpen, Queued; }
-
-    /** A launch that found nothing to do: every saved tab was already open in that browser. */
-    static final class AlreadyOpen extends Exception {
-        AlreadyOpen() { super(null, null, false, false); }
-    }
-
-    /** A launch handed to an extension that has not connected yet: it opens them when it does. */
-    static final class Queued extends Exception {
-        Queued() { super(null, null, false, false); }
-    }
-
-    /** One process launch: the row's label, the command it shows, and how it went. */
-    static final class LaunchStep {
-        /** SKIPPED: ran, but there was nothing to open - shown as already open, not launched */
-        enum State { QUEUED, LAUNCHING, DONE, SKIPPED, FAILED }
-        final String label, command;
-        final boolean browser;
-        final Launch launch;
-        volatile State state = State.QUEUED;
-        volatile String error;
-        /** DONE, but its tabs are still waiting for the browser's extension to connect */
-        volatile boolean waiting;
-        /** a browser's tabs its extension says it opened; -1 = no count (command line, an older
-            extension), so every saved url counts */
-        volatile int opened = -1;
-
-        LaunchStep(String label, String command, boolean browser, Launch launch) {
-            this.label = label;
-            this.command = command;
-            this.browser = browser;
-            this.launch = launch;
-        }
-
-        /** one app failing to launch (bad folder, missing exe, ...) must not abort the rest */
-        void run() {
-            state = State.LAUNCHING;
-            try {
-                launch.start();
-                state = State.DONE;
-            } catch (AlreadyOpen ex) {
-                state = State.SKIPPED;
-            } catch (Queued ex) {
-                waiting = true;
-                state = State.DONE;
-            } catch (IOException | URISyntaxException ex) {
-                error = ex.getMessage();
-                state = State.FAILED;
-                System.err.println("failed to launch " + label + ": " + error);
-            }
-        }
-
-        String logLine() {
-            return switch (state) {
-                case DONE -> waiting ? label + ": tabs wait for its extension to connect" : label + " → " + command;
-                case SKIPPED -> label + ": every tab already open";
-                default -> label + " failed: " + error;
-            };
-        }
-    }
-
-    record ResumePlan(List<LaunchStep> steps, List<String> skipped) {}
-
-    /** Everything one press of Resume produced; 1e and 1l render from it. */
-    static final class ResumeRun {
-        final Project project;
-        final List<String> log = new CopyOnWriteArrayList<>();
-        volatile ResumePlan plan = new ResumePlan(List.of(), List.of());
-        long tookMs;
-        /** Stop was pressed with steps still queued: 1l says STOPPED and offers the rest. */
-        volatile boolean stopped;
-        /** The capture before planning failed, so nothing was planned or launched. */
-        volatile String error;
-
-        ResumeRun(Project project) { this.project = project; }
-
-        int total()     { return plan.steps().size(); }
-        /** finished fine, including a browser that had every tab open already */
-        long done()     { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.DONE || s.state == LaunchStep.State.SKIPPED).count(); }
-        long failed()   { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.FAILED).count(); }
-        long queued()   { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.QUEUED).count(); }
-        long appsDone() { return plan.steps().stream().filter(s -> s.state == LaunchStep.State.DONE && !s.browser).count(); }
-
-        /** Left alone: apps the plan found running, plus browsers that turned out to have every tab. */
-        List<String> alreadyOpen() {
-            List<String> all = new ArrayList<>(plan.skipped());
-            plan.steps().stream().filter(s -> s.state == LaunchStep.State.SKIPPED).forEach(s -> all.add(s.label));
-            return all;
-        }
-    }
-
     /** Brings a saved project back: browsers with their tabs, then every other captured app.
         Synchronous - the HUD's Resume runs the same plan staggered on its own thread. */
     public void resumeProject(Project projectObj) throws IOException {
         for (LaunchStep step : planResume(projectObj, captureRunningApps(), liveFolders(projectObj), new ArrayList<>()).steps()) {
             step.run();
-        }
-    }
-
-    /** What the project's saved IDEs have open right now, so resume skips only those folders.
-        Empty when no folder was saved or the listing failed: asking VS Code or a JetBrains IDE
-        for a folder it already has open just brings that window forward. */
-    static Map<String, ArrayList<String>> liveFolders(Project projectObj) {
-        if (projectObj.folders == null || projectObj.folders.isEmpty()) return Map.of();
-        try {
-            return AppFolders.capture().folders();
-        } catch (IOException ex) {
-            return Map.of();
         }
     }
 
@@ -4182,9 +3700,6 @@ public class ColdstartController {
         //TODO:add multiple apps checking for path list
         System.out.println("projectName:" + projectObj.projectName);
         migrateLegacyUrls(projectObj);
-        boolean cliInTerminal = hasCli(projectObj) && hasApp(projectObj, "WindowsTerminal.exe");
-        List<LaunchStep> steps = new ArrayList<>();
-        List<String> skipped = new ArrayList<>();
 
         // browsers go last: the apps launching first give an extension that has not reconnected
         // to a just-started coldstart time to, and only an extension can skip the open tabs
@@ -4260,112 +3775,10 @@ public class ColdstartController {
             }));
         }
 
-        // CATEGORY_ORDER only, so the rows walk the card top to bottom. Other is captured and
-        // shown but never relaunched - the card says so, and now it is true.
-        String folder = projectObj.folderPath;
-        for (String category : CATEGORY_ORDER) {
-            HashSet<String> bucket = projectObj.apps.get(category);
-            if (bucket == null) continue;
-            for (String app : new TreeSet<>(bucket)) {
-                // a browser handed its tabs above is coming back, not "already open"
-                if (handledBrowsers.contains(app.toLowerCase())) {
-                    log.add("skipping " + app + ": opens with its tabs");
-                    continue;
-                }
-                List<String> dirs = projectObj.folders == null ? null : projectObj.folders.get(app);
-                if (dirs != null && !dirs.isEmpty()) {
-                    // one window per saved folder: the app being up only rules out the folders
-                    // it already has open, not the rest
-                    List<String> open = openFolders.getOrDefault(app, new ArrayList<>());
-                    boolean any = false;
-                    for (String dir : dirs) {
-                        if (open.stream().anyMatch(dir::equalsIgnoreCase)) {
-                            log.add("skipping " + app + ": already open on " + dir);
-                            continue;
-                        }
-                        steps.add(folderStep(app, dir, projectObj.exePaths == null ? null : projectObj.exePaths.get(app)));
-                        any = true;
-                    }
-                    if (!any) skipped.add(app);
-                    continue;
-                }
-                if (!shouldLaunch(app, running, handledBrowsers)) {
-                    skipped.add(app);
-                    log.add("skipping (already open or handled): " + app);
-                    continue;
-                }
-                String appName = app.replace(".exe", "");
-
-                if (isCli(app)) {
-                    if (appName.equalsIgnoreCase("claude") && folder != null && claudeRunningIn(folder)) {
-                        skipped.add(app);
-                        log.add("skipping claude: already running in " + folder);
-                        continue;
-                    }
-                    List<String> cmd = cliCommand(app, folder, cliInTerminal);
-                    // open the CLI on its last chat, in the project folder when there is one
-                    steps.add(new LaunchStep(appName(app), String.join(" ", cmd.subList(2, cmd.size())), false, () ->
-                            new ProcessBuilder(cmd).directory(folder == null ? null : new File(folder)).start()));
-
-                } else if (appName.equalsIgnoreCase("Code")) {
-                    // open VS Code in the project folder; with none it reopens its last
-                    // workspace rather than silently not coming back
-                    List<String> cmd = new ArrayList<>(List.of("cmd.exe", "/c", "code"));
-                    if (folder != null) cmd.add(folder);
-                    steps.add(new LaunchStep(appName(app), folder == null ? "code" : "code " + folder, false, () ->
-                            new ProcessBuilder(cmd).start()));
-
-                } else if (appName.equalsIgnoreCase("WindowsTerminal")) {
-                    if (cliInTerminal) {
-                        log.add("skipping wt: the CLIs launch inside it");
-                        continue;
-                    }
-                    // WindowsTerminal.exe is the process name, but "wt" is the actual
-                    // launch command - "start WindowsTerminal" can't resolve it
-                    steps.add(new LaunchStep(appName(app), "start wt", false, () ->
-                            new ProcessBuilder("cmd.exe", "/c", "start", "wt").start()));
-
-                } else if (SHELL_APPS.containsKey(app.toLowerCase())) {
-                    // a Store app with no exe on PATH or in App Paths: started by its app id,
-                    // the way the Start menu does it - or a launcher by its url
-                    String target = SHELL_APPS.get(app.toLowerCase());
-                    steps.add(new LaunchStep(appName(app), "start " + appName(app), false, () ->
-                            new ProcessBuilder("explorer.exe", target).start()));
-
-                } else {
-                    // no folder needed: this used to sit under the folderPath guard too, so a
-                    // project without a folder relaunched nothing at all
-                    // `start` reports nothing back when windows cannot find the exe - it shows its
-                    // own dialog and the step would read as launched - so look first, the way
-                    // start does: PATH, then the App Paths keys
-                    String exePath = projectObj.exePaths == null ? null : projectObj.exePaths.get(app);
-                    // a desktop twin's name finds its CLI on PATH (codex.exe for Codex.exe)
-                    boolean twin = TWINS.values().stream().anyMatch(t -> t.get(0).equalsIgnoreCase(app));
-                    steps.add(new LaunchStep(appName(app), "start " + appName, false, () -> {
-                        if (twin || !onPath(app, System.getenv("PATH")) && appPath(app) == null) {
-                            // not findable by name (most apps moved out of Other): the exe the
-                            // last checkpoint saw it run from
-                            if (exePath == null || !new File(exePath).isFile()) throw new IOException("cannot find " + app);
-                            // a Store app's exe only runs with its package's identity: by app id
-                            String storeId = storeAppId(exePath);
-                            if (storeId != null) {
-                                new ProcessBuilder("explorer.exe", "shell:AppsFolder\\" + storeId).start();
-                                return;
-                            }
-                            new ProcessBuilder(exePath).redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                                    .redirectError(ProcessBuilder.Redirect.DISCARD).start();
-                            return;
-                        }
-                        // the "" is start's window title: without it, a name with a space
-                        // ("Adobe Premiere Pro") arrives quoted and start takes it as the title,
-                        // opening an empty console instead of the app
-                        new ProcessBuilder("cmd.exe", "/c", "start", "", appName).start();
-                    }));
-                }
-            }
-        }
+        ResumePlan apps = appPlan(projectObj, running, openFolders, handledBrowsers, log);
+        List<LaunchStep> steps = new ArrayList<>(apps.steps());
         steps.addAll(browserSteps);
-        return new ResumePlan(steps, skipped);
+        return new ResumePlan(steps, apps.skipped());
     }
 
     /** The connected extension a bucket's tabs go to: its own profile before any other of its brand. */
@@ -4391,35 +3804,6 @@ public class ColdstartController {
             live = liveSession(browser);
         }
         return live;
-    }
-
-    /** Opens one saved folder or file in the app that had it: a VS Code build through its own
-        command, anything else from the exe it ran from last time (the same Unity version, a
-        Blender that is not on PATH), or else through `start` like any other app. */
-    static LaunchStep folderStep(String app, String dir, String exePath) {
-        String label = appName(app) + " · " + new File(dir).getName();
-        AppFolders.VsCode vs = AppFolders.VSCODE_FAMILY.get(app.toLowerCase());
-        String name = vs != null ? vs.cli() : app.replaceFirst("(?i)\\.exe$", "");
-        List<String> args = AppFolders.openArgs(app, dir);
-        return new LaunchStep(label, name + " " + String.join(" ", args), false, () -> {
-            // moved or deleted since: VS Code would open an empty window and read as restored
-            if (!new File(dir).exists()) throw new IOException("no longer there: " + dir);
-            List<String> cmd = new ArrayList<>();
-            if (vs != null) {
-                cmd.addAll(List.of("cmd.exe", "/c", vs.cli()));
-            } else if (exePath != null && new File(exePath).isFile()) {
-                cmd.add(exePath);
-            } else if (onPath(app, System.getenv("PATH")) || appPath(app) != null) {
-                cmd.addAll(List.of("cmd.exe", "/c", "start", "", name));
-            } else {
-                throw new IOException("cannot find " + app);
-            }
-            cmd.addAll(args);
-            // nothing reads the child's output, and a chatty one (Blender logs to stdout)
-            // would stall on a full pipe
-            new ProcessBuilder(cmd).redirectOutput(ProcessBuilder.Redirect.DISCARD)
-                    .redirectError(ProcessBuilder.Redirect.DISCARD).start();
-        });
     }
 
     // == Window placement ====================================================

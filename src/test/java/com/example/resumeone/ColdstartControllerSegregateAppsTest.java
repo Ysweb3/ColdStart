@@ -104,27 +104,27 @@ class ColdstartControllerSegregateAppsTest {
     @Test
     void claudeCapturedInsideTerminalIsLaunchedThroughWt() {
         // regression: `start wt` + `start claude` left an empty PowerShell window next to claude's
-        java.util.List<String> inWt = ColdstartController.cliCommand("claude.exe", "C:\\proj", true);
+        java.util.List<String> inWt = ResumePlanner.cliCommand("claude.exe", "C:\\proj", true);
         assertEquals(java.util.List.of("cmd.exe", "/c", "start", "wt", "-d", "C:\\proj",
                 "claude", "agents", "--cwd", "C:\\proj"), inWt);
 
-        java.util.List<String> bare = ColdstartController.cliCommand("claude.exe", "C:\\proj", false);
+        java.util.List<String> bare = ResumePlanner.cliCommand("claude.exe", "C:\\proj", false);
         assertEquals(java.util.List.of("cmd.exe", "/c", "start", "claude", "agents", "--cwd", "C:\\proj"), bare);
 
         // regression: a project saved without a folder used to launch nothing at all
         assertEquals(java.util.List.of("cmd.exe", "/c", "start", "wt", "claude", "agents"),
-                ColdstartController.cliCommand("claude.exe", null, true));
+                ResumePlanner.cliCommand("claude.exe", null, true));
     }
 
     @Test
     void otherCliesReopenTheirLastChatInTheProjectFolder() {
         assertEquals(java.util.List.of("cmd.exe", "/c", "start", "wt", "-d", "C:\\proj", "codex", "resume", "--last"),
-                ColdstartController.cliCommand("codex-cli.exe", "C:\\proj", true));
+                ResumePlanner.cliCommand("codex-cli.exe", "C:\\proj", true));
         assertEquals(java.util.List.of("cmd.exe", "/c", "start", "gemini", "--resume"),
-                ColdstartController.cliCommand("gemini-cli.exe", "C:\\proj", false));
+                ResumePlanner.cliCommand("gemini-cli.exe", "C:\\proj", false));
         // no folder, no "last chat here": a fresh one
         assertEquals(java.util.List.of("cmd.exe", "/c", "start", "kiro-cli"),
-                ColdstartController.cliCommand("kiro-cli.exe", null, false));
+                ResumePlanner.cliCommand("kiro-cli.exe", null, false));
 
         // wt is not started on its own: each CLI brings its own terminal window
         HashMap<String, HashSet<String>> apps = new HashMap<>();
@@ -134,21 +134,21 @@ class ColdstartControllerSegregateAppsTest {
         var plan = new ColdstartController().planResume(p, java.util.Set.of("codex-cli.exe"), new java.util.ArrayList<>());
         assertEquals(java.util.List.of("Aider", "Codex CLI"), plan.steps().stream().map(s -> s.label).toList(),
                 "a CLI already running elsewhere still opens for this project");
-        assertTrue(ColdstartController.appsToClose(apps).stream().noneMatch(ColdstartController::isCli));
+        assertTrue(ColdstartController.appsToClose(apps).stream().noneMatch(AppCatalog::isCli));
     }
 
     @Test
     void desktopAppsAreToldApartFromTheirCliesByWhereTheyInstall() {
         String store = "C:\\Program Files\\WindowsApps\\Claude_2.42304.2.0_x64__pzs8sxrjxfjjc\\app\\claude.exe";
-        assertEquals("Claude Desktop.exe", ColdstartController.capturedApp("claude.exe", true, store));
-        assertNull(ColdstartController.capturedApp("claude.exe", false, store), "a helper or the tray: no window");
-        assertEquals("claude.exe", ColdstartController.capturedApp("claude.exe", true, "C:\\Users\\y\\.local\\bin\\claude.exe"),
+        assertEquals("Claude Desktop.exe", AppCatalog.capturedApp("claude.exe", true, store));
+        assertNull(AppCatalog.capturedApp("claude.exe", false, store), "a helper or the tray: no window");
+        assertEquals("claude.exe", AppCatalog.capturedApp("claude.exe", true, "C:\\Users\\y\\.local\\bin\\claude.exe"),
                 "a CLI in conhost owns a window too");
-        assertEquals("codex-cli.exe", ColdstartController.capturedApp("codex.exe", false,
+        assertEquals("codex-cli.exe", AppCatalog.capturedApp("codex.exe", false,
                 "C:\\Users\\y\\AppData\\Roaming\\npm\\node_modules\\@openai\\codex\\vendor\\codex.exe"));
-        assertEquals("Goose.exe", ColdstartController.capturedApp("Goose.exe", true, "C:\\Users\\y\\AppData\\Local\\Programs\\Goose\\Goose.exe"));
-        assertEquals("steam.exe", ColdstartController.capturedApp("steamwebhelper.exe", true, "C:\\Steam\\bin\\cef\\steamwebhelper.exe"));
-        assertEquals("Spotify.exe", ColdstartController.capturedApp("Spotify.exe", true, "C:\\x\\Spotify.exe"));
+        assertEquals("Goose.exe", AppCatalog.capturedApp("Goose.exe", true, "C:\\Users\\y\\AppData\\Local\\Programs\\Goose\\Goose.exe"));
+        assertEquals("steam.exe", AppCatalog.capturedApp("steamwebhelper.exe", true, "C:\\Steam\\bin\\cef\\steamwebhelper.exe"));
+        assertEquals("Spotify.exe", AppCatalog.capturedApp("Spotify.exe", true, "C:\\x\\Spotify.exe"));
 
         // the desktop app lands in AI and starts by its Store id; it is not closed by name
         var result = AppCatalog.segregateApps(new HashSet<>(java.util.Set.of("Claude Desktop.exe")));
@@ -161,12 +161,12 @@ class ColdstartControllerSegregateAppsTest {
 
     @Test
     void nodeCliesAreFoundByThePackageInTheirCommandLine() {
-        assertEquals("gemini-cli.exe", ColdstartController.nodeCli(
+        assertEquals("gemini-cli.exe", AppCatalog.nodeCli(
                 "\"C:\\Program Files\\nodejs\\node.exe\" C:\\Users\\y\\AppData\\Roaming\\npm\\node_modules\\@google\\gemini-cli\\dist\\index.js"));
-        assertEquals("copilot-cli.exe", ColdstartController.nodeCli("node C:\\npm\\node_modules\\@github\\copilot\\index.js"));
-        assertNull(ColdstartController.nodeCli("node C:\\x\\node_modules\\@github\\copilot-language-server\\dist\\main.js --stdio"),
+        assertEquals("copilot-cli.exe", AppCatalog.nodeCli("node C:\\npm\\node_modules\\@github\\copilot\\index.js"));
+        assertNull(AppCatalog.nodeCli("node C:\\x\\node_modules\\@github\\copilot-language-server\\dist\\main.js --stdio"),
                 "an editor's copilot server is not the CLI");
-        assertNull(ColdstartController.nodeCli("node C:\\proj\\server.js"), "a dev server is not an app");
+        assertNull(AppCatalog.nodeCli("node C:\\proj\\server.js"), "a dev server is not an app");
     }
 
     @Test
@@ -179,10 +179,10 @@ class ColdstartControllerSegregateAppsTest {
                 + "<Application Id=\"App\" Executable=\"WhatsApp.Root.exe\" EntryPoint=\"Windows.FullTrustApplication\">"
                 + "</Application></Applications></Package>");
         assertEquals("5319275A.WhatsAppDesktop_cv1g1gvanyjgm!App",
-                ColdstartController.storeAppId(pkg.resolve("whatsapp.root.exe").toString()));
-        assertNull(ColdstartController.storeAppId(pkg.resolve("other.exe").toString()));
-        assertNull(ColdstartController.storeAppId("C:\\Program Files\\Spotify\\Spotify.exe"));
-        assertNull(ColdstartController.storeAppId(tmp.resolve("WindowsApps").resolve("Gone_1.0_x64__abc").resolve("a.exe").toString()),
+                AppCatalog.storeAppId(pkg.resolve("whatsapp.root.exe").toString()));
+        assertNull(AppCatalog.storeAppId(pkg.resolve("other.exe").toString()));
+        assertNull(AppCatalog.storeAppId("C:\\Program Files\\Spotify\\Spotify.exe"));
+        assertNull(AppCatalog.storeAppId(tmp.resolve("WindowsApps").resolve("Gone_1.0_x64__abc").resolve("a.exe").toString()),
                 "updated away: no manifest");
     }
 
@@ -201,11 +201,11 @@ class ColdstartControllerSegregateAppsTest {
         assertEquals(java.util.Set.of("Ableton Live 12 Suite.exe"), result.get("Music"));
         assertEquals(java.util.Set.of("gimp-2.10.exe"), result.get("Design"));
         assertTrue(result.get("Other").isEmpty());
-        assertEquals("Stata", ColdstartController.appName("StataMP-64.exe"));
-        assertEquals("LibreOffice", ColdstartController.appName("soffice.exe"));
-        assertEquals("WhatsApp", ColdstartController.appName("WhatsApp.Root.exe"));
-        assertEquals("GIMP", ColdstartController.appName("gimp-2.10.exe"));
-        assertEquals("Ableton Live 12 Suite", ColdstartController.appName("Ableton Live 12 Suite.exe"));
+        assertEquals("Stata", AppCatalog.appName("StataMP-64.exe"));
+        assertEquals("LibreOffice", AppCatalog.appName("soffice.exe"));
+        assertEquals("WhatsApp", AppCatalog.appName("WhatsApp.Root.exe"));
+        assertEquals("GIMP", AppCatalog.appName("gimp-2.10.exe"));
+        assertEquals("Ableton Live 12 Suite", AppCatalog.appName("Ableton Live 12 Suite.exe"));
     }
 
     @Test
@@ -223,9 +223,9 @@ class ColdstartControllerSegregateAppsTest {
         java.util.Set<String> running = java.util.Set.of("Spotify.exe", "brave.exe");
         java.util.Set<String> noBrowsers = java.util.Set.of();
 
-        assertFalse(ColdstartController.shouldLaunch("spotify.exe", running, noBrowsers),
+        assertFalse(ResumePlanner.shouldLaunch("spotify.exe", running, noBrowsers),
                 "already open, matched case-insensitively");
-        assertTrue(ColdstartController.shouldLaunch("Postman.exe", running, noBrowsers),
+        assertTrue(ResumePlanner.shouldLaunch("Postman.exe", running, noBrowsers),
                 "not running, so launch it");
     }
 
@@ -235,15 +235,15 @@ class ColdstartControllerSegregateAppsTest {
         java.util.Set<String> chromeHandled = java.util.Set.of("chrome.exe");
 
         // resumeProject launches chrome itself with the saved tabs as arguments
-        assertFalse(ColdstartController.shouldLaunch("chrome.exe", nothingRunning, chromeHandled));
-        assertFalse(ColdstartController.shouldLaunch("CHROME.EXE", nothingRunning, chromeHandled),
+        assertFalse(ResumePlanner.shouldLaunch("chrome.exe", nothingRunning, chromeHandled));
+        assertFalse(ResumePlanner.shouldLaunch("CHROME.EXE", nothingRunning, chromeHandled),
                 "windows reports real casing, the handled set is lowercased");
-        assertTrue(ColdstartController.shouldLaunch("chrome.exe", nothingRunning, java.util.Set.of()));
+        assertTrue(ResumePlanner.shouldLaunch("chrome.exe", nothingRunning, java.util.Set.of()));
 
         // a browser with no saved urls still needs launching, or its window is lost on resume
-        assertTrue(ColdstartController.shouldLaunch("firefox.exe", nothingRunning, chromeHandled),
+        assertTrue(ResumePlanner.shouldLaunch("firefox.exe", nothingRunning, chromeHandled),
                 "captured but has no url bucket of its own");
-        assertTrue(ColdstartController.shouldLaunch("Spotify.exe", nothingRunning, chromeHandled),
+        assertTrue(ResumePlanner.shouldLaunch("Spotify.exe", nothingRunning, chromeHandled),
                 "non-browsers are unaffected by urls");
     }
 
@@ -265,15 +265,15 @@ class ColdstartControllerSegregateAppsTest {
                 + "    (Default)    REG_SZ    C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe\r\n";
 
         assertEquals("C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
-                ColdstartController.parseRegPath(output),
+                ResumePlanner.parseRegPath(output),
                 "the path contains spaces, so only the trailing side may be trimmed");
     }
 
     @Test
     void missingRegistryKeyParsesToNoPath() {
-        assertNull(ColdstartController.parseRegPath(
+        assertNull(ResumePlanner.parseRegPath(
                 "ERROR: The system was unable to find the specified registry key or value.\r\n"));
-        assertNull(ColdstartController.parseRegPath(""));
+        assertNull(ResumePlanner.parseRegPath(""));
     }
 
     @Test
@@ -293,9 +293,9 @@ class ColdstartControllerSegregateAppsTest {
                 "Adobe Premiere Pro.exe", "AfterFX.exe", "Resolve.exe")));
         assertEquals(java.util.Set.of("Adobe Premiere Pro.exe", "AfterFX.exe", "Resolve.exe"), result.get("Video"));
         assertTrue(result.get("Other").isEmpty());
-        assertEquals("After Effects", ColdstartController.appName("AfterFX.exe"));
-        assertEquals("DaVinci Resolve", ColdstartController.appName("Resolve.exe"));
-        assertEquals("Adobe Premiere Pro", ColdstartController.appName("Adobe Premiere Pro.exe"));
+        assertEquals("After Effects", AppCatalog.appName("AfterFX.exe"));
+        assertEquals("DaVinci Resolve", AppCatalog.appName("Resolve.exe"));
+        assertEquals("Adobe Premiere Pro", AppCatalog.appName("Adobe Premiere Pro.exe"));
     }
 
     @Test
@@ -308,9 +308,9 @@ class ColdstartControllerSegregateAppsTest {
         assertEquals(java.util.Set.of("OUTLOOK.exe"), result.get("Communication"));
         assertEquals(java.util.Set.of("obs64.exe"), result.get("Video"));
         assertTrue(result.get("Other").isEmpty());
-        assertEquals("Paint", ColdstartController.appName("mspaint.exe"));
-        assertEquals("Word", ColdstartController.appName("WINWORD.exe"));
-        assertEquals("OBS Studio", ColdstartController.appName("obs64.exe"));
+        assertEquals("Paint", AppCatalog.appName("mspaint.exe"));
+        assertEquals("Word", AppCatalog.appName("WINWORD.exe"));
+        assertEquals("OBS Studio", AppCatalog.appName("obs64.exe"));
     }
 
     @Test
@@ -376,7 +376,7 @@ class ColdstartControllerSegregateAppsTest {
         // the Windows Copilot app runs as mscopilot.exe, which is on neither PATH nor App Paths
         var result = AppCatalog.segregateApps(new java.util.HashSet<>(java.util.List.of("mscopilot.exe")));
         assertEquals(java.util.Set.of("mscopilot.exe"), result.get("AI"));
-        assertEquals("Copilot", ColdstartController.appName("mscopilot.exe"));
+        assertEquals("Copilot", AppCatalog.appName("mscopilot.exe"));
 
         Project p = new Project("P", null, result, new java.util.ArrayList<>());
         var plan = new ColdstartController().planResume(p, java.util.Set.of(), new java.util.ArrayList<>());

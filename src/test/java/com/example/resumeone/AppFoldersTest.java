@@ -103,7 +103,7 @@ class AppFoldersTest {
         assertEquals("…\\My Work (2026) +1", ColdstartController.trailingNote("Files", p));
         assertEquals(work.getPath() + "\n" + unity.getPath(), ColdstartController.trailingTip("Files", p));
         assertEquals("File Explorer · My Work (2026)",
-                ColdstartController.folderStep("explorer.exe", work.getPath(), null).label);
+                ResumePlanner.folderStep("explorer.exe", work.getPath(), null).label);
     }
 
     @Test
