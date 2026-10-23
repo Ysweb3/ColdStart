@@ -306,6 +306,8 @@
 /* the confirmation's two moving layers */
 .ck-ring { -fx-border-color: -rw-ckt; -fx-border-width: 2; -fx-border-radius: 999; }
 .ck-bar  { -fx-background-color: -rw-ck; }
+/* the capture's bar in the sub-line's place: the resume meter's track, filled in checkpoint blue */
+.ck-progress-fill { -fx-background-color: -rw-ckt; -fx-background-radius: 0; }
 /* split segment: the block's right 52px. Same notch as the block (its last 14px are the cut),
    so the hover fill never pokes outside the shape; the divider is its own 1px region. */
 .ck-divider { -fx-background-color: -rw-ln; }

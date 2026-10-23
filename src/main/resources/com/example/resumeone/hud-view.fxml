@@ -149,7 +149,18 @@
                 <Label fx:id="ckWord" styleClass="checkpoint-word" text="Checkpoint"/>
                 <Label fx:id="ckHint" styleClass="ck-hint" text="Save, then click again"
                        visible="false" managed="false"/>
-                <Label fx:id="checkpointSub" styleClass="checkpoint-sub" text=""/>
+                <!-- the sub-line, or while a checkpoint captures, a bar in its place (showProgress):
+                     the label keeps its room, so the word above never moves -->
+                <StackPane alignment="CENTER_LEFT">
+                  <Label fx:id="checkpointSub" styleClass="checkpoint-sub" text=""/>
+                  <StackPane fx:id="ckProgress" styleClass="meter-track" alignment="CENTER_LEFT" visible="false"
+                             accessibleText="Checkpointing"
+                             minWidth="132.0" prefWidth="132.0" maxWidth="132.0"
+                             minHeight="4.0" prefHeight="4.0" maxHeight="4.0">
+                    <Region fx:id="ckProgressFill" styleClass="ck-progress-fill" minWidth="0.0" maxWidth="-Infinity"
+                            minHeight="4.0" prefHeight="4.0" maxHeight="4.0"/>
+                  </StackPane>
+                </StackPane>
               </VBox>
             </HBox>
             <HBox fx:id="ckDone" alignment="CENTER_LEFT" spacing="16.0" mouseTransparent="true" opacity="0">

@@ -34,6 +34,7 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import java.util.prefs.Preferences;
 import javafx.scene.effect.BlurType;
+import javafx.scene.effect.ColorAdjust;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.SVGPath;
@@ -227,6 +228,14 @@ public class ColdstartController {
     @FXML public StackPane btnCheckpoint, btnCheckpointMenu;
     @FXML public HBox ckIdle, ckDone;
     @FXML public Region ckRing, ckBar;
+    // the capture's bar in the sub-line's place: made-up progress, run out to full when the save lands
+    @FXML public StackPane ckProgress;
+    @FXML public Region ckProgressFill;
+    private final DoubleProperty ckFrac = new SimpleDoubleProperty();
+    private final ColorAdjust ckGlow = new ColorAdjust();
+    private Timeline ckProgressRun;
+    /** The bar is running out to full: renderCkPanel leaves it up until Saved takes over. */
+    private boolean ckFinishing;
     @FXML public StackPane btnDelete;
     // empty slots in the fxml that Icons draws into
     @FXML public StackPane resumeGlyphBox, ckDoneGlyphBox, ghostResumeGlyph, ghostCkGlyph, obResumeGlyph, obCkGlyph,
@@ -392,6 +401,8 @@ public class ColdstartController {
         restoredFill.prefWidthProperty().bind(restoredMeter.widthProperty().multiply(restoredFrac));
         restoredFailFill.prefWidthProperty().bind(restoredMeter.widthProperty().multiply(restoredFailFrac));
         countdownFill.prefWidthProperty().bind(countdownTrack.widthProperty().multiply(countdownFrac));
+        ckProgressFill.prefWidthProperty().bind(ckProgress.widthProperty().multiply(ckFrac));
+        ckProgressFill.setEffect(ckGlow);
         // the action on top in bold, the path under it in the card's own path style
         Label editLine = new Label("Click to edit");
         editLine.getStyleClass().add("tip-action");
@@ -2863,13 +2874,24 @@ public class ColdstartController {
         // switched away mid-capture: the save landed, the other card stays as it is
         if (!onScreen) return;
 
+        // "just now" dropped: the block's column holds ~18 characters, and "Saved" already says it.
+        // Switched away while the bar ran out, or the window went to the tray: no Saved to play,
+        // so the block just settles back to its own words.
+        Runnable saved = () -> {
+            if (activeProject == projectObj && Motion.showing(btnCheckpoint)) {
+                checkpointSaved("Saved", resumeCountLine(countApps(projectObj), countTabs(projectObj)));
+            } else {
+                renderCkPanel();
+            }
+        };
+        // before renderDetail, which would otherwise put the sub-line back over the bar
+        boolean barRunsOut = retry == null && finishProgress(saved);
         renderDetail(projectObj);
         if (retry != null) {
             closeApps(projectObj, retry);   // the block goes straight to Closing
             return;
         }
-        // "just now" dropped: the block's column holds ~18 characters, and "Saved" already says it.
-        checkpointSaved("Saved", resumeCountLine(countApps(projectObj), countTabs(projectObj)));
+        if (!barRunsOut) saved.run();
         showOffer(projectObj);
     }
 
@@ -2987,6 +3009,44 @@ public class ColdstartController {
         t.getKeyFrames().add(new KeyFrame(Duration.millis(2400), e -> renderCkPanel()));
         Motion.stop(btnCheckpoint);
         Motion.run(btnCheckpoint, t);
+    }
+
+    /** While a checkpoint captures, a bar in the sub-line's place. The capture gives no progress
+        to show, so the bar makes it up: a quick start, a long slow-down, and it never fills on its
+        own - only the save landing runs it out (finishProgress). Motion off keeps the words. */
+    private void showProgress(boolean on) {
+        on &= !Motion.REDUCED;
+        if (ckProgress == null || ckFinishing || on == ckProgress.isVisible()) return;
+        if (ckProgressRun != null) ckProgressRun.stop();
+        ckProgress.setVisible(on);
+        checkpointSub.setVisible(!on);
+        if (!on) return;
+        ckFrac.set(0);
+        ckGlow.setBrightness(0);
+        // ponytail: timed, not measured; a capture past ~8s sits at 94% until it lands
+        ckProgressRun = new Timeline(
+                new KeyFrame(Duration.millis(240), new KeyValue(ckFrac, .24, Motion.OUT)),
+                new KeyFrame(Duration.millis(1800), new KeyValue(ckFrac, .7, Motion.STANDARD)),
+                new KeyFrame(Duration.millis(8000), new KeyValue(ckFrac, .94, Motion.OUT)));
+        ckProgressRun.play();
+    }
+
+    /** The save landed: the bar runs out to full and brightens, then `then` (the Saved swap) lifts
+        it away with the rest of the idle line. False when no bar is up to finish. */
+    private boolean finishProgress(Runnable then) {
+        if (ckProgress == null || !ckProgress.isVisible()) return false;
+        ckFinishing = true;
+        if (ckProgressRun != null) ckProgressRun.stop();
+        DoubleProperty glow = ckGlow.brightnessProperty();
+        ckProgressRun = new Timeline(
+                new KeyFrame(Duration.millis(260), new KeyValue(ckFrac, 1, Motion.OUT), new KeyValue(glow, .45, Motion.OUT)),
+                new KeyFrame(Duration.millis(400), e -> {
+                    ckFinishing = false;
+                    then.run();
+                }),
+                new KeyFrame(Duration.millis(560), new KeyValue(glow, 0, Motion.STANDARD)));
+        ckProgressRun.play();
+        return true;
     }
 
     private static KeyValue kv(DoubleProperty p, double v) { return new KeyValue(p, v); }
@@ -3340,6 +3400,7 @@ public class ColdstartController {
                 : unsaved ? String.join(" · ", warn.stream().map(AppCatalog::appName).toList())
                 : idleLine(projectObj));
         checkpointSub.pseudoClassStateChanged(PC_WARN, unsaved);
+        showProgress(checkpointing == projectObj);
         btnCheckpoint.pseudoClassStateChanged(PC_CLOSING, closingNow);
         ckWide(closingNow || unsaved);
         markClosed(projectObj);
