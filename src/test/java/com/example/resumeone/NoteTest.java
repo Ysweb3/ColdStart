@@ -10,9 +10,9 @@ class NoteTest {
 
     @Test
     void theFieldIsStoredTrimmedAndBlankMeansNoNote() {
-        assertEquals("fix the export bug", HelloController.noteOf("  fix the export bug \t"));
-        assertNull(HelloController.noteOf("   "), "a cleared field removes the note, not a blank one");
-        assertNull(HelloController.noteOf(""));
+        assertEquals("fix the export bug", ColdstartController.noteOf("  fix the export bug \t"));
+        assertNull(ColdstartController.noteOf("   "), "a cleared field removes the note, not a blank one");
+        assertNull(ColdstartController.noteOf(""));
     }
 
     @Test

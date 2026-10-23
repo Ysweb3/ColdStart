@@ -24,7 +24,7 @@ class BrowserWaitTest {
         // a brand with no known exe, so the plan does not depend on what this machine has installed
         p.urlsByBrowser.put("Mosaic", new ArrayList<>(List.of("https://example.com")));
 
-        var plan = new HelloController().planResume(p, Set.of(), new ArrayList<>());
+        var plan = new ColdstartController().planResume(p, Set.of(), new ArrayList<>());
 
         assertEquals(List.of("Notepad", "Mosaic"), plan.steps().stream().map(s -> s.label).toList());
     }
@@ -33,28 +33,28 @@ class BrowserWaitTest {
     void tabsQueuedForASleepingExtensionAreWaitingNotSent() {
         Project p = new Project("P", null, new HashMap<>(), new ArrayList<>());
         p.urlsByBrowser.put("Chrome", new ArrayList<>(List.of("https://a.com", "https://b.com")));
-        HelloController.LaunchStep chrome = new HelloController.LaunchStep("Chrome", "", true,
-                () -> { throw new HelloController.Queued(); });
-        HelloController.ResumeRun r = new HelloController.ResumeRun(p);
-        r.plan = new HelloController.ResumePlan(List.of(chrome), List.of());
+        ColdstartController.LaunchStep chrome = new ColdstartController.LaunchStep("Chrome", "", true,
+                () -> { throw new ColdstartController.Queued(); });
+        ColdstartController.ResumeRun r = new ColdstartController.ResumeRun(p);
+        r.plan = new ColdstartController.ResumePlan(List.of(chrome), List.of());
 
         chrome.run();
 
-        assertEquals(HelloController.LaunchStep.State.DONE, chrome.state, "counts as done, so the run is clean");
+        assertEquals(ColdstartController.LaunchStep.State.DONE, chrome.state, "counts as done, so the run is clean");
         assertTrue(chrome.waiting);
-        assertEquals(2, HelloController.tabsWaiting(r));
+        assertEquals(2, ColdstartController.tabsWaiting(r));
         assertTrue(chrome.logLine().contains("wait for its extension"));
     }
 
     @Test
     void aBrowserThatIsNotRunningHasNoOpenProfile() {
-        assertFalse(HelloController.profileOpen("Chrome · me@x.com", "chrome.exe", Set.of("Code.exe")));
+        assertFalse(ColdstartController.profileOpen("Chrome · me@x.com", "chrome.exe", Set.of("Code.exe")));
     }
 
     @Test
     void withNoProfileToCheckARunningBrowserCountsAsOpen() {
         // starting it again is what duplicates its tabs, so when in doubt it is left alone
-        assertTrue(HelloController.profileOpen("Mosaic", "mosaic.exe", Set.of("MOSAIC.EXE")));
+        assertTrue(ColdstartController.profileOpen("Mosaic", "mosaic.exe", Set.of("MOSAIC.EXE")));
     }
 
     @Test
@@ -63,7 +63,7 @@ class BrowserWaitTest {
         Files.writeString(state.toPath(),
                 "{\"profile\":{\"last_active_profiles\":[\"Profile 1\"],\"info_cache\":{\"Default\":{},\"Profile 1\":{}}}}");
 
-        assertEquals(List.of("Profile 1"), HelloController.activeProfiles(state));
-        assertEquals(List.of(), HelloController.activeProfiles(dir.resolve("missing").toFile()));
+        assertEquals(List.of("Profile 1"), ColdstartController.activeProfiles(state));
+        assertEquals(List.of(), ColdstartController.activeProfiles(dir.resolve("missing").toFile()));
     }
 }

@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 @Tag("priority-medium")
 class ClaudeSessionTest {
 
-    private final HelloController controller = new HelloController();
+    private final ColdstartController controller = new ColdstartController();
 
     @Test
     void claudeCountsAsRunningOnlyWithALiveSessionFileForThatFolder(@TempDir Path sessions) throws Exception {

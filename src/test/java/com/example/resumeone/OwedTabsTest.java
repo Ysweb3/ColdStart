@@ -15,33 +15,33 @@ class OwedTabsTest {
 
     @Test
     void anExtensionWakingInTimeAnswersItsBucket() {
-        var owed = Map.of("Chrome · me@x.com", new HelloController.Owed(p, HelloController.Checkpoint.OVERWRITE, 100));
+        var owed = Map.of("Chrome · me@x.com", new ColdstartController.Owed(p, ColdstartController.Checkpoint.OVERWRITE, 100));
 
-        assertEquals("Chrome · me@x.com", HelloController.owedFor(owed, "Chrome · me@x.com", 50).getKey());
+        assertEquals("Chrome · me@x.com", ColdstartController.owedFor(owed, "Chrome · me@x.com", 50).getKey());
         // another profile of the same brand does not
-        assertNull(HelloController.owedFor(owed, "Chrome · you@x.com", 50));
+        assertNull(ColdstartController.owedFor(owed, "Chrome · you@x.com", 50));
     }
 
     @Test
     void aBucketSavedBeforeProfilesIsAnsweredByAnyProfileOfItsBrand() {
-        var owed = Map.of("Chrome", new HelloController.Owed(p, HelloController.Checkpoint.ADD_TABS, 100));
+        var owed = Map.of("Chrome", new ColdstartController.Owed(p, ColdstartController.Checkpoint.ADD_TABS, 100));
 
-        assertNotNull(HelloController.owedFor(owed, "Chrome · me@x.com", 50));
+        assertNotNull(ColdstartController.owedFor(owed, "Chrome · me@x.com", 50));
     }
 
     @Test
     void tooLateAndTheCheckpointKeepsItsLastTabs() {
         // tabs sent this long after belong to a later moment, not to that checkpoint
-        var owed = Map.of("Edge", new HelloController.Owed(p, HelloController.Checkpoint.OVERWRITE, 100));
+        var owed = Map.of("Edge", new ColdstartController.Owed(p, ColdstartController.Checkpoint.OVERWRITE, 100));
 
-        assertNull(HelloController.owedFor(owed, "Edge", 100));
+        assertNull(ColdstartController.owedFor(owed, "Edge", 100));
     }
 
     @Test
     void onlyAnOpenBrowserOwesTabs() {
-        assertFalse(HelloController.browserOpen("Edge", Set.of("chrome.exe")));
-        assertTrue(HelloController.browserOpen("Edge", Set.of("msedge.exe")));
+        assertFalse(ColdstartController.browserOpen("Edge", Set.of("chrome.exe")));
+        assertTrue(ColdstartController.browserOpen("Edge", Set.of("msedge.exe")));
         // a brand the app cannot start has nothing to check against
-        assertFalse(HelloController.browserOpen("Mosaic", Set.of("mosaic.exe")));
+        assertFalse(ColdstartController.browserOpen("Mosaic", Set.of("mosaic.exe")));
     }
 }

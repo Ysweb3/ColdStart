@@ -27,7 +27,7 @@ class CheckpointKeepsTabsTest {
     @Test
     void nothingConnectedKeepsEverything() {
         var urls = saved();
-        List<String> kept = HelloController.unconnectedWithTabs(urls, Set.of());
+        List<String> kept = ColdstartController.unconnectedWithTabs(urls, Set.of());
         assertEquals(3, urls.size());
         assertTrue(kept.contains("Chrome") && kept.contains("Edge"));
         assertFalse(kept.contains("brave"), "an empty bucket is nothing to keep");
@@ -38,7 +38,7 @@ class CheckpointKeepsTabsTest {
         // a connected browser overwrites its own bucket in POST /tabs; if it never answers
         // (asleep worker, dead socket) the old tabs must still be on disk
         var urls = saved();
-        List<String> kept = HelloController.unconnectedWithTabs(urls, Set.of("Chrome"));
+        List<String> kept = ColdstartController.unconnectedWithTabs(urls, Set.of("Chrome"));
         assertEquals(List.of("https://a", "https://b"), urls.get("Chrome"));
         assertEquals(List.of("https://c"), urls.get("Edge"));
         assertEquals(List.of("Edge"), kept);
@@ -47,7 +47,7 @@ class CheckpointKeepsTabsTest {
     @Test
     void allConnectedMeansNothingKept() {
         var urls = saved();
-        List<String> kept = HelloController.unconnectedWithTabs(urls, Set.of("Chrome", "Edge", "brave"));
+        List<String> kept = ColdstartController.unconnectedWithTabs(urls, Set.of("Chrome", "Edge", "brave"));
         assertEquals(3, urls.size());
         assertTrue(kept.isEmpty());
     }

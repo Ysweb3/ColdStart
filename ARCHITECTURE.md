@@ -22,12 +22,13 @@ package would orphan the saved preferences (they are keyed to it). Project data 
 | File | What it is |
 |---|---|
 | `Launcher.java` | 3-line `main`. Exists only because JavaFX can't launch an `Application` subclass straight from the classpath. |
-| `HelloApplication.java` | Window shell: loads fonts, loads `hud-view.fxml`, makes the stage undecorated and re-implements drag / resize / min / max / close. |
-| `HelloController.java` | **Everything else.** UI controller, persistence, capture, resume, and the HTTP/WS server, in one class. Read it top-to-bottom; it is split into `// == Section ==` blocks in that order. |
+| `ColdstartApplication.java` | Window shell: loads fonts, loads `hud-view.fxml`, makes the stage undecorated and re-implements drag / resize / min / max / close. |
+| `ColdstartController.java` | **Everything else.** UI controller, persistence, capture, resume, and the HTTP/WS server, in one class. Read it top-to-bottom; it is split into `// == Section ==` blocks in that order. |
+| `AppCatalog.java` | Which category a captured exe lands in: `KNOWN_APPS`, `IGNORED_WINDOWS`, and the user's + / x choices for Other. Statically imported by the controller. |
 | `Project.java` | The data class that is written to disk. Its public field names are the JSON keys. |
-| `hud-view.fxml` | The UI tree. `fx:id`s here are injected into `@FXML` fields in the controller. `fx:controller="HelloController"` is what binds them. |
+| `hud-view.fxml` | The UI tree. `fx:id`s here are injected into `@FXML` fields in the controller. `fx:controller="ColdstartController"` is what binds them. |
 | `hud.css` | All styling. FXML nodes carry `styleClass="..."`, the css matches on `.that-class`. |
-| `hello-view.fxml` | The old, plain UI. Still loadable (swap the filename in `HelloApplication`); every HUD-only field is null then, guarded by `isHud()`. |
+| `coldstart-view.fxml` | The old, plain UI. Still loadable (swap the filename in `ColdstartApplication`); every HUD-only field is null then, guarded by `isHud()`. |
 | `module-info.java` | Java module declaration. `opens ... to javafx.fxml` is what lets FXMLLoader inject private-ish fields. |
 | `src/test/...` | JUnit 5 tests for the pure helpers (categorising, persistence, launch commands). No UI tests. |
 | `%APPDATA%\Coldstart\projects.json` | Where your projects actually live. Delete it to reset the app. |
@@ -164,5 +165,5 @@ moves it into `urlsByBrowser["default"]` on load, so old files keep working.
   (lower-case, deliberately). `BROWSER_EXE` lower-cases on lookup; the JSON keeps what was sent.
 - **Uncaught `IOException`s become `RuntimeException`s** in the button handlers — an error
   during checkpoint/resume shows up in the console, not in the UI.
-- **Tests construct `HelloController` directly**, so nothing that needs the JavaFX toolkit may
+- **Tests construct `ColdstartController` directly**, so nothing that needs the JavaFX toolkit may
   run in a field initialiser or the constructor — put it in `initialize()`.

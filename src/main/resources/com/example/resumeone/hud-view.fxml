@@ -2,9 +2,9 @@
 
 <!-- Resume Work HUD, option 5a (design_handoff_resume_hud/resume-hud-5a.html): black ground,
      neutral grey panels, #FF6500 resume, #E9E3DF text, blue only on checkpoint.
-     The static parts live here; everything project-shaped is filled by HelloController, and
+     The static parts live here; everything project-shaped is filled by ColdstartController, and
      every glyph slot (an empty StackPane) is drawn by Icons from code.
-     HelloApplication hooks drag/resize/window buttons, because the stage is undecorated. -->
+     ColdstartApplication hooks drag/resize/window buttons, because the stage is undecorated. -->
 
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.Button?>
@@ -21,7 +21,7 @@
 <?import javafx.scene.shape.SVGPath?>
 
 <VBox xmlns="http://javafx.com/javafx" xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="com.example.resumeone.HelloController"
+      fx:controller="com.example.resumeone.ColdstartController"
       styleClass="shell" stylesheets="@hud.css" prefWidth="1000.0" prefHeight="640.0">
 
   <!-- ══ title bar: 38px, logo + wordmark, live dot, more, window buttons ══ -->

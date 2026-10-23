@@ -21,52 +21,52 @@ class DataSafetyTest {
     @Test
     void aTakenNameCannotBeReused() {
         List<Project> projects = List.of(project("atlas-api"));
-        assertTrue(HelloController.nameTaken(projects, "atlas-api"));
-        assertTrue(HelloController.nameTaken(projects, "  Atlas-API "));
-        assertFalse(HelloController.nameTaken(projects, "atlas-web"));
+        assertTrue(ColdstartController.nameTaken(projects, "atlas-api"));
+        assertTrue(ColdstartController.nameTaken(projects, "  Atlas-API "));
+        assertFalse(ColdstartController.nameTaken(projects, "atlas-web"));
     }
 
     @Test
     void tabsLandOnTheProjectThatAskedWhileItsWindowIsOpen() {
         Project asked = project("atlas-api"), onScreen = project("ledger");
-        assertSame(asked, HelloController.tabsTarget(asked, 100, 50, onScreen));
+        assertSame(asked, ColdstartController.tabsTarget(asked, 100, 50, onScreen));
         // after the window: a manual send from the popup goes to whatever is on screen
-        assertSame(onScreen, HelloController.tabsTarget(asked, 100, 150, onScreen));
+        assertSame(onScreen, ColdstartController.tabsTarget(asked, 100, 150, onScreen));
         // undone inside the window: the reply is dropped
-        assertNull(HelloController.tabsTarget(null, 100, 50, onScreen));
+        assertNull(ColdstartController.tabsTarget(null, 100, 50, onScreen));
     }
 
     @Test
     void aLateReplyToTheLastCheckpointDoesNotEndThisOnesWait() {
         // 2 browsers, 1 still owed from a checkpoint whose window is open: wait for 3
-        assertEquals(3, HelloController.repliesToWait(2, 1, 100, 50));
+        assertEquals(3, ColdstartController.repliesToWait(2, 1, 100, 50));
         // window closed: that reply is no longer expected
-        assertEquals(2, HelloController.repliesToWait(2, 1, 100, 150));
-        assertEquals(2, HelloController.repliesToWait(2, 0, 100, 50));
+        assertEquals(2, ColdstartController.repliesToWait(2, 1, 100, 150));
+        assertEquals(2, ColdstartController.repliesToWait(2, 0, 100, 50));
     }
 
     @Test
     void onlyTheExtensionGetsPastTheServerGate() {
-        assertTrue(HelloController.fromExtension("chrome-extension://kgmhnaigjjoknmiipbhokbkpieaclmpg"));
-        assertTrue(HelloController.fromExtension(null));
-        assertFalse(HelloController.fromExtension("https://evil.example"));
-        assertFalse(HelloController.fromExtension("http://localhost:3000"));
+        assertTrue(ColdstartController.fromExtension("chrome-extension://kgmhnaigjjoknmiipbhokbkpieaclmpg"));
+        assertTrue(ColdstartController.fromExtension(null));
+        assertFalse(ColdstartController.fromExtension("https://evil.example"));
+        assertFalse(ColdstartController.fromExtension("http://localhost:3000"));
         // a sandboxed iframe or a file:// page
-        assertFalse(HelloController.fromExtension("null"));
+        assertFalse(ColdstartController.fromExtension("null"));
     }
 
     @Test
     void aQuickSecondSaveKeepsTheFirstOnesUndo() {
         // "Saved" still up (now < savedUntil) and an undo exists: keep it, so Ctrl+Z reaches
         // back past a double click
-        assertFalse(HelloController.replaceUndo(50, 100, true));
-        assertTrue(HelloController.replaceUndo(50, 100, false));
-        assertTrue(HelloController.replaceUndo(150, 100, true));
+        assertFalse(ColdstartController.replaceUndo(50, 100, true));
+        assertTrue(ColdstartController.replaceUndo(50, 100, false));
+        assertTrue(ColdstartController.replaceUndo(150, 100, true));
     }
 
     @Test
     void restorePutsBackAppsTabsAndTime() {
-        HelloController c = new HelloController();
+        ColdstartController c = new ColdstartController();
         Project p = project("atlas-api");
         p.apps.put("IDE", new HashSet<>(Set.of("idea64.exe")));
         p.urlsByBrowser.put("brave", new ArrayList<>(List.of("https://github.com")));

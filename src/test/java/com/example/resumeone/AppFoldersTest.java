@@ -30,7 +30,7 @@ class AppFoldersTest {
                         + "<entry key=\"" + key + "\"><value><RecentProjectMetaInfo frameTitle=\"ResumeOne \u2013 Main.java\">"
                         + "</RecentProjectMetaInfo></value></entry></map></option></component></application>");
         return AppFolders.resolve(List.of(
-                new AppFolders.Window("idea64.exe", "ResumeOne \u2013 HelloApplication.java"),
+                new AppFolders.Window("idea64.exe", "ResumeOne \u2013 ColdstartApplication.java"),
                 new AppFolders.Window("Code.exe", "\u25cf background.js - ResumeOneExtension - Visual Studio Code"),
                 new AppFolders.Window("Code.exe", "Welcome - Visual Studio Code"),   // no folder: left out
                 new AppFolders.Window("chrome.exe", "ResumeOne - Google Chrome")),   // not an IDE
@@ -95,15 +95,15 @@ class AppFoldersTest {
 
         // an Explorer folder joins the Files row, so the card shows what resume opens
         HashMap<String, HashSet<String>> apps = new HashMap<>();
-        HelloController.addFolderApps(apps, Map.of("explorer.exe", new ArrayList<>(List.of(work.getPath()))));
+        ColdstartController.addFolderApps(apps, Map.of("explorer.exe", new ArrayList<>(List.of(work.getPath()))));
         assertEquals(Set.of("explorer.exe"), apps.get("Files"));
         // the Files note is short; its hover label has every full path, one per line
         Project p = new Project("files", null, apps, new ArrayList<>());
         p.folders = new HashMap<>(Map.of("explorer.exe", new ArrayList<>(List.of(work.getPath(), unity.getPath()))));
-        assertEquals("…\\My Work (2026) +1", HelloController.trailingNote("Files", p));
-        assertEquals(work.getPath() + "\n" + unity.getPath(), HelloController.trailingTip("Files", p));
+        assertEquals("…\\My Work (2026) +1", ColdstartController.trailingNote("Files", p));
+        assertEquals(work.getPath() + "\n" + unity.getPath(), ColdstartController.trailingTip("Files", p));
         assertEquals("File Explorer · My Work (2026)",
-                HelloController.folderStep("explorer.exe", work.getPath(), null).label);
+                ColdstartController.folderStep("explorer.exe", work.getPath(), null).label);
     }
 
     @Test
@@ -123,19 +123,19 @@ class AppFoldersTest {
         p.folders = folders;
 
         // both running already, on other folders: each still opens its own
-        var plan = new HelloController().planResume(p, Set.of("Code.exe", "idea64.exe"), Map.of(), new ArrayList<>());
+        var plan = new ColdstartController().planResume(p, Set.of("Code.exe", "idea64.exe"), Map.of(), new ArrayList<>());
         assertEquals(List.of("VS Code · ResumeOneExtension", "IntelliJ IDEA · ResumeOne"),
                 plan.steps().stream().map(s -> s.label).sorted(Comparator.reverseOrder()).toList());
-        assertTrue(HelloController.trailingNote("IDE", p).matches("\u2026\\\\ResumeOne(Extension)? \\+1"));
+        assertTrue(ColdstartController.trailingNote("IDE", p).matches("\u2026\\\\ResumeOne(Extension)? \\+1"));
 
         // IntelliJ is already on ResumeOne: only VS Code comes back
-        plan = new HelloController().planResume(p, Set.of("idea64.exe"),
+        plan = new ColdstartController().planResume(p, Set.of("idea64.exe"),
                 Map.of("idea64.exe", new ArrayList<>(List.of(resumeOne.getPath()))), new ArrayList<>());
         assertEquals(List.of("VS Code · ResumeOneExtension"), plan.steps().stream().map(s -> s.label).toList());
 
         // add mode keeps the saved folder and adds the new one once
         HashMap<String, ArrayList<String>> saved = new HashMap<>(Map.of("Code.exe", new ArrayList<>(List.of("C:\\old"))));
-        HelloController.mergeFolders(saved, Map.of("Code.exe", new ArrayList<>(List.of("c:\\OLD", "C:\\new"))));
+        ColdstartController.mergeFolders(saved, Map.of("Code.exe", new ArrayList<>(List.of("c:\\OLD", "C:\\new"))));
         assertEquals(List.of("C:\\old", "C:\\new"), saved.get("Code.exe"));
     }
 }

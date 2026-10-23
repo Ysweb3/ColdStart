@@ -34,7 +34,7 @@
                           Square150x150Logo="Assets\Square150x150Logo.png" Square44x44Logo="Assets\Square44x44Logo.png"/>
       <Extensions>
         <!-- Settings > "Start coldstart with Windows": off until the user ticks it
-             (HelloController.startupTask). A startup task takes no arguments, so it runs the
+             (ColdstartController.startupTask). A startup task takes no arguments, so it runs the
              second launcher, which passes --tray and so opens to the tray when that is on. -->
         <desktop:Extension Category="windows.startupTask" Executable="coldstart-tray.exe"
                            EntryPoint="Windows.FullTrustApplication">

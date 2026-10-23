@@ -76,10 +76,10 @@ class ProjectPersistenceTest {
                 Project.class);
         assertNull(legacy.urlsByBrowser, "gson leaves an absent field null, field initialisers do not run");
 
-        HelloController.migrateLegacyUrls(legacy);
+        ColdstartController.migrateLegacyUrls(legacy);
 
         assertEquals(List.of("https://github.com", "https://claude.ai"),
-                legacy.getUrlsByBrowser().get(HelloController.DEFAULT_BROWSER));
+                legacy.getUrlsByBrowser().get(ColdstartController.DEFAULT_BROWSER));
     }
 
     @Test
@@ -87,7 +87,7 @@ class ProjectPersistenceTest {
         Project project = new Project("New", null, new HashMap<>(), new ArrayList<>(List.of("https://stale.example")));
         project.urlsByBrowser.put("Chrome", new ArrayList<>(List.of("https://fresh.example")));
 
-        HelloController.migrateLegacyUrls(project);
+        ColdstartController.migrateLegacyUrls(project);
 
         assertEquals(1, project.getUrlsByBrowser().size());
         assertEquals(List.of("https://fresh.example"), project.getUrlsByBrowser().get("Chrome"));
@@ -100,7 +100,7 @@ class ProjectPersistenceTest {
                 new Project("Drop", null, new HashMap<>(), new ArrayList<>()),
                 new Project("Keep Too", null, new HashMap<>(), new ArrayList<>())));
 
-        HelloController.removeByName(onDisk, "Drop");
+        ColdstartController.removeByName(onDisk, "Drop");
 
         assertEquals(List.of("Keep", "Keep Too"),
                 onDisk.stream().map(Project::getProjectName).toList());
@@ -108,7 +108,7 @@ class ProjectPersistenceTest {
 
     @Test
     void writingThenReadingProjectsJsonFileMatchesControllerFormat(@TempDir Path tempDir) throws IOException {
-        // Mirrors HelloController.saveProject/getProjectsJson: the whole projects list is
+        // Mirrors ColdstartController.saveProject/getProjectsJson: the whole projects list is
         // (re)written as a single JSON array, not appended object-by-object.
         HashMap<String, HashSet<String>> apps = new HashMap<>();
         apps.put("Music", new HashSet<>(java.util.List.of("spotify.exe")));
@@ -135,7 +135,7 @@ class ProjectPersistenceTest {
 
     @Test
     void savingAProjectAgainUpdatesItInPlaceInsteadOfDuplicating(@TempDir Path tempDir) throws IOException {
-        // Mirrors HelloController.saveProject's upsert-by-name behavior: re-saving a project
+        // Mirrors ColdstartController.saveProject's upsert-by-name behavior: re-saving a project
         // with the same name replaces its entry rather than appending a duplicate.
         Project original = new Project("X", "C:\\dev\\x", new HashMap<>(), new ArrayList<>(java.util.List.of("https://a.example")));
         Path projectsJson = tempDir.resolve("projects.json");
