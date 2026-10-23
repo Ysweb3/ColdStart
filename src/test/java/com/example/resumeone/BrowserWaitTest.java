@@ -48,13 +48,13 @@ class BrowserWaitTest {
 
     @Test
     void aBrowserThatIsNotRunningHasNoOpenProfile() {
-        assertFalse(ColdstartController.profileOpen("Chrome · me@x.com", "chrome.exe", Set.of("Code.exe")));
+        assertFalse(Browsers.profileOpen("Chrome · me@x.com", "chrome.exe", Set.of("Code.exe")));
     }
 
     @Test
     void withNoProfileToCheckARunningBrowserCountsAsOpen() {
         // starting it again is what duplicates its tabs, so when in doubt it is left alone
-        assertTrue(ColdstartController.profileOpen("Mosaic", "mosaic.exe", Set.of("MOSAIC.EXE")));
+        assertTrue(Browsers.profileOpen("Mosaic", "mosaic.exe", Set.of("MOSAIC.EXE")));
     }
 
     @Test
@@ -63,7 +63,7 @@ class BrowserWaitTest {
         Files.writeString(state.toPath(),
                 "{\"profile\":{\"last_active_profiles\":[\"Profile 1\"],\"info_cache\":{\"Default\":{},\"Profile 1\":{}}}}");
 
-        assertEquals(List.of("Profile 1"), ColdstartController.activeProfiles(state));
-        assertEquals(List.of(), ColdstartController.activeProfiles(dir.resolve("missing").toFile()));
+        assertEquals(List.of("Profile 1"), Browsers.activeProfiles(state));
+        assertEquals(List.of(), Browsers.activeProfiles(dir.resolve("missing").toFile()));
     }
 }

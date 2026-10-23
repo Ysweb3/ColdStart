@@ -85,9 +85,9 @@ class HandoffCopyTest {
 
     @Test
     void tabGroupsAreHeadedByTheBrowsersName() {
-        assertEquals("Brave", ColdstartController.browserLabel("brave"));
-        assertEquals("Chrome", ColdstartController.browserLabel("Chrome"));
-        assertEquals("Default browser", ColdstartController.browserLabel(ColdstartController.DEFAULT_BROWSER));
+        assertEquals("Brave", Browsers.browserLabel("brave"));
+        assertEquals("Chrome", Browsers.browserLabel("Chrome"));
+        assertEquals("Default browser", Browsers.browserLabel(Browsers.DEFAULT_BROWSER));
     }
 
     @Test

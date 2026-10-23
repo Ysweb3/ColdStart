@@ -25,6 +25,7 @@ package would orphan the saved preferences (they are keyed to it). Project data 
 | `ColdstartApplication.java` | Window shell: loads fonts, loads `hud-view.fxml`, makes the stage undecorated and re-implements drag / resize / min / max / close. |
 | `ColdstartController.java` | **Everything else.** UI controller, persistence, capture, resume, and the HTTP/WS server, in one class. Read it top-to-bottom; it is split into `// == Section ==` blocks in that order. |
 | `AppCatalog.java` | Which category a captured exe lands in: `KNOWN_APPS`, `IGNORED_WINDOWS`, and the user's + / x choices for Other. Statically imported by the controller. |
+| `Browsers.java` | Which browser and profile a tab bucket is: the `"Chrome · me@x.com"` keys, each brand's `Local State` profiles, the exe per brand. The live extension sockets stay in the controller. |
 | `Project.java` | The data class that is written to disk. Its public field names are the JSON keys. |
 | `hud-view.fxml` | The UI tree. `fx:id`s here are injected into `@FXML` fields in the controller. `fx:controller="ColdstartController"` is what binds them. |
 | `hud.css` | All styling. FXML nodes carry `styleClass="..."`, the css matches on `.that-class`. |

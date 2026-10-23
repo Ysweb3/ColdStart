@@ -79,7 +79,7 @@ class ProjectPersistenceTest {
         ColdstartController.migrateLegacyUrls(legacy);
 
         assertEquals(List.of("https://github.com", "https://claude.ai"),
-                legacy.getUrlsByBrowser().get(ColdstartController.DEFAULT_BROWSER));
+                legacy.getUrlsByBrowser().get(Browsers.DEFAULT_BROWSER));
     }
 
     @Test

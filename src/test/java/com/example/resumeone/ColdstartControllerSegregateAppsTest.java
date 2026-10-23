@@ -250,10 +250,10 @@ class ColdstartControllerSegregateAppsTest {
     @Test
     void browserNamesFromTheExtensionMapToExecutablesCaseInsensitively() {
         // getBrowserFromBrands() sends "brave" lowercased but "Chrome"/"Edge"/"Opera" capitalised
-        assertEquals("chrome.exe", ColdstartController.BROWSER_EXE.get("Chrome".toLowerCase()));
-        assertEquals("msedge.exe", ColdstartController.BROWSER_EXE.get("Edge".toLowerCase()));
-        assertEquals("brave.exe", ColdstartController.BROWSER_EXE.get("brave".toLowerCase()));
-        assertNull(ColdstartController.BROWSER_EXE.get(ColdstartController.DEFAULT_BROWSER),
+        assertEquals("chrome.exe", Browsers.BROWSER_EXE.get("Chrome".toLowerCase()));
+        assertEquals("msedge.exe", Browsers.BROWSER_EXE.get("Edge".toLowerCase()));
+        assertEquals("brave.exe", Browsers.BROWSER_EXE.get("brave".toLowerCase()));
+        assertNull(Browsers.BROWSER_EXE.get(Browsers.DEFAULT_BROWSER),
                 "the unknown-browser bucket has no executable, so it falls back to Desktop.browse");
     }
 
