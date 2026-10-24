@@ -2572,7 +2572,7 @@ public class ColdstartController {
         return browsers + (now < until ? stillOwed : 0);
     }
 
-    private CountDownLatch askForTabs(Project projectObj) {
+    CountDownLatch askForTabs(Project projectObj) {
         long now = System.nanoTime();
         long wait = repliesToWait(wsSessions.size(), tabReplies.getCount(), tabTargetUntil, now);
         tabTarget = projectObj;
