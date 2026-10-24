@@ -84,6 +84,28 @@ class ResumeOutcomeTest {
     }
 
     @Test
+    void aResumingRowShowsItsKindAndWhereItOpens() {
+        HashMap<String, HashSet<String>> apps = new HashMap<>();
+        apps.put("IDE", new HashSet<>(Set.of("Code.exe", "idea64.exe")));
+        apps.put("Terminal", new HashSet<>(Set.of("WindowsTerminal.exe")));
+        Project p = new Project("atlas", "C:\\dev\\atlas-api", apps, new ArrayList<>());
+        p.urlsByBrowser.put("Brave", new ArrayList<>(List.of("https://a/", "https://b/")));
+        ResumePlanner.LaunchStep brave = new ResumePlanner.LaunchStep("Brave", "2 urls", true, () -> { });
+        ResumePlanner.LaunchStep code = new ResumePlanner.LaunchStep(AppCatalog.appName("Code.exe"), "code C:\\dev\\atlas-api", false, () -> { });
+        ResumePlanner.LaunchStep wt = new ResumePlanner.LaunchStep(AppCatalog.appName("WindowsTerminal.exe"), "start wt", false, () -> { });
+        ResumePlanner.LaunchStep idea = ResumePlanner.folderStep("idea64.exe", "C:\\dev\\atlas-api", null);
+
+        assertEquals("Browser", ColdstartController.stepCategory(p, brave));
+        assertEquals("IDE", ColdstartController.stepCategory(p, code));
+        assertEquals("IDE", ColdstartController.stepCategory(p, idea));   // its label carries the folder
+        assertEquals("Terminal", ColdstartController.stepCategory(p, wt));
+        assertEquals("2 tabs", ColdstartController.stepDetail(p, brave));
+        assertEquals("..\\atlas-api", ColdstartController.stepDetail(p, code));
+        assertEquals("", ColdstartController.stepDetail(p, wt));     // nothing about where it opens
+        assertEquals("", ColdstartController.stepDetail(p, idea));   // already says atlas-api
+    }
+
+    @Test
     void pathLookupFindsAnExeAndSkipsBadEntries(@TempDir Path dir) throws IOException {
         Files.createFile(dir.resolve("tool.exe"));
         String path = "\"C:\\bad<entry\";" + ";" + dir;
