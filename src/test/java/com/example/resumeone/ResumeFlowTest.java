@@ -154,7 +154,7 @@ class ResumeFlowTest {
     @Test
     void tabsAreCountedAcrossEveryBrowserAndProfile() {
         Project p = project(null, Map.of());
-        p.urlsByBrowser.put("Chrome · ys", new ArrayList<>(List.of("https://a.dev", "https://b.dev")));
+        p.urlsByBrowser.put("Chrome · Work", new ArrayList<>(List.of("https://a.dev", "https://b.dev")));
         p.urlsByBrowser.put("brave", new ArrayList<>(List.of("https://c.dev")));
         assertEquals(3, ColdstartController.countTabs(p));
     }

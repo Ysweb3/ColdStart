@@ -32,7 +32,7 @@ final class Browsers {
 
     // each profile runs its own extension, so with the brand alone two chrome profiles
     // overwrote each other's tabs. a profile rides along as "Chrome · me@x.com" when the
-    // browser gives its email, else by its name, "Chrome · Yash" (profilePart). Only one the
+    // browser gives its email, else by its name, "Chrome · Personal" (profilePart). Only one the
     // app cannot tell (no email, no id it can find) stays plain "Chrome".
     static final String PROFILE_SEP = " · ";
 
@@ -135,7 +135,7 @@ final class Browsers {
         return p == null ? null : p.getKey();
     }
 
-    /** The name the profile goes by in the browser ("Work", "Yash"); null when unknown, so the
+    /** The name the profile goes by in the browser ("Work", "Personal"); null when unknown, so the
         email shows instead. */
     static String profileName(File localState, String email) {
         return nameOf(profileEntry(localState, email));
