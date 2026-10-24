@@ -65,6 +65,18 @@
                     <source>24</source>
                     <target>24</target>
                 </configuration>
+                <executions>
+                    <execution>
+                        <!-- ServerE2ETest's fake extension; the app itself never needs the module -->
+                        <id>default-testCompile</id>
+                        <configuration>
+                            <compilerArgs>
+                                <arg>--add-modules=java.net.http</arg>
+                                <arg>--add-reads=com.example.resumeone=java.net.http</arg>
+                            </compilerArgs>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
             <plugin>
                 <groupId>org.openjfx</groupId>
@@ -90,6 +102,17 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
                 <version>3.2.5</version>
+                <configuration>
+                    <argLine>--add-modules java.net.http --add-reads com.example.resumeone=java.net.http</argLine>
+                    <environmentVariables>
+                        <!-- anything a test saves lands here, never in the user's own projects.json -->
+                        <APPDATA>${project.build.directory}/test-appdata</APPDATA>
+                    </environmentVariables>
+                    <systemPropertyVariables>
+                        <!-- ServerE2ETest's server runs beside a coldstart already open on 8765 -->
+                        <coldstart.port>18765</coldstart.port>
+                    </systemPropertyVariables>
+                </configuration>
             </plugin>
         </plugins>
     </build>

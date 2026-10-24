@@ -2600,7 +2600,7 @@ public class ColdstartController {
         return browsers + (now < until ? stillOwed : 0);
     }
 
-    private CountDownLatch askForTabs(Project projectObj) {
+    CountDownLatch askForTabs(Project projectObj) {
         long now = System.nanoTime();
         long wait = repliesToWait(wsSessions.size(), tabReplies.getCount(), tabTargetUntil, now);
         tabTarget = projectObj;
@@ -2857,25 +2857,7 @@ public class ColdstartController {
         boolean onScreen = projectObj == activeProject;
         try {
             if (captureError != null) throw captureError;
-            if (captured != null) {
-                if (mode.merge()) mergeApps(projectObj.apps, captured);
-                else projectObj.apps = captured;
-            }
-            // null: the window listing failed, so the folders saved last time are kept
-            if (folders != null) {
-                if (mode.merge() && projectObj.folders != null) {
-                    mergeFolders(projectObj.folders, folders.folders());
-                    if (projectObj.exePaths == null) projectObj.exePaths = new HashMap<>();
-                    projectObj.exePaths.putAll(folders.exePaths());
-                    // an app open now is where it is now
-                    if (projectObj.windows == null) projectObj.windows = new HashMap<>();
-                    projectObj.windows.putAll(folders.windows());
-                } else {
-                    projectObj.folders = folders.folders();
-                    projectObj.exePaths = folders.exePaths();
-                    projectObj.windows = folders.windows();
-                }
-            }
+            applyCapture(projectObj, mode.merge(), captured, folders);
             projectObj.lastCheckpoint = Instant.now().toString();
             saveProject(projectObj);
             PREFS.putBoolean(SEEN_CHECKPOINT, true);   // GET STARTED's third row
@@ -2933,6 +2915,32 @@ public class ColdstartController {
         }
         if (!barRunsOut) saved.run();
         showOffer(projectObj);
+    }
+
+    /** What a checkpoint writes onto the project from its capture. Overwrite replaces the apps
+        and everything the window listing found (folders, exe paths, window places); add mode
+        keeps what was saved and lays what is open now over it. captured null: apps were not
+        asked for (Add tabs). folders null: apps were not asked for, or the window listing
+        failed, so the folders and places saved last time are kept. */
+    static void applyCapture(Project projectObj, boolean merge, HashMap<String, HashSet<String>> captured,
+                             AppFolders.Capture folders) {
+        if (captured != null) {
+            if (merge) mergeApps(projectObj.apps, captured);
+            else projectObj.apps = captured;
+        }
+        if (folders == null) return;
+        if (merge && projectObj.folders != null) {
+            mergeFolders(projectObj.folders, folders.folders());
+            if (projectObj.exePaths == null) projectObj.exePaths = new HashMap<>();
+            projectObj.exePaths.putAll(folders.exePaths());
+            // an app open now is where it is now
+            if (projectObj.windows == null) projectObj.windows = new HashMap<>();
+            projectObj.windows.putAll(folders.windows());
+        } else {
+            projectObj.folders = folders.folders();
+            projectObj.exePaths = folders.exePaths();
+            projectObj.windows = folders.windows();
+        }
     }
 
     /** Add mode: every exe open now joins its category; nothing saved is dropped. */
