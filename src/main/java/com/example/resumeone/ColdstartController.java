@@ -4199,7 +4199,7 @@ public class ColdstartController {
                 ArrayList<String> had = target.urlsByBrowser.getOrDefault(key, new ArrayList<>());
                 // the brand-only bucket from before the extension sent its profile is this
                 // profile's now - but only when the browser has just the one profile: with two,
-                // the "Yash" profile's Pinterest tabs went into "ys"'s list this way
+                // one profile's tabs went into the other's list this way
                 if (!key.equals(brand) && profileCount(brand) <= 1
                         && wsSessions.stream().noneMatch(s -> wsBrowser(s).equals(brand))) {
                     List<String> legacy = target.urlsByBrowser.remove(brand);
