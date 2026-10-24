@@ -1,0 +1,30 @@
+# Every test on a fresh Windows VM, nothing from a dev machine: the unit tests and the server
+# E2E (mvnw test), then the full stack with the real extension in Chrome for Testing.
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Ysweb3/ResumeOneExtension
+          path: ext
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '24'
+          cache: maven
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: ./mvnw.cmd -B test
+      - run: npm ci --prefix e2e
+      - run: node e2e/full-stack.mjs ext

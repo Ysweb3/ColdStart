@@ -32,10 +32,12 @@ package would orphan the saved preferences (they are keyed to it). Project data 
 | `hud.css` | All styling. FXML nodes carry `styleClass="..."`, the css matches on `.that-class`. |
 | `coldstart-view.fxml` | The old, plain UI. Still loadable (swap the filename in `ColdstartApplication`); every HUD-only field is null then, guarded by `isHud()`. |
 | `module-info.java` | Java module declaration. `opens ... to javafx.fxml` is what lets FXMLLoader inject private-ish fields. |
-| `src/test/...` | JUnit 5 tests for the pure helpers (categorising, persistence, launch commands). No UI tests. |
+| `src/test/...` | JUnit 5 tests for the pure helpers (categorising, persistence, launch commands), plus `ServerE2ETest`: the real server and a fake extension over real sockets. Maven points `APPDATA` at `target/test-appdata`. No UI tests. |
+| `e2e/full-stack.mjs` | The real app, the real extension in Chrome for Testing, the popup's Send, and `projects.json` read back. CI runs it on a fresh Windows VM (`.github/workflows/test.yml`). |
 | `%APPDATA%\Coldstart\projects.json` | Where your projects actually live. Delete it to reset the app. |
 
 Build/run: `mvnw.cmd clean javafx:run` (needs `JAVA_HOME` → a JDK 24+). Tests: `mvnw.cmd test`.
+Full stack: `npm ci --prefix e2e`, then `node e2e/full-stack.mjs ../ResumeOneExtension`.
 
 ## The three things the app does
 
