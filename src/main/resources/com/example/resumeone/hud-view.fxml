@@ -506,8 +506,11 @@
             <Label styleClass="hero-word" text="RESUMING"/>
             <Label fx:id="resumingName" styleClass="hero-name" text=""/>
           </VBox>
-          <VBox fx:id="resumingRows" spacing="8.0" maxWidth="720.0"/>
-          <Region VBox.vgrow="ALWAYS"/>
+          <!-- one row per step; the scroll follows the one launching, so Stop never leaves the screen -->
+          <ScrollPane fx:id="resumingScroll" styleClass="tabs-scroll" fitToWidth="true" hbarPolicy="NEVER"
+                      maxWidth="720.0" VBox.vgrow="ALWAYS">
+            <VBox fx:id="resumingRows" spacing="6.0"/>
+          </ScrollPane>
           <HBox alignment="CENTER_LEFT" spacing="16.0">
             <Label fx:id="resumingSkipped" styleClass="foot-note" text=""/>
             <Region HBox.hgrow="ALWAYS"/>

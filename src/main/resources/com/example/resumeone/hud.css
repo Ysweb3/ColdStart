@@ -658,10 +658,11 @@
 .step-row:failed { -fx-border-color: -rw-bad; }
 .step-label { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 13px; -fx-text-fill: -rw-tx; }
 .step-cmd   { -fx-font-family: "IBM Plex Mono"; -fx-font-size: 12px; -fx-text-fill: -rw-tx3t; }
-.step-row:launching .step-cmd { -fx-text-fill: -rw-go; }
+/* not started yet: dimmed, and it lights up once it launches */
+.step-row:queued .step-label { -fx-text-fill: -rw-tx3t; }
 .step-row:failed    .step-cmd { -fx-text-fill: -rw-bad; }
 
-/* folded groups: queued, the log, launched, handed back */
+/* folded groups: the log, launched, handed back */
 .fold-row {
     -fx-background-color: -rw-g1;
     -fx-background-radius: 0;

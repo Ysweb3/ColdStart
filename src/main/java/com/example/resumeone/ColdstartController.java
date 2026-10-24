@@ -189,12 +189,13 @@ public class ColdstartController {
     private Timeline countdown;
     private static final PseudoClass PC_LAUNCHING = PseudoClass.getPseudoClass("launching");
     private static final PseudoClass PC_FAILED    = PseudoClass.getPseudoClass("failed");
+    private static final PseudoClass PC_QUEUED    = PseudoClass.getPseudoClass("queued");
     /** the design's --ease-out */
     @FXML public TextField npName;
     @FXML public Label npFolder, npHint, npCaptureHint;
     @FXML public CheckBox npCapture;
     @FXML public Button btnNpBrowse, btnNpCancel, btnNpCreate;
-    @FXML public ScrollPane settingsPane;
+    @FXML public ScrollPane settingsPane, resumingScroll;
     @FXML public StackPane btnSettings, btnNewProjectRail;   // the sidebar's gear; the narrow rail's +
     // the rail opens to 200px (.rail-wide): a PROJECTS header, named rows, a New project button.
     // Switched from Settings (sidebarToggle) or Ctrl+B.
@@ -2121,34 +2122,23 @@ public class ColdstartController {
         new Timeline(new KeyFrame(Duration.millis(220), new KeyValue(resumingFrac, frac, Motion.OUT))).play();
 
         resumingRows.getChildren().clear();
-        // done steps fold into one line so the list is bounded: launched, the one launching,
-        // any failures, queued, log - and Stop stays on screen however many apps there are
-        List<String> done = new ArrayList<>();
-        List<String> queued = new ArrayList<>();
+        // every step is its own row, as in the launch video: launched, launching, failed, still
+        // to go. The scroll pane keeps the list bounded so Stop stays on screen.
+        HBox launchingRow = null;
         for (LaunchStep step : r.plan.steps()) {
-            if (step.state == LaunchStep.State.DONE) done.add(step.label);
-        }
-        if (!done.isEmpty()) {
-            resumingRows.getChildren().add(foldRow(Icons.CHECK, done.size() + " launched", names(done)));
-        }
-        for (LaunchStep step : r.plan.steps()) {
-            switch (step.state) {
-                case QUEUED -> queued.add(step.label);
-                case DONE, SKIPPED -> { }
-                default -> {
-                    HBox row = stepRow(step);
-                    resumingRows.getChildren().add(row);
-                    // rows are rebuilt on every change, so the beat plays only for a step new to launching
-                    if (step.state == LaunchStep.State.LAUNCHING && step != lastLaunching) {
-                        lastLaunching = step;
-                        launchBeat(row);
-                    }
+            if (step.state == LaunchStep.State.SKIPPED) continue;   // the foot note names those
+            HBox row = stepRow(r.project, step);
+            resumingRows.getChildren().add(row);
+            if (step.state == LaunchStep.State.LAUNCHING) {
+                launchingRow = row;
+                // rows are rebuilt on every change, so the beat plays only for a step new to launching
+                if (step != lastLaunching) {
+                    lastLaunching = step;
+                    launchBeat(row);
                 }
             }
         }
-        if (!queued.isEmpty()) {
-            resumingRows.getChildren().add(foldRow(Icons.TIMESTAMP, queued.size() + " queued", names(queued)));
-        }
+        if (launchingRow != null) scrollTo(resumingScroll, launchingRow);
 
         List<String> skipped = r.alreadyOpen();
         resumingSkipped.setText(skipped.isEmpty() ? "" : skipped.size() + " already open, left alone · " + names(skipped));
@@ -2333,33 +2323,71 @@ public class ColdstartController {
 
     // ── rows ────────────────────────────────────────────────────────────
 
-    private HBox stepRow(LaunchStep step) {
+    /** The launch video's row: what kind of app, its name, where it opens, then how it went
+        (nothing yet, an orange play while it launches, a tick once it has). */
+    private HBox stepRow(Project projectObj, LaunchStep step) {
         HBox row = rowShell("step-row");
+        row.setSpacing(12);
+        row.setMinHeight(40);
+        row.setPrefHeight(40);
         row.pseudoClassStateChanged(PC_LAUNCHING, step.state == LaunchStep.State.LAUNCHING);
         row.pseudoClassStateChanged(PC_FAILED, step.state == LaunchStep.State.FAILED);
+        row.pseudoClassStateChanged(PC_QUEUED, step.state == LaunchStep.State.QUEUED);
         Pane mark = switch (step.state) {
             case LAUNCHING -> Icons.node(Icons.RESUME, 14, GO);
             case FAILED -> Icons.node(Icons.FAILED, 14, BAD);
+            case QUEUED -> new Pane();
             default -> Icons.node(Icons.CHECK, 14, TX3);
         };
-        // a browser's "14 urls · one window" says something; "cmd /c start wt" does not - the
-        // raw command stays in the resume log
-        String cmd = switch (step.state) {
-            case LAUNCHING -> step.browser ? step.command : "launching";
-            case FAILED -> failure(step);
-            default -> step.browser ? step.command : "";
-        };
+        mark.setMinWidth(14);   // a queued row's empty mark still holds the column
         Label name = styled(new Label(step.label), "step-label");
         name.setMaxWidth(Double.MAX_VALUE);
         HBox.setHgrow(name, Priority.ALWAYS);
-        row.getChildren().addAll(mark, name, styled(new Label(cmd), "step-cmd"));
+        String detail = step.state == LaunchStep.State.FAILED ? failure(step) : stepDetail(projectObj, step);
+        row.getChildren().addAll(categoryIcon(stepCategory(projectObj, step)), name, styled(new Label(detail), "step-cmd"), mark);
         return row;
     }
 
-    /** motion-resume: the row that starts launching arrives on --ease-out and its orange bloom
-        flashes for one beat, then settles to the ring alone - DESIGN.md's restraint for the bloom. */
+    /** The Project.apps key a step's app was captured under, for its row's glyph; null = Other. */
+    static String stepCategory(Project projectObj, LaunchStep step) {
+        if (step.browser) return "Browser";
+        String name = step.label.split(" · ")[0];   // a folder step is "IntelliJ IDEA · atlas-api"
+        for (Map.Entry<String, HashSet<String>> e : projectObj.apps.entrySet()) {
+            for (String app : e.getValue()) {
+                if (appName(app).equals(name)) return e.getKey();
+            }
+        }
+        return null;
+    }
+
+    /** A browser's "5 tabs", or "..\atlas-api" for an app opening in the project folder. The raw
+        command ("cmd /c start wt") stays in the resume log. */
+    static String stepDetail(Project projectObj, LaunchStep step) {
+        if (step.browser) {
+            List<String> urls = projectObj.urlsByBrowser.get(step.label);
+            return count(urls == null ? 0 : urls.size(), "tab");
+        }
+        // a folder step already names its folder in its label
+        String folder = projectObj.folderPath;
+        if (folder == null || step.label.contains(" · ") || !step.command.contains(folder)) return "";
+        return "..\\" + new File(folder).getName();
+    }
+
+    /** Scrolls so row sits mid-viewport; a no-op while every row fits. */
+    private static void scrollTo(ScrollPane scroll, Node row) {
+        scroll.applyCss();
+        scroll.layout();
+        double view = scroll.getViewportBounds().getHeight();
+        double extra = scroll.getContent().getLayoutBounds().getHeight() - view;
+        if (extra <= 0) return;
+        double y = row.getBoundsInParent().getMinY() - (view - row.getBoundsInParent().getHeight()) / 2;
+        scroll.setVvalue(Math.max(0, Math.min(1, y / extra)));
+    }
+
+    /** motion-resume: the row that starts launching flashes its orange bloom for one beat, then
+        settles to the ring alone - DESIGN.md's restraint for the bloom. It was already on screen
+        as queued, so it no longer slides in. */
     private static void launchBeat(HBox row) {
-        Motion.enter(row, 0, 6, 1, Motion.BASE, Motion.OUT);
         if (Motion.REDUCED) return;
         DropShadow bloom = new DropShadow(BlurType.GAUSSIAN, Color.web(GO), 0, 0, 0, 0);
         row.setEffect(bloom);
