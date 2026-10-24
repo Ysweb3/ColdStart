@@ -258,9 +258,15 @@
       <!-- ══ nothing saved yet: the Ghost ══════════════════════════════════ -->
       <!-- the project screen with no project in it: the two verbs at full size and in their
            colours, neither pressable yet, over the card where New project sits. "Empty" is
-           said once, in the card. -->
+           said once, where the project's name goes. -->
       <VBox fx:id="emptyPane" spacing="16.0" visible="false" managed="false">
         <padding><Insets top="20.0" right="22.0" bottom="20.0" left="22.0"/></padding>
+        <!-- detailPane's header, name for name: the unseen path line keeps its height, so the
+             verbs sit exactly where a project's do -->
+        <VBox spacing="5.0">
+          <Label styleClass="project-name" text="Nothing to resume yet"/>
+          <Label styleClass="project-path" text="no folder" visible="false"/>
+        </VBox>
         <HBox spacing="12.0" minHeight="104.0" prefHeight="104.0" maxHeight="104.0">
           <HBox fx:id="ghostResume" styleClass="ghost-resume" alignment="CENTER_LEFT" spacing="16.0" HBox.hgrow="ALWAYS">
             <padding><Insets left="22.0" right="22.0"/></padding>
@@ -282,7 +288,6 @@
         <!-- GET STARTED: four first actions that tick themselves (renderChecklist); New project
              sits in the row it does -->
         <VBox styleClass="card" alignment="CENTER" spacing="24.0" VBox.vgrow="ALWAYS">
-          <Label styleClass="empty-title" text="Nothing to resume yet"/>
           <VBox fx:id="ghostChecklist" styleClass="checklist" minWidth="400.0" prefWidth="400.0" maxWidth="400.0">
             <HBox alignment="BASELINE_LEFT" spacing="8.0">
               <padding><Insets top="12.0" right="16.0" bottom="8.0" left="16.0"/></padding>
