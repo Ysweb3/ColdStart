@@ -23,7 +23,9 @@ import javafx.scene.Node;
 import javafx.scene.control.Button;
 import javafx.application.Platform;
 import javafx.beans.binding.Bindings;
+import javafx.geometry.Bounds;
 import javafx.geometry.Insets;
+import javafx.geometry.Point2D;
 import javafx.geometry.Pos;
 import javafx.geometry.Side;
 import javafx.scene.control.ContextMenu;
@@ -34,6 +36,7 @@ import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
 import java.util.prefs.Preferences;
 import javafx.scene.effect.BlurType;
+import javafx.scene.effect.ColorAdjust;
 import javafx.scene.effect.DropShadow;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.SVGPath;
@@ -49,6 +52,7 @@ import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import javafx.css.PseudoClass;
 import javafx.animation.Animation;
+import javafx.animation.AnimationTimer;
 import javafx.animation.Interpolator;
 import javafx.animation.PauseTransition;
 import javafx.scene.transform.Rotate;
@@ -78,6 +82,7 @@ import java.util.List; // explicit: java.awt.* also exports List
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -227,6 +232,17 @@ public class ColdstartController {
     @FXML public StackPane btnCheckpoint, btnCheckpointMenu;
     @FXML public HBox ckIdle, ckDone;
     @FXML public Region ckRing, ckBar;
+    // the capture's bar in the sub-line's place: made-up progress, run out to full when the save lands
+    @FXML public HBox ckProgressRow;
+    @FXML public StackPane ckProgress;
+    @FXML public Region ckProgressFill, ckProgressTip;
+    private final DoubleProperty ckFrac = new SimpleDoubleProperty();
+    private final ColorAdjust ckGlow = new ColorAdjust();
+    private Timeline ckProgressRun, ckTipPulse;
+    /** over the block, under the chevron: where the landing's sparks fly (sparks) */
+    private final Pane ckSparks = new Pane();
+    /** The bar is running out to full: renderCkPanel leaves it up until Saved takes over. */
+    private boolean ckFinishing;
     @FXML public StackPane btnDelete;
     // empty slots in the fxml that Icons draws into
     @FXML public StackPane resumeGlyphBox, ckDoneGlyphBox, ghostResumeGlyph, ghostCkGlyph, obResumeGlyph, obCkGlyph,
@@ -392,6 +408,13 @@ public class ColdstartController {
         restoredFill.prefWidthProperty().bind(restoredMeter.widthProperty().multiply(restoredFrac));
         restoredFailFill.prefWidthProperty().bind(restoredMeter.widthProperty().multiply(restoredFailFrac));
         countdownFill.prefWidthProperty().bind(countdownTrack.widthProperty().multiply(countdownFrac));
+        // scaleX pivots on the middle, so the fill shifts left by the half it lost to stay pinned
+        ckProgressFill.scaleXProperty().bind(ckFrac);
+        ckProgressFill.translateXProperty().bind(ckProgress.widthProperty().multiply(ckFrac.subtract(1)).divide(2));
+        ckProgressFill.setEffect(ckGlow);
+        ckProgressTip.translateXProperty().bind(ckProgress.widthProperty().multiply(ckFrac).subtract(2));
+        ckSparks.setMouseTransparent(true);
+        btnCheckpoint.getChildren().add(btnCheckpoint.getChildren().indexOf(btnCheckpointMenu), ckSparks);
         // the action on top in bold, the path under it in the card's own path style
         Label editLine = new Label("Click to edit");
         editLine.getStyleClass().add("tip-action");
@@ -2863,13 +2886,24 @@ public class ColdstartController {
         // switched away mid-capture: the save landed, the other card stays as it is
         if (!onScreen) return;
 
+        // "just now" dropped: the block's column holds ~18 characters, and "Saved" already says it.
+        // Switched away while the bar ran out, or the window went to the tray: no Saved to play,
+        // so the block just settles back to its own words.
+        Runnable saved = () -> {
+            if (activeProject == projectObj && Motion.showing(btnCheckpoint)) {
+                checkpointSaved("Saved", resumeCountLine(countApps(projectObj), countTabs(projectObj)));
+            } else {
+                renderCkPanel();
+            }
+        };
+        // before renderDetail, which would otherwise put the sub-line back over the bar
+        boolean barRunsOut = retry == null && finishProgress(saved);
         renderDetail(projectObj);
         if (retry != null) {
             closeApps(projectObj, retry);   // the block goes straight to Closing
             return;
         }
-        // "just now" dropped: the block's column holds ~18 characters, and "Saved" already says it.
-        checkpointSaved("Saved", resumeCountLine(countApps(projectObj), countTabs(projectObj)));
+        if (!barRunsOut) saved.run();
         showOffer(projectObj);
     }
 
@@ -2987,6 +3021,103 @@ public class ColdstartController {
         t.getKeyFrames().add(new KeyFrame(Duration.millis(2400), e -> renderCkPanel()));
         Motion.stop(btnCheckpoint);
         Motion.run(btnCheckpoint, t);
+    }
+
+    /** While a checkpoint captures, a bar in the sub-line's place. The capture gives no progress
+        to show, so the bar makes it up, and it never fills on its own - only the save landing runs
+        it out (finishProgress). Its leading edge pulses while it climbs. Motion off keeps the words. */
+    private void showProgress(boolean on) {
+        on &= !Motion.REDUCED;
+        if (ckProgressRow == null || ckFinishing || on == ckProgressRow.isVisible()) return;
+        if (ckProgressRun != null) ckProgressRun.stop();
+        if (ckTipPulse != null) ckTipPulse.stop();
+        ckProgressRow.setVisible(on);
+        checkpointSub.setVisible(!on);
+        if (!on) return;
+        ckFrac.set(0);
+        ckGlow.setBrightness(0);
+        ckProgress.setScaleY(1);
+        // one unbroken ease-out: quick off the mark, then ever slower, never a stop or a jolt
+        // (~55% at 0.6s, ~80% at 2s). ponytail: timed, not measured; a capture past ~8s sits
+        // at 93% until it lands
+        ckProgressRun = new Timeline(new KeyFrame(Duration.millis(8000), kv(ckFrac, .93, Motion.OUT)));
+        ckProgressRun.play();
+        ckTipPulse = new Timeline(
+                new KeyFrame(Duration.ZERO, kv(ckProgressTip.opacityProperty(), 1)),
+                new KeyFrame(Duration.millis(700), kv(ckProgressTip.opacityProperty(), .25, Motion.IN_OUT)));
+        ckTipPulse.setAutoReverse(true);
+        ckTipPulse.setCycleCount(Animation.INDEFINITE);
+        ckTipPulse.play();
+    }
+
+    /** The save landed, and it should feel like it: the bar glides to full, flashes near-white and
+        swells, sparks fly off its end and the whole block breathes out and back. Then `then`
+        (the Saved swap) lifts it away with the rest of the idle line. False when no bar is up. */
+    private boolean finishProgress(Runnable then) {
+        if (ckProgressRow == null || !ckProgressRow.isVisible()) return false;
+        ckFinishing = true;
+        if (ckProgressRun != null) ckProgressRun.stop();
+        ckTipPulse.stop();
+        ckProgressTip.setOpacity(0);   // full: no leading edge left to show
+        DoubleProperty glow = ckGlow.brightnessProperty(), thick = ckProgress.scaleYProperty(),
+                bx = btnCheckpoint.scaleXProperty(), by = btnCheckpoint.scaleYProperty();
+        // every move eases in and out of its own, overlapping the next: a glide, no overshoot
+        ckProgressRun = new Timeline(
+                new KeyFrame(Duration.millis(260), kv(glow, 0)),
+                new KeyFrame(Duration.millis(380), kv(ckFrac, 1, Motion.GLIDE), kv(thick, 1), kv(bx, 1), kv(by, 1)),
+                new KeyFrame(Duration.millis(380), e -> sparks()),
+                new KeyFrame(Duration.millis(440), kv(glow, .85, Motion.OUT)),
+                new KeyFrame(Duration.millis(500), kv(thick, 1.8, Motion.OUT)),
+                new KeyFrame(Duration.millis(540), kv(bx, 1.025, Motion.OUT), kv(by, 1.025, Motion.OUT)),
+                new KeyFrame(Duration.millis(660), e -> {
+                    ckFinishing = false;
+                    then.run();
+                }),
+                new KeyFrame(Duration.millis(960), kv(glow, 0, Motion.STANDARD), kv(thick, 1, Motion.IN_OUT)),
+                new KeyFrame(Duration.millis(1020), kv(bx, 1, Motion.IN_OUT), kv(by, 1, Motion.IN_OUT)));
+        ckProgressRun.play();
+        return true;
+    }
+
+    /** Squares thrown off the full bar's end, falling and fading inside the block (its clip keeps
+        them there). Squares, not dots: the HUD has no round marks but the ring. */
+    private void sparks() {
+        Bounds bar = ckProgress.localToScene(ckProgress.getBoundsInLocal());
+        Point2D from = ckSparks.sceneToLocal(bar.getMaxX(), bar.getCenterY());
+        ThreadLocalRandom rnd = ThreadLocalRandom.current();
+        List<Region> bits = new ArrayList<>();
+        List<double[]> motion = new ArrayList<>();   // x, y, vx, vy
+        for (int i = 0; i < 16; i++) {
+            double angle = Math.toRadians(rnd.nextDouble(-165, 30)), speed = rnd.nextDouble(80, 260);
+            double size = rnd.nextInt(2, 5);
+            Region bit = new Region();
+            bit.getStyleClass().add(i % 3 == 0 ? "ck-spark-bone" : "ck-spark");
+            bit.setPrefSize(size, size);
+            bit.relocate(from.getX(), from.getY());
+            bits.add(bit);
+            motion.add(new double[]{from.getX(), from.getY(), Math.cos(angle) * speed, Math.sin(angle) * speed});
+        }
+        ckSparks.getChildren().addAll(bits);
+        new AnimationTimer() {
+            long start = -1, last;
+            @Override public void handle(long now) {
+                if (start < 0) start = last = now;
+                double dt = (now - last) / 1e9, age = (now - start) / 1e9;
+                last = now;
+                for (int i = 0; i < bits.size(); i++) {
+                    double[] m = motion.get(i);
+                    m[3] += 620 * dt;   // gravity, px/s²
+                    m[0] += m[2] * dt;
+                    m[1] += m[3] * dt;
+                    bits.get(i).relocate(m[0], m[1]);
+                    bits.get(i).setOpacity(Math.max(0, 1 - age / .8));
+                }
+                if (age > .8) {
+                    stop();
+                    ckSparks.getChildren().removeAll(bits);
+                }
+            }
+        }.start();
     }
 
     private static KeyValue kv(DoubleProperty p, double v) { return new KeyValue(p, v); }
@@ -3340,6 +3471,7 @@ public class ColdstartController {
                 : unsaved ? String.join(" · ", warn.stream().map(AppCatalog::appName).toList())
                 : idleLine(projectObj));
         checkpointSub.pseudoClassStateChanged(PC_WARN, unsaved);
+        showProgress(checkpointing == projectObj);
         btnCheckpoint.pseudoClassStateChanged(PC_CLOSING, closingNow);
         ckWide(closingNow || unsaved);
         markClosed(projectObj);
