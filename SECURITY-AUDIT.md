@@ -38,7 +38,8 @@ History was not changed. Anything listed here stays in history until it is rewri
 
 - **Font licences.** `src/main/resources/.../fonts/` ships IBM Plex (and Sora and Space Mono
   in older commits). These are under the SIL Open Font License 1.1, which requires the licence
-  text to ship with the fonts. Add `OFL.txt` next to them.
+  text to ship with the fonts. Done: `OFL.txt` (IBM's copy from github.com/IBM/plex) now sits
+  next to them and goes into the jar with them.
 - **Extension repo.** CI (`.github/workflows/test.yml`) checks out `Ysweb3/ColdStartExtension`.
   It must be public too, or CI fails on forks and outside pull requests.
 - **Store placeholders.** `ColdstartController.EXTENSION_URL` and `EDGE_EXTENSION_URL` point at
