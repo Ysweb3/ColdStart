@@ -208,6 +208,7 @@ public class ColdstartController {
     /** Same node Motion keeps "motion" in; projects.json stays projects only. */
     private static final Preferences PREFS = Preferences.userNodeForPackage(ColdstartController.class);
     @FXML public VBox settingsRows, ignoredRows;
+    @FXML public Label ignoredFoot;
     /** Settings > Window: pin coldstart on top while a resume runs. On unless unticked. */
     @FXML public CheckBox pinToggle;
     private static final String PIN_KEY = "pinWhileResuming";
@@ -929,18 +930,46 @@ public class ColdstartController {
 
     /** Settings > Ignored apps: one switch per exe capture skips - the built-ins, every x'd chip
         and every program picked. Switched off it is captured again but stays listed to switch
-        back. One framed list on the page ground, not cards, so it reads apart from STATUS. */
+        back. One framed list on the page ground, not cards, so it reads apart from STATUS.
+        A fold like Other's: only its head row until opened. */
     private void renderIgnored() {
         TreeSet<String> all = new TreeSet<>(IGNORED_WINDOWS);
         all.addAll(hidden);
         all.addAll(unignored);
-        List<Node> rows = new ArrayList<>();
+        Label meta = styled(new Label(), "fold-meta");
+        meta.setMaxWidth(Double.MAX_VALUE);
+        Runnable count = () -> {
+            List<String> on = all.stream().filter(AppCatalog::isIgnoredWindow).toList();
+            meta.setText(on.size() + " on" + (on.isEmpty() ? "" : " · " + names(on)));
+        };
+        count.run();
+        VBox text = new VBox(2, styled(new Label("Ignored apps"), "fold-title"), meta);
+        text.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(text, Priority.ALWAYS);
+        Pane chevron = Icons.node(Icons.CHEVRON, 14, TX3);
+        chevron.setRotate(ignoredOpen ? 90 : 0);
+        HBox head = ignoredRow();
+        head.setMinHeight(56);
+        head.setPrefHeight(56);
+        head.getChildren().addAll(Icons.node(Icons.APP_WINDOW, 18, TX2), text, chevron);
+        clickable(head, ignoredOpen ? "Fold the ignored apps" : "Show the ignored apps", () -> {
+            ignoredOpen = !ignoredOpen;
+            renderIgnored();
+        });
+        ignoredFoot.setVisible(ignoredOpen);
+        ignoredFoot.setManaged(ignoredOpen);
+        List<Node> rows = new ArrayList<>(List.of(head));
+        if (!ignoredOpen) {
+            ignoredRows.getChildren().setAll(rows);
+            return;
+        }
         for (String exe : all) {
             CheckBox sw = slideSwitch(isIgnoredWindow(exe));
             sw.setAccessibleText("Ignore " + exe);
             sw.selectedProperty().addListener((o, was, on) -> {
                 AppCatalog.ignore(exe, on);
                 storeUserApps();
+                count.run();
             });
             Label name = styled(new Label(exe), "fold-meta");
             name.setMaxWidth(Double.MAX_VALUE);
@@ -952,11 +981,17 @@ public class ColdstartController {
             rows.add(row);
         }
         HBox add = ignoredRow();
-        add.getChildren().addAll(Icons.node(Icons.NEW, 14, TX3), styled(new Label("Add a program…"), "fold-meta"));
-        clickable(add, "Add a program to ignore", this::addIgnored);
+        Label addLabel = styled(new Label("Add a program…"), "fold-meta");
+        addLabel.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(addLabel, Priority.ALWAYS);
+        add.getChildren().addAll(Icons.node(Icons.NEW, 14, TX3), addLabel, styled(new Label("choose its .exe"), "cat-foot"));
+        clickable(add, "Add a program to ignore: choose its .exe", this::addIgnored);
         rows.add(add);
         ignoredRows.getChildren().setAll(rows);
     }
+
+    /** Per run, not saved: Settings opens with the list folded, as Other's fold does. */
+    private boolean ignoredOpen;
 
     private static HBox ignoredRow() {
         HBox row = rowShell("ignored-row");
@@ -995,7 +1030,7 @@ public class ColdstartController {
     /** The programs window: Explorer's picker at Program Files, exes only. */
     private void addIgnored() {
         FileChooser fc = new FileChooser();
-        fc.setTitle("Ignore a program");
+        fc.setTitle("Ignore a program: choose its .exe");
         fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Programs", "*.exe"));
         String pf = System.getenv("ProgramFiles");
         if (pf != null && new File(pf).isDirectory()) fc.setInitialDirectory(new File(pf));
