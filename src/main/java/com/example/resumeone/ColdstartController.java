@@ -206,7 +206,8 @@ public class ColdstartController {
     @FXML public CheckBox sidebarToggle;
     /** Same node Motion keeps "motion" in; projects.json stays projects only. */
     private static final Preferences PREFS = Preferences.userNodeForPackage(ColdstartController.class);
-    @FXML public VBox settingsRows;
+    @FXML public VBox settingsRows, ignoredRows;
+    @FXML public TextField ignoreAdd;
     /** Settings > Window: pin coldstart on top while a resume runs. On unless unticked. */
     @FXML public CheckBox pinToggle;
     private static final String PIN_KEY = "pinWhileResuming";
@@ -327,6 +328,7 @@ public class ColdstartController {
         pinToggle.setSelected(PREFS.getBoolean(PIN_KEY, true));
         // read by showBase the next time a resume starts
         pinToggle.selectedProperty().addListener((o, was, on) -> PREFS.putBoolean(PIN_KEY, on));
+        ignoreAdd.setOnAction(e -> addIgnored());
         clickable(btnNewProjectRail, "New project", this::onNewProjectClick);
         btnNewProjectWide.setOnAction(e -> onNewProjectClick());
         setRailWide(PREFS.getBoolean(SIDEBAR_WIDE, true));
@@ -877,19 +879,17 @@ public class ColdstartController {
         String shown = appData != null && path.startsWith(appData) ? "%APPDATA%" + path.substring(appData.length()) : path;
         String size = projectsFile().length() < 1024 ? "<1 KB" : kb + " KB";
         String storage = projects.size() + (projects.size() == 1 ? " project" : " projects") + " \u00b7 " + size + " \u00b7 ";
-        List<String> ignored = IGNORED_WINDOWS.stream().sorted().toList();
-        // what the user sorted out of Other; clicking the row undoes it all
+        renderIgnored();
+        // what the user sorted out of Other with +; clicking the row undoes it all
         List<HBox> userRows = new ArrayList<>();
-        for (Set<String> list : List.of(relaunched, hidden)) {
-            if (list.isEmpty()) continue;
-            boolean keep = list == relaunched;
-            List<String> sorted = list.stream().sorted().toList();
-            HBox row = statRow(Icons.APP_WINDOW, keep ? "Relaunched from Other" : "Hidden apps",
-                    names(sorted) + (keep ? " · click to stop" : " · click to show again"), String.join("\n", sorted));
+        if (!relaunched.isEmpty()) {
+            List<String> sorted = relaunched.stream().sorted().toList();
+            HBox row = statRow(Icons.APP_WINDOW, "Relaunched from Other",
+                    names(sorted) + " · click to stop", String.join("\n", sorted));
             row.getChildren().add(Icons.node(Icons.CHEVRON, 14, TX3));
             row.getStyleClass().add("stat-link");
-            clickable(row, keep ? "Stop relaunching these" : "Capture these again", () -> {
-                list.clear();
+            clickable(row, "Stop relaunching these", () -> {
+                relaunched.clear();
                 storeUserApps();
                 projects.forEach(AppCatalog::recategorizeOther);
                 renderSettingsRows();
@@ -924,9 +924,35 @@ public class ColdstartController {
                                            : String.join(", ", browsers.stream().map(Browsers::browserLabel).toList())
                                              + " connected", null),
                 extensionRow,
-                statRow(Icons.APP_WINDOW, "Ignored processes", names(ignored), String.join("\n", ignored)),
                 storageRow);
         settingsRows.getChildren().addAll(userRows);
+    }
+
+    /** Settings > Ignored: one switch per exe capture skips - the built-ins, every x'd chip and
+        every name typed in. Switched off it is captured again but stays listed to switch back. */
+    private void renderIgnored() {
+        TreeSet<String> all = new TreeSet<>(IGNORED_WINDOWS);
+        all.addAll(hidden);
+        all.addAll(unignored);
+        ignoredRows.getChildren().setAll(all.stream().map(exe -> {
+            CheckBox cb = new CheckBox(exe);
+            cb.setSelected(isIgnoredWindow(exe));
+            iconCheck(cb);
+            cb.selectedProperty().addListener((o, was, on) -> {
+                AppCatalog.ignore(exe, on);
+                storeUserApps();
+            });
+            return (Node) cb;
+        }).toList());
+    }
+
+    private void addIgnored() {
+        String exe = ignoreAdd.getText().strip().toLowerCase();
+        if (exe.isEmpty()) return;
+        AppCatalog.ignore(exe.endsWith(".exe") ? exe : exe + ".exe", true);
+        storeUserApps();
+        ignoreAdd.clear();
+        renderIgnored();
     }
 
     // ponytail: 3s is a guess past the slowest window measured (a cold launch, ~1.2s); an app
@@ -3681,16 +3707,18 @@ public class ColdstartController {
     //   + on an Other chip relaunches that app from then on, in every project, under "Apps";
     //   x hides it: it is never captured again. Both are the user's, not a project's, so they
     //   live in PREFS (lowercase exe names), loaded by initialize() - empty in tests.
-    private static final String RELAUNCH_KEY = "relaunchApps", HIDDEN_KEY = "hiddenApps";
+    private static final String RELAUNCH_KEY = "relaunchApps", HIDDEN_KEY = "hiddenApps", UNIGNORED_KEY = "unignoredApps";
 
     private static void loadUserApps() {
         for (String exe : PREFS.get(RELAUNCH_KEY, "").split("\n")) if (!exe.isBlank()) relaunched.add(exe);
         for (String exe : PREFS.get(HIDDEN_KEY, "").split("\n")) if (!exe.isBlank()) hidden.add(exe);
+        for (String exe : PREFS.get(UNIGNORED_KEY, "").split("\n")) if (!exe.isBlank()) unignored.add(exe);
     }
 
     private static void storeUserApps() {
         PREFS.put(RELAUNCH_KEY, String.join("\n", relaunched));
         PREFS.put(HIDDEN_KEY, String.join("\n", hidden));
+        PREFS.put(UNIGNORED_KEY, String.join("\n", unignored));
     }
 
     /** + on an Other chip. Every open project that captured it moves it to Apps now; the ones
@@ -3711,7 +3739,7 @@ public class ColdstartController {
     /** x on an Other chip: gone from this card now, never captured again. Other projects that
         still list it stop showing it (renderCategories). */
     private void hideApp(Project projectObj, String app) {
-        hidden.add(app.toLowerCase());
+        AppCatalog.ignore(app, true);
         storeUserApps();
         removeApp(projectObj, OTHER, app);
     }
