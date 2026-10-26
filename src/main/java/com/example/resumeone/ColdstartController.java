@@ -41,6 +41,7 @@ import javafx.scene.effect.DropShadow;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.SVGPath;
 import javafx.stage.DirectoryChooser;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 import javafx.util.Duration;
@@ -207,7 +208,6 @@ public class ColdstartController {
     /** Same node Motion keeps "motion" in; projects.json stays projects only. */
     private static final Preferences PREFS = Preferences.userNodeForPackage(ColdstartController.class);
     @FXML public VBox settingsRows, ignoredRows;
-    @FXML public TextField ignoreAdd;
     /** Settings > Window: pin coldstart on top while a resume runs. On unless unticked. */
     @FXML public CheckBox pinToggle;
     private static final String PIN_KEY = "pinWhileResuming";
@@ -328,7 +328,6 @@ public class ColdstartController {
         pinToggle.setSelected(PREFS.getBoolean(PIN_KEY, true));
         // read by showBase the next time a resume starts
         pinToggle.selectedProperty().addListener((o, was, on) -> PREFS.putBoolean(PIN_KEY, on));
-        ignoreAdd.setOnAction(e -> addIgnored());
         clickable(btnNewProjectRail, "New project", this::onNewProjectClick);
         btnNewProjectWide.setOnAction(e -> onNewProjectClick());
         setRailWide(PREFS.getBoolean(SIDEBAR_WIDE, true));
@@ -928,30 +927,82 @@ public class ColdstartController {
         settingsRows.getChildren().addAll(userRows);
     }
 
-    /** Settings > Ignored: one switch per exe capture skips - the built-ins, every x'd chip and
-        every name typed in. Switched off it is captured again but stays listed to switch back. */
+    /** Settings > Ignored apps: one switch per exe capture skips - the built-ins, every x'd chip
+        and every program picked. Switched off it is captured again but stays listed to switch
+        back. One framed list on the page ground, not cards, so it reads apart from STATUS. */
     private void renderIgnored() {
         TreeSet<String> all = new TreeSet<>(IGNORED_WINDOWS);
         all.addAll(hidden);
         all.addAll(unignored);
-        ignoredRows.getChildren().setAll(all.stream().map(exe -> {
-            CheckBox cb = new CheckBox(exe);
-            cb.setSelected(isIgnoredWindow(exe));
-            iconCheck(cb);
-            cb.selectedProperty().addListener((o, was, on) -> {
+        List<Node> rows = new ArrayList<>();
+        for (String exe : all) {
+            CheckBox sw = slideSwitch(isIgnoredWindow(exe));
+            sw.setAccessibleText("Ignore " + exe);
+            sw.selectedProperty().addListener((o, was, on) -> {
                 AppCatalog.ignore(exe, on);
                 storeUserApps();
             });
-            return (Node) cb;
-        }).toList());
+            Label name = styled(new Label(exe), "fold-meta");
+            name.setMaxWidth(Double.MAX_VALUE);
+            HBox.setHgrow(name, Priority.ALWAYS);
+            HBox row = ignoredRow();
+            row.getChildren().addAll(name, sw);
+            // the whole row is the hit target; the switch only takes keyboard focus
+            row.setOnMouseClicked(e -> sw.fire());
+            rows.add(row);
+        }
+        HBox add = ignoredRow();
+        add.getChildren().addAll(Icons.node(Icons.NEW, 14, TX3), styled(new Label("Add a program…"), "fold-meta"));
+        clickable(add, "Add a program to ignore", this::addIgnored);
+        rows.add(add);
+        ignoredRows.getChildren().setAll(rows);
     }
 
+    private static HBox ignoredRow() {
+        HBox row = rowShell("ignored-row");
+        row.setMinHeight(40);
+        row.setPrefHeight(40);
+        return row;
+    }
+
+    /** A square slide switch: the CheckBox keeps focus, Space and selectedProperty; the graphic
+        is a track whose thumb slides across (FAST, snapped with motion off). hud.css colours it. */
+    private static CheckBox slideSwitch(boolean on) {
+        Region thumb = new Region();
+        thumb.getStyleClass().add("switch-thumb");
+        thumb.setMaxSize(10, 10);
+        StackPane track = new StackPane(thumb);
+        track.getStyleClass().add("switch-track");
+        track.setAlignment(Pos.CENTER_LEFT);
+        track.setMinSize(32, 18);
+        track.setMaxSize(32, 18);
+        CheckBox sw = new CheckBox();
+        sw.getStyleClass().add("switch");
+        sw.setGraphic(track);
+        sw.setMouseTransparent(true);
+        sw.setSelected(on);
+        thumb.setTranslateX(on ? 18 : 4);
+        sw.selectedProperty().addListener((o, was, now) -> {
+            double x = now ? 18 : 4;
+            Motion.stop(thumb);
+            if (Motion.REDUCED || !Motion.showing(thumb)) { thumb.setTranslateX(x); return; }
+            Motion.run(thumb, new Timeline(new KeyFrame(Motion.FAST,
+                    new KeyValue(thumb.translateXProperty(), x, Motion.STANDARD))));
+        });
+        return sw;
+    }
+
+    /** The programs window: Explorer's picker at Program Files, exes only. */
     private void addIgnored() {
-        String exe = ignoreAdd.getText().strip().toLowerCase();
-        if (exe.isEmpty()) return;
-        AppCatalog.ignore(exe.endsWith(".exe") ? exe : exe + ".exe", true);
+        FileChooser fc = new FileChooser();
+        fc.setTitle("Ignore a program");
+        fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Programs", "*.exe"));
+        String pf = System.getenv("ProgramFiles");
+        if (pf != null && new File(pf).isDirectory()) fc.setInitialDirectory(new File(pf));
+        File exe = fc.showOpenDialog(ignoredRows.getScene().getWindow());
+        if (exe == null) return;
+        AppCatalog.ignore(exe.getName(), true);
         storeUserApps();
-        ignoreAdd.clear();
         renderIgnored();
     }
 

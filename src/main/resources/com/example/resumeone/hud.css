@@ -558,6 +558,17 @@
 .other-fold:hover .cat-foot { -fx-text-fill: -rw-tx2; }
 .other-fold:hover .ico { -fx-stroke: -rw-tx2; }
 .other-fold:focus-visible { -fx-effect: dropshadow(gaussian, -rw-act, 3, 1.0, 0, 0); }
+/* ignored apps: one framed list on the page ground with hairline rows, a quieter cousin of the
+   status cards above it. The row is the hit target; its switch is a square slide switch. */
+.ignored-list { -fx-border-color: -rw-ln -rw-ln transparent -rw-ln; }
+.ignored-row { -fx-cursor: hand; -fx-border-color: transparent transparent -rw-ln transparent; }
+.ignored-row:hover { -fx-background-color: -rw-g1; }
+.ignored-row:focus-visible { -fx-effect: dropshadow(gaussian, -rw-act, 3, 1.0, 0, 0); }
+.switch-track { -fx-background-color: -rw-raised; -fx-border-color: -rw-ln2; }
+.switch-thumb { -fx-background-color: -rw-tx3; }
+.ignored-row:hover .switch-thumb { -fx-background-color: -rw-tx2; }
+.switch:selected .switch-track { -fx-background-color: -rw-tx; -fx-border-color: -rw-tx; }
+.switch:selected .switch-thumb { -fx-background-color: -rw-g; }
 .stat-link { -fx-cursor: hand; }
 .stat-link:hover { -fx-background-color: -rw-g2; -fx-border-color: -rw-ln2; }
 .stat-link:focus-visible { -fx-effect: dropshadow(gaussian, -rw-act, 3, 1.0, 0, 0); }

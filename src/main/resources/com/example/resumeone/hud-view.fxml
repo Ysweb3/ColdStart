@@ -473,15 +473,6 @@
                 <Label fx:id="startupHint" styleClass="cat-foot" visible="false"/>
                 <CheckBox fx:id="trayToggle" selected="true" text="Close to the tray, and open there when Windows starts"/>
               </VBox>
-              <!-- ticked = never captured; renderIgnored() fills it, Enter in the field adds one -->
-              <VBox spacing="12.0">
-                <VBox.margin><Insets top="24.0"/></VBox.margin>
-                <Label styleClass="rail-label" text="IGNORED APPS">
-                  <VBox.margin><Insets bottom="4.0"/></VBox.margin>
-                </Label>
-                <VBox fx:id="ignoredRows" spacing="12.0"/>
-                <TextField fx:id="ignoreAdd" promptText="add an app · steam.exe, Enter" maxWidth="260.0"/>
-              </VBox>
             </VBox>
 
             <!-- three stat rows from real state, re-rendered on socket events. Storage is the one that acts. -->
@@ -491,6 +482,12 @@
                 <VBox.margin><Insets bottom="8.0"/></VBox.margin>
               </Label>
               <VBox fx:id="settingsRows" spacing="8.0"/>
+              <!-- one switch per exe capture skips, filled by renderIgnored(); its last row adds one -->
+              <Label styleClass="rail-label" text="IGNORED APPS">
+                <VBox.margin><Insets top="24.0" bottom="8.0"/></VBox.margin>
+              </Label>
+              <VBox fx:id="ignoredRows" styleClass="ignored-list"/>
+              <Label styleClass="cat-foot" text="switched on: coldstart never captures it"/>
             </VBox>
           </HBox>
 
