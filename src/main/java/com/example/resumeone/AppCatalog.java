@@ -176,9 +176,6 @@ final class AppCatalog {
         for (String app : appset) {
             result.get(categoryOf(app)).add(app);
         }
-        for (String item : result.keySet()) {
-            System.out.println(item + " -> " + result.get(item));
-        }
         return result;
     }
 
