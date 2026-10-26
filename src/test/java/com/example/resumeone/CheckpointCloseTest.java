@@ -35,12 +35,12 @@ class CheckpointCloseTest {
 
     @Test
     void titlesThatHoldUnsavedWork() {
-        for (String t : List.of("*notes.txt - Notepad", "\u25cf background.js - ResumeOneExtension - Visual Studio Code",
+        for (String t : List.of("*notes.txt - Notepad", "\u25cf background.js - ColdStartExtension - Visual Studio Code",
                 "Blender* [C:\\x\\scene.blend]", "Untitled - Paint", "*C:\\x\\a.txt - Notepad++", "scene.blend* - Blender 4.2")) {
             assertTrue(AppFolders.looksUnsaved(t), t);
         }
-        for (String t : List.of("notes.txt - Notepad", "background.js - ResumeOneExtension - Visual Studio Code",
-                "Blender [C:\\x\\scene.blend]", "photo.png - Paint", "ResumeOne \u2013 ColdstartController.java")) {
+        for (String t : List.of("notes.txt - Notepad", "background.js - ColdStartExtension - Visual Studio Code",
+                "Blender [C:\\x\\scene.blend]", "photo.png - Paint", "ColdStart \u2013 ColdstartController.java")) {
             assertFalse(AppFolders.looksUnsaved(t), t);
         }
         // Word reports no marker in its title; a document with no folder was never saved

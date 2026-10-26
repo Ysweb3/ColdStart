@@ -31,7 +31,7 @@ class ProjectPersistenceTest {
         HashMap<String, HashSet<String>> apps = new HashMap<>();
         apps.put("Browser", new HashSet<>(java.util.List.of("chrome.exe", "brave.exe")));
         apps.put("IDE", new HashSet<>(java.util.List.of("Code.exe")));
-        ArrayList<String> urls = new ArrayList<>(java.util.List.of("https://github.com/Ysweb3/ResumeOne"));
+        ArrayList<String> urls = new ArrayList<>(java.util.List.of("https://github.com/Ysweb3/ColdStart"));
         Project original = new Project("Sample Project", "C:\\dev\\sample", apps, urls);
 
         String json = gson.toJson(original);

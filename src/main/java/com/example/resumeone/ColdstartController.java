@@ -273,7 +273,7 @@ public class ColdstartController {
     private volatile long connectingUntil;
     private PauseTransition connectingEnds;
     /** A live extension retries every 3s; a suspended one is woken by chrome.alarms at most a
-        minute later (ResumeOneExtension/background.js). Past this, nobody is coming. */
+        minute later (ColdStartExtension/background.js). Past this, nobody is coming. */
     static final Duration CONNECT_GRACE = Duration.seconds(65);
 
     /** Hover-only: names the browsers on the socket, so the dot itself stays uncluttered. */
@@ -3885,9 +3885,6 @@ public class ColdstartController {
         two browsers answering one checkpoint post /tabs at once, and their overlapping read
         and swap of projects.json failed with "being used by another process". */
     public synchronized void saveProject(Project projectObj) throws IOException {
-
-        System.out.println("urls: "+projectObj.urls);
-
         upsertByName(projects, projectObj);
 
         ArrayList<Project> onDisk = getProjectsJson();
@@ -3987,7 +3984,6 @@ public class ColdstartController {
     ResumePlan planResume(Project projectObj, Set<String> running,
                           Map<String, ArrayList<String>> openFolders, List<String> log) {
         //TODO:add multiple apps checking for path list
-        System.out.println("projectName:" + projectObj.projectName);
         migrateLegacyUrls(projectObj);
 
         // browsers go last: the apps launching first give an extension that has not reconnected
@@ -3998,7 +3994,6 @@ public class ColdstartController {
             //TODO:fix chrome settings urls not working
             String browser = entry.getKey();
             List<String> urls = entry.getValue();
-            System.out.println(browser + " -> " + urls);
             String exePath;
             try {
                 exePath = browserPath(browser);
@@ -4194,7 +4189,7 @@ public class ColdstartController {
         }
         if (activeProject == projectObj) renderDetail(projectObj);
     }
-    // == Embedded server (the contract with ResumeOneExtension) ============
+    // == Embedded server (the contract with ColdStartExtension) ============
     //   WS  /ws?browser=X&profile=email   extension keeps this open; app pushes "capture" to request tabs,
     //                       or {"open":[urls]} on resume and the extension answers {"opened":n},
     //                       or {"close":[urls]} on Checkpoint & close (no answer)
@@ -4221,7 +4216,6 @@ public class ColdstartController {
     private volatile boolean portBusy;
 
     public void startServer(){
-        System.out.println("server starting...");
         Javalin app;
         try {
             app = Javalin.create(config -> {
@@ -4245,8 +4239,6 @@ public class ColdstartController {
         app.before(ctx -> { if (!fromExtension(ctx.header("Origin"))) throw new ForbiddenResponse(); });
         app.wsBeforeUpgrade("/ws", ctx -> { if (!fromExtension(ctx.header("Origin"))) throw new ForbiddenResponse(); });
         app.ws("/ws", ws -> {
-            System.out.println("WEB starting...");
-
             ws.onConnect(ctx -> {
                 wsSessions.add(ctx);
                 PREFS.putBoolean(SEEN_EXTENSION, true);   // GET STARTED's first row
@@ -4295,7 +4287,6 @@ public class ColdstartController {
             ctx.result("coldstart");
         });
         app.post("/tabs", ctx -> {
-            System.out.println(ctx.body());
             // gson gives back Object values here - browser is a String, urls a List, so the
             // map cannot be typed as Map<String, ArrayList<String>> without a bad cast
             Map<String, Object> data = gson.fromJson(ctx.body(), Map.class);

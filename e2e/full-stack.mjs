@@ -1,7 +1,7 @@
 // Full stack on a clean slate: the real coldstart app, the real extension in Chrome for Testing,
 // the popup's Send clicked, and projects.json read back from disk. No mocks on either side.
-// Run from ResumeOne/ with JAVA_HOME on a JDK 24, after `npm ci --prefix e2e`:
-//   node e2e/full-stack.mjs ../ResumeOneExtension
+// Run from ColdStart/ with JAVA_HOME on a JDK 24, after `npm ci --prefix e2e`:
+//   node e2e/full-stack.mjs ../ColdStartExtension
 // Its own port and a temp APPDATA keep it apart from a coldstart already open on this machine.
 import puppeteer from "puppeteer";
 import { spawn, execSync } from "node:child_process";
@@ -14,7 +14,7 @@ import net from "node:net";
 // whatever port is free right now: a fixed one met an old test copy still holding it
 const PORT = await new Promise(r => { const s = net.createServer().listen(0, "127.0.0.1", () => { const { port } = s.address(); s.close(() => r(port)); }); });
 const APP = `http://127.0.0.1:${PORT}`;
-const extSrc = path.resolve(process.argv[2] ?? "../ResumeOneExtension");
+const extSrc = path.resolve(process.argv[2] ?? "../ColdStartExtension");
 const repo = path.resolve(import.meta.dirname, "..");
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "coldstart-e2e-"));
 const sleep = ms => new Promise(r => setTimeout(r, ms));
