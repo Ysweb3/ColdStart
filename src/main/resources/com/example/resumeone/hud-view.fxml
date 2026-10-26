@@ -482,6 +482,14 @@
                 <VBox.margin><Insets bottom="8.0"/></VBox.margin>
               </Label>
               <VBox fx:id="settingsRows" spacing="8.0"/>
+              <!-- a fold, closed by default: its head row opens one switch per exe capture skips
+                   and an add row; filled by renderIgnored() -->
+              <Label styleClass="rail-label" text="IGNORED APPS">
+                <VBox.margin><Insets top="24.0" bottom="8.0"/></VBox.margin>
+              </Label>
+              <VBox fx:id="ignoredRows" styleClass="ignored-list"/>
+              <Label fx:id="ignoredFoot" styleClass="cat-foot" visible="false" managed="false"
+                     text="switched on: coldstart never captures it · add any program by its .exe"/>
             </VBox>
           </HBox>
 

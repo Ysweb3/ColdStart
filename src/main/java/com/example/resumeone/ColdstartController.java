@@ -41,6 +41,7 @@ import javafx.scene.effect.DropShadow;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.SVGPath;
 import javafx.stage.DirectoryChooser;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import javafx.stage.Window;
 import javafx.util.Duration;
@@ -206,7 +207,8 @@ public class ColdstartController {
     @FXML public CheckBox sidebarToggle;
     /** Same node Motion keeps "motion" in; projects.json stays projects only. */
     private static final Preferences PREFS = Preferences.userNodeForPackage(ColdstartController.class);
-    @FXML public VBox settingsRows;
+    @FXML public VBox settingsRows, ignoredRows;
+    @FXML public Label ignoredFoot;
     /** Settings > Window: pin coldstart on top while a resume runs. On unless unticked. */
     @FXML public CheckBox pinToggle;
     private static final String PIN_KEY = "pinWhileResuming";
@@ -700,9 +702,11 @@ public class ColdstartController {
         graphic(btnNewProjectEmpty, Icons.NEW, TX);
         graphic(btnNpBrowse, Icons.BROWSE, TX2);
         graphic(btnNpCreate, Icons.BOOKMARK_PLUS, TX);
-        for (CheckBox cb : List.of(pinToggle, motionToggle, sidebarToggle, startupToggle, trayToggle, npCapture)) {
-            iconCheck(cb);
+        // every Settings option is a slide switch; the dialog's "Checkpoint now" stays a tick box
+        for (CheckBox cb : List.of(pinToggle, motionToggle, sidebarToggle, startupToggle, trayToggle)) {
+            switchGraphic(cb);
         }
+        iconCheck(npCapture);
 
         Pane play = Icons.node(Icons.RESUME, 30, GOI, 2.4);
         resumeGlyphBox.getChildren().add(play);
@@ -877,19 +881,17 @@ public class ColdstartController {
         String shown = appData != null && path.startsWith(appData) ? "%APPDATA%" + path.substring(appData.length()) : path;
         String size = projectsFile().length() < 1024 ? "<1 KB" : kb + " KB";
         String storage = projects.size() + (projects.size() == 1 ? " project" : " projects") + " \u00b7 " + size + " \u00b7 ";
-        List<String> ignored = IGNORED_WINDOWS.stream().sorted().toList();
-        // what the user sorted out of Other; clicking the row undoes it all
+        renderIgnored();
+        // what the user sorted out of Other with +; clicking the row undoes it all
         List<HBox> userRows = new ArrayList<>();
-        for (Set<String> list : List.of(relaunched, hidden)) {
-            if (list.isEmpty()) continue;
-            boolean keep = list == relaunched;
-            List<String> sorted = list.stream().sorted().toList();
-            HBox row = statRow(Icons.APP_WINDOW, keep ? "Relaunched from Other" : "Hidden apps",
-                    names(sorted) + (keep ? " · click to stop" : " · click to show again"), String.join("\n", sorted));
+        if (!relaunched.isEmpty()) {
+            List<String> sorted = relaunched.stream().sorted().toList();
+            HBox row = statRow(Icons.APP_WINDOW, "Relaunched from Other",
+                    names(sorted) + " · click to stop", String.join("\n", sorted));
             row.getChildren().add(Icons.node(Icons.CHEVRON, 14, TX3));
             row.getStyleClass().add("stat-link");
-            clickable(row, keep ? "Stop relaunching these" : "Capture these again", () -> {
-                list.clear();
+            clickable(row, "Stop relaunching these", () -> {
+                relaunched.clear();
                 storeUserApps();
                 projects.forEach(AppCatalog::recategorizeOther);
                 renderSettingsRows();
@@ -924,9 +926,126 @@ public class ColdstartController {
                                            : String.join(", ", browsers.stream().map(Browsers::browserLabel).toList())
                                              + " connected", null),
                 extensionRow,
-                statRow(Icons.APP_WINDOW, "Ignored processes", names(ignored), String.join("\n", ignored)),
                 storageRow);
         settingsRows.getChildren().addAll(userRows);
+    }
+
+    /** Settings > Ignored apps: one switch per exe capture skips - the built-ins, every x'd chip
+        and every program picked. Switched off it is captured again but stays listed to switch
+        back. One framed list on the page ground, not cards, so it reads apart from STATUS.
+        A fold like Other's: only its head row until opened. */
+    private void renderIgnored() {
+        TreeSet<String> all = new TreeSet<>(IGNORED_WINDOWS);
+        all.addAll(hidden);
+        all.addAll(unignored);
+        Label meta = styled(new Label(), "fold-meta");
+        meta.setMaxWidth(Double.MAX_VALUE);
+        Runnable count = () -> {
+            List<String> on = all.stream().filter(AppCatalog::isIgnoredWindow).toList();
+            meta.setText(on.size() + " on" + (on.isEmpty() ? "" : " · " + names(on)));
+        };
+        count.run();
+        VBox text = new VBox(2, styled(new Label("Ignored apps"), "fold-title"), meta);
+        text.setAlignment(Pos.CENTER_LEFT);
+        HBox.setHgrow(text, Priority.ALWAYS);
+        Pane chevron = Icons.node(Icons.CHEVRON, 14, TX3);
+        chevron.setRotate(ignoredOpen ? 90 : 0);
+        HBox head = ignoredRow();
+        head.setMinHeight(56);
+        head.setPrefHeight(56);
+        head.getChildren().addAll(Icons.node(Icons.APP_WINDOW, 18, TX2), text, chevron);
+        clickable(head, ignoredOpen ? "Fold the ignored apps" : "Show the ignored apps", () -> {
+            ignoredOpen = !ignoredOpen;
+            renderIgnored();
+        });
+        ignoredFoot.setVisible(ignoredOpen);
+        ignoredFoot.setManaged(ignoredOpen);
+        List<Node> rows = new ArrayList<>(List.of(head));
+        if (!ignoredOpen) {
+            ignoredRows.getChildren().setAll(rows);
+            return;
+        }
+        for (String exe : all) {
+            CheckBox sw = slideSwitch(isIgnoredWindow(exe));
+            sw.setAccessibleText("Ignore " + exe);
+            sw.selectedProperty().addListener((o, was, on) -> {
+                AppCatalog.ignore(exe, on);
+                storeUserApps();
+                count.run();
+            });
+            Label name = styled(new Label(exe), "fold-meta");
+            name.setMaxWidth(Double.MAX_VALUE);
+            HBox.setHgrow(name, Priority.ALWAYS);
+            HBox row = ignoredRow();
+            row.getChildren().addAll(name, sw);
+            // the whole row is the hit target; the switch only takes keyboard focus
+            row.setOnMouseClicked(e -> sw.fire());
+            rows.add(row);
+        }
+        HBox add = ignoredRow();
+        Label addLabel = styled(new Label("Add a program…"), "fold-meta");
+        addLabel.setMaxWidth(Double.MAX_VALUE);
+        HBox.setHgrow(addLabel, Priority.ALWAYS);
+        add.getChildren().addAll(Icons.node(Icons.NEW, 14, TX3), addLabel, styled(new Label("choose its .exe"), "cat-foot"));
+        clickable(add, "Add a program to ignore: choose its .exe", this::addIgnored);
+        rows.add(add);
+        ignoredRows.getChildren().setAll(rows);
+    }
+
+    /** Per run, not saved: Settings opens with the list folded, as Other's fold does. */
+    private boolean ignoredOpen;
+
+    private static HBox ignoredRow() {
+        HBox row = rowShell("ignored-row");
+        row.setMinHeight(40);
+        row.setPrefHeight(40);
+        return row;
+    }
+
+    /** A square slide switch: the CheckBox keeps focus, Space and selectedProperty; the graphic
+        is a track whose thumb slides across (FAST, snapped with motion off). hud.css colours it. */
+    private static CheckBox slideSwitch(boolean on) {
+        CheckBox sw = new CheckBox();
+        sw.setMouseTransparent(true);
+        sw.setSelected(on);
+        switchGraphic(sw);
+        return sw;
+    }
+
+    /** Draws any CheckBox as the slide switch, keeping its text, focus and selectedProperty. */
+    private static void switchGraphic(CheckBox sw) {
+        Region thumb = new Region();
+        thumb.getStyleClass().add("switch-thumb");
+        thumb.setMaxSize(10, 10);
+        StackPane track = new StackPane(thumb);
+        track.getStyleClass().add("switch-track");
+        track.setAlignment(Pos.CENTER_LEFT);
+        track.setMinSize(32, 18);
+        track.setMaxSize(32, 18);
+        sw.getStyleClass().add("switch");
+        sw.setGraphic(track);
+        thumb.setTranslateX(sw.isSelected() ? 18 : 4);
+        sw.selectedProperty().addListener((o, was, now) -> {
+            double x = now ? 18 : 4;
+            Motion.stop(thumb);
+            if (Motion.REDUCED || !Motion.showing(thumb)) { thumb.setTranslateX(x); return; }
+            Motion.run(thumb, new Timeline(new KeyFrame(Motion.FAST,
+                    new KeyValue(thumb.translateXProperty(), x, Motion.STANDARD))));
+        });
+    }
+
+    /** The programs window: Explorer's picker at Program Files, exes only. */
+    private void addIgnored() {
+        FileChooser fc = new FileChooser();
+        fc.setTitle("Ignore a program: choose its .exe");
+        fc.getExtensionFilters().add(new FileChooser.ExtensionFilter("Programs", "*.exe"));
+        String pf = System.getenv("ProgramFiles");
+        if (pf != null && new File(pf).isDirectory()) fc.setInitialDirectory(new File(pf));
+        File exe = fc.showOpenDialog(ignoredRows.getScene().getWindow());
+        if (exe == null) return;
+        AppCatalog.ignore(exe.getName(), true);
+        storeUserApps();
+        renderIgnored();
     }
 
     // ponytail: 3s is a guess past the slowest window measured (a cold launch, ~1.2s); an app
@@ -3681,16 +3800,18 @@ public class ColdstartController {
     //   + on an Other chip relaunches that app from then on, in every project, under "Apps";
     //   x hides it: it is never captured again. Both are the user's, not a project's, so they
     //   live in PREFS (lowercase exe names), loaded by initialize() - empty in tests.
-    private static final String RELAUNCH_KEY = "relaunchApps", HIDDEN_KEY = "hiddenApps";
+    private static final String RELAUNCH_KEY = "relaunchApps", HIDDEN_KEY = "hiddenApps", UNIGNORED_KEY = "unignoredApps";
 
     private static void loadUserApps() {
         for (String exe : PREFS.get(RELAUNCH_KEY, "").split("\n")) if (!exe.isBlank()) relaunched.add(exe);
         for (String exe : PREFS.get(HIDDEN_KEY, "").split("\n")) if (!exe.isBlank()) hidden.add(exe);
+        for (String exe : PREFS.get(UNIGNORED_KEY, "").split("\n")) if (!exe.isBlank()) unignored.add(exe);
     }
 
     private static void storeUserApps() {
         PREFS.put(RELAUNCH_KEY, String.join("\n", relaunched));
         PREFS.put(HIDDEN_KEY, String.join("\n", hidden));
+        PREFS.put(UNIGNORED_KEY, String.join("\n", unignored));
     }
 
     /** + on an Other chip. Every open project that captured it moves it to Apps now; the ones
@@ -3711,7 +3832,7 @@ public class ColdstartController {
     /** x on an Other chip: gone from this card now, never captured again. Other projects that
         still list it stop showing it (renderCategories). */
     private void hideApp(Project projectObj, String app) {
-        hidden.add(app.toLowerCase());
+        AppCatalog.ignore(app, true);
         storeUserApps();
         removeApp(projectObj, OTHER, app);
     }

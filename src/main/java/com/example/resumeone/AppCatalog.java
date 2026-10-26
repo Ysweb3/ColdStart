@@ -19,7 +19,9 @@ final class AppCatalog {
     static final String OTHER = "Other";
     static final String USER_APPS = "Apps";
     // read by the capture worker while the FX thread edits them
-    static final Set<String> relaunched = ConcurrentHashMap.newKeySet(), hidden = ConcurrentHashMap.newKeySet();
+    // unignored: switched off in Settings > Ignored, so captured again but still listed there
+    static final Set<String> relaunched = ConcurrentHashMap.newKeySet(), hidden = ConcurrentHashMap.newKeySet(),
+            unignored = ConcurrentHashMap.newKeySet();
 
     // shell/system windows that are never a user's "app" (PowerToys filters the same set)
     static final Set<String> IGNORED_WINDOWS = Set.of(
@@ -34,7 +36,20 @@ final class AppCatalog {
         // misfired and we must not persist its output as an app
         if (!lower.endsWith(".exe")) return true;
         // PowerToys surfaces (QuickAccess, WorkspacesEditor, ...) are transient UI, not apps to resume
+        if (unignored.contains(lower)) return false;
         return IGNORED_WINDOWS.contains(lower) || lower.startsWith("powertoys.") || hidden.contains(lower);
+    }
+
+    /** One switch in Settings > Ignored (or x on an Other chip, on). Off keeps it listed. */
+    static void ignore(String exe, boolean on) {
+        String lower = exe.toLowerCase();
+        if (on) {
+            unignored.remove(lower);
+            if (!IGNORED_WINDOWS.contains(lower)) hidden.add(lower);
+        } else {
+            hidden.remove(lower);
+            unignored.add(lower);
+        }
     }
 
     // purely for labelling: an app missing from this map is still captured, under OTHER.

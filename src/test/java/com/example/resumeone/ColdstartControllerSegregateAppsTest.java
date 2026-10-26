@@ -355,6 +355,28 @@ class ColdstartControllerSegregateAppsTest {
     }
 
     @Test
+    void ignoredSwitchesTurnCaptureOnAndOff() {
+        try {
+            // a built-in switched off is captured again, and back on is skipped again
+            AppCatalog.ignore("searchhost.exe", false);
+            assertFalse(AppCatalog.isIgnoredWindow("SearchHost.exe"));
+            AppCatalog.ignore("searchhost.exe", true);
+            assertTrue(AppCatalog.isIgnoredWindow("SearchHost.exe"));
+            assertTrue(AppCatalog.hidden.isEmpty(), "a built-in is not copied into hidden");
+
+            // one the user added: on skips it, off captures it but keeps it listed
+            AppCatalog.ignore("Steam.exe", true);
+            assertTrue(AppCatalog.isIgnoredWindow("steam.exe"));
+            AppCatalog.ignore("steam.exe", false);
+            assertFalse(AppCatalog.isIgnoredWindow("Steam.exe"));
+            assertTrue(AppCatalog.unignored.contains("steam.exe"));
+        } finally {
+            AppCatalog.hidden.clear();
+            AppCatalog.unignored.clear();
+        }
+    }
+
+    @Test
     void onlyCapturedAppsKeepAnExePath() {
         // what the window listing hands back on this machine: the overlay is an ignored window,
         // java.exe is coldstart itself, explorer.exe the desktop - none of them were captured
