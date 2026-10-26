@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<!-- Resume Work HUD, option 5a (design_handoff_resume_hud/resume-hud-5a.html): black ground,
+<!-- coldstart HUD, option 5a (design_handoff_resume_hud/resume-hud-5a.html): black ground,
      neutral grey panels, #FF6500 resume, #E9E3DF text, blue only on checkpoint.
      The static parts live here; everything project-shaped is filled by ColdstartController, and
      every glyph slot (an empty StackPane) is drawn by Icons from code.

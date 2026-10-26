@@ -1,4 +1,4 @@
-/* Resume Work HUD, option 5a (design_handoff_resume_hud). Every value below is copied from the
+/* coldstart HUD, option 5a (design_handoff_resume_hud). Every value below is copied from the
    5a .dv-card tokens and the design-system components it imports (SidebarItem, AppChip,
    Button, IconButton, StatusDot).
    Two things JavaFX 21 CSS cannot say, so they are not here: letter-spacing (the mono labels'

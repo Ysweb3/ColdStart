@@ -22,10 +22,10 @@ class ProjectTest {
         apps.put("Browser", new HashSet<>(java.util.List.of("chrome.exe")));
         ArrayList<String> urls = new ArrayList<>(java.util.List.of("https://github.com", "https://claude.ai"));
 
-        Project project = new Project("Resume One", "C:\\dev\\resume-one", apps, urls);
+        Project project = new Project("Cold Start", "C:\\dev\\cold-start", apps, urls);
 
-        assertEquals("Resume One", project.getProjectName());
-        assertEquals("C:\\dev\\resume-one", project.getFolderPath());
+        assertEquals("Cold Start", project.getProjectName());
+        assertEquals("C:\\dev\\cold-start", project.getFolderPath());
         assertEquals(apps, project.getApps());
         assertEquals(urls, project.getUrls());
     }

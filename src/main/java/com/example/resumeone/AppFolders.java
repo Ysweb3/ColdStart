@@ -25,7 +25,7 @@ import java.util.regex.Pattern;
  * Which folder or file each app window has open, so a resume brings IntelliJ back on one
  * folder and VS Code on another instead of both on the project's single folderPath.
  *
- * IDEs only put a name in the title ("ResumeOne – Main.java", "x.ts - ResumeOneExtension -
+ * IDEs only put a name in the title ("ColdStart – Main.java", "x.ts - ColdStartExtension -
  * Visual Studio Code"), so the name is looked up in the app's own list of folders it has
  * opened. Notepad++, Premiere, After Effects and older Blender put the whole path there,
  * Unity has it on its command line, and Explorer, Office and Photoshop/Illustrator are asked
@@ -323,7 +323,7 @@ final class AppFolders {
     }
 
     // == JetBrains ==========================================================
-    //   title: "ResumeOne – ColdstartApplication.java" (an en dash), or "name [C:\path] – file" on
+    //   title: "ColdStart – ColdstartApplication.java" (an en dash), or "name [C:\path] – file" on
     //   older builds. recentProjects.xml keys each project by its path and keeps the title its
     //   window last had, which carries the project name when that differs from the folder's.
 

@@ -117,7 +117,7 @@ class ServerE2ETest {
     void checkpointAsksTheExtensionAndItsTabsReachTheDisk() throws Exception {
         Project p = project("e2e-checkpoint-" + System.nanoTime());
         FakeExtension ext = FakeExtension.connect(
-                List.of("https://github.com/Ysweb3/ResumeOne", "edge://newtab/", "https://claude.ai"), 0);
+                List.of("https://github.com/Ysweb3/ColdStart", "edge://newtab/", "https://claude.ai"), 0);
         try {
             CountDownLatch replies = app.askForTabs(p);
 
@@ -127,7 +127,7 @@ class ServerE2ETest {
                     .filter(s -> s.projectName.equals(p.projectName)).findFirst().orElseThrow();
             // the browser's own pages are dropped, the rest kept under that profile's bucket
             assertEquals(Map.of(Browsers.browserKey("Edge", EMAIL),
-                            List.of("https://github.com/Ysweb3/ResumeOne", "https://claude.ai")),
+                            List.of("https://github.com/Ysweb3/ColdStart", "https://claude.ai")),
                     saved.urlsByBrowser);
         } finally {
             ext.ws.abort();

@@ -271,7 +271,7 @@ public class ColdstartController {
     private volatile long connectingUntil;
     private PauseTransition connectingEnds;
     /** A live extension retries every 3s; a suspended one is woken by chrome.alarms at most a
-        minute later (ResumeOneExtension/background.js). Past this, nobody is coming. */
+        minute later (ColdStartExtension/background.js). Past this, nobody is coming. */
     static final Duration CONNECT_GRACE = Duration.seconds(65);
 
     /** Hover-only: names the browsers on the socket, so the dot itself stays uncluttered. */
@@ -4073,7 +4073,7 @@ public class ColdstartController {
         }
         if (activeProject == projectObj) renderDetail(projectObj);
     }
-    // == Embedded server (the contract with ResumeOneExtension) ============
+    // == Embedded server (the contract with ColdStartExtension) ============
     //   WS  /ws?browser=X&profile=email   extension keeps this open; app pushes "capture" to request tabs,
     //                       or {"open":[urls]} on resume and the extension answers {"opened":n},
     //                       or {"close":[urls]} on Checkpoint & close (no answer)

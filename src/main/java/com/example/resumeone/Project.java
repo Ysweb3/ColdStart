@@ -17,9 +17,9 @@ import java.util.HashSet;
  *   "projectName":   "ColdStart project",             //primary key
  *   "lastCheckpoint": "2026-09-16T14:25:42Z",     // ISO instant (older files: a bare date), shown as "2h" / "3d"
  *   "active":        false,                         // unused; the active project is runtime state
- *   "folderPath":    "C:\...\ResumeOne",           // null when no folder was chosen
+ *   "folderPath":    "C:\...\ColdStart",           // null when no folder was chosen
  *   "apps":          {"IDE": ["Code.exe"], "AI": ["claude.exe"], ...},   // category -> exe names
- *   "folders":       {"idea64.exe": ["C:\...\ResumeOne"], "Code.exe": ["C:\...\ResumeOneExtension"]},
+ *   "folders":       {"idea64.exe": ["C:\...\ColdStart"], "Code.exe": ["C:\...\ColdStartExtension"]},
  *                                                   // exe -> folders/files its windows had open; absent = none told
  *   "exePaths":      {"Unity.exe": "C:\...\2022.3.10f1\Editor\Unity.exe"},  // exe -> where it ran from
  *   "urls":          [],                            // legacy, see below

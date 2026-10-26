@@ -9,12 +9,12 @@ folder, and later brings all of it back with one click. It is two pieces that on
 │  coldstart app              │◄───────────────────────────►│  coldstart extension       │
 │  JavaFX window + Javalin    │   POST /tabs {browser,urls} │  MV3 service worker + popup│
 │  server, Windows only       │◄────────────────────────────│  one per browser           │
-│  (ResumeOne repo, this one) │                             │  (ResumeOneExtension repo) │
+│  (ColdStart repo, this one) │                             │  (ColdStartExtension repo) │
 └─────────────────────────────┘                             └────────────────────────────┘
 ```
 
-The repos and the Java package (`com.example.resumeone`) keep their old names: renaming the
-package would orphan the saved preferences (they are keyed to it). Project data moved to
+The Java package (`com.example.resumeone`) keeps its old name: renaming the package would
+orphan the saved preferences (they are keyed to it). Project data moved to
 `%APPDATA%\Coldstart`; the old `%APPDATA%\ResumeWork` is no longer read or written.
 
 ## Files that matter
@@ -37,7 +37,7 @@ package would orphan the saved preferences (they are keyed to it). Project data 
 | `%APPDATA%\Coldstart\projects.json` | Where your projects actually live. Delete it to reset the app. |
 
 Build/run: `mvnw.cmd clean javafx:run` (needs `JAVA_HOME` → a JDK 24+). Tests: `mvnw.cmd test`.
-Full stack: `npm ci --prefix e2e`, then `node e2e/full-stack.mjs ../ResumeOneExtension`.
+Full stack: `npm ci --prefix e2e`, then `node e2e/full-stack.mjs ../ColdStartExtension`.
 
 ## The three things the app does
 
