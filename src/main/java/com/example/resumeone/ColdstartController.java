@@ -702,9 +702,11 @@ public class ColdstartController {
         graphic(btnNewProjectEmpty, Icons.NEW, TX);
         graphic(btnNpBrowse, Icons.BROWSE, TX2);
         graphic(btnNpCreate, Icons.BOOKMARK_PLUS, TX);
-        for (CheckBox cb : List.of(pinToggle, motionToggle, sidebarToggle, startupToggle, trayToggle, npCapture)) {
-            iconCheck(cb);
+        // every Settings option is a slide switch; the dialog's "Checkpoint now" stays a tick box
+        for (CheckBox cb : List.of(pinToggle, motionToggle, sidebarToggle, startupToggle, trayToggle)) {
+            switchGraphic(cb);
         }
+        iconCheck(npCapture);
 
         Pane play = Icons.node(Icons.RESUME, 30, GOI, 2.4);
         resumeGlyphBox.getChildren().add(play);
@@ -1003,6 +1005,15 @@ public class ColdstartController {
     /** A square slide switch: the CheckBox keeps focus, Space and selectedProperty; the graphic
         is a track whose thumb slides across (FAST, snapped with motion off). hud.css colours it. */
     private static CheckBox slideSwitch(boolean on) {
+        CheckBox sw = new CheckBox();
+        sw.setMouseTransparent(true);
+        sw.setSelected(on);
+        switchGraphic(sw);
+        return sw;
+    }
+
+    /** Draws any CheckBox as the slide switch, keeping its text, focus and selectedProperty. */
+    private static void switchGraphic(CheckBox sw) {
         Region thumb = new Region();
         thumb.getStyleClass().add("switch-thumb");
         thumb.setMaxSize(10, 10);
@@ -1011,12 +1022,9 @@ public class ColdstartController {
         track.setAlignment(Pos.CENTER_LEFT);
         track.setMinSize(32, 18);
         track.setMaxSize(32, 18);
-        CheckBox sw = new CheckBox();
         sw.getStyleClass().add("switch");
         sw.setGraphic(track);
-        sw.setMouseTransparent(true);
-        sw.setSelected(on);
-        thumb.setTranslateX(on ? 18 : 4);
+        thumb.setTranslateX(sw.isSelected() ? 18 : 4);
         sw.selectedProperty().addListener((o, was, now) -> {
             double x = now ? 18 : 4;
             Motion.stop(thumb);
@@ -1024,7 +1032,6 @@ public class ColdstartController {
             Motion.run(thumb, new Timeline(new KeyFrame(Motion.FAST,
                     new KeyValue(thumb.translateXProperty(), x, Motion.STANDARD))));
         });
-        return sw;
     }
 
     /** The programs window: Explorer's picker at Program Files, exes only. */

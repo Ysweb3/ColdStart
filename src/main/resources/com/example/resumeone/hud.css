@@ -566,7 +566,7 @@
 .ignored-row:focus-visible { -fx-effect: dropshadow(gaussian, -rw-act, 3, 1.0, 0, 0); }
 .switch-track { -fx-background-color: -rw-raised; -fx-border-color: -rw-ln2; }
 .switch-thumb { -fx-background-color: -rw-tx3; }
-.ignored-row:hover .switch-thumb { -fx-background-color: -rw-tx2; }
+.ignored-row:hover .switch-thumb, .switch:hover .switch-thumb { -fx-background-color: -rw-tx2; }
 .switch:selected .switch-track { -fx-background-color: -rw-tx; -fx-border-color: -rw-tx; }
 .switch:selected .switch-thumb { -fx-background-color: -rw-g; }
 .stat-link { -fx-cursor: hand; }
