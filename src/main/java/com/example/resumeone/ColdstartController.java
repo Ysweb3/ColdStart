@@ -4116,9 +4116,11 @@ public class ColdstartController {
                     .append("[Collections.ArrayList]@(").append(String.join(",", ok.stream().map(p -> "'" + p + "'").toList()))
                     .append("); ");
         });
-        return "$ErrorActionPreference = 'SilentlyContinue'; Add-Type -AssemblyName UIAutomationClient; "
+        return "$ErrorActionPreference = 'SilentlyContinue'; Add-Type -AssemblyName UIAutomationClient, System.Windows.Forms; "
                 + "$want = @{ " + want + "}; "
                 + "$root = [Windows.Automation.AutomationElement]::RootElement; "
+                // monitor bounds into UI Automation's pixels (1 once UIA has made the process DPI aware)
+                + "$k = $root.Current.BoundingRectangle.Width / [Windows.Forms.SystemInformation]::VirtualScreen.Width; "
                 + "$kids = [Windows.Automation.TreeScope]::Children; $any = [Windows.Automation.Condition]::TrueCondition; "
                 + "$seen = @{}; foreach ($w in $root.FindAll($kids, $any)) { $seen[$w.Current.NativeWindowHandle] = 1 }; "
                 + "'ready'; "
@@ -4135,7 +4137,12 @@ public class ColdstartController {
                 // a splash screen or a dialog cannot maximize, and takes no place
                 + "if (-not $wp.Current.CanMaximize -or $wp.Current.IsModal) { continue }; "
                 + "$s, $x, $y, $cx, $cy = ($q[0] -split ','); $q.RemoveAt(0); "
-                + "$t = $w.GetCurrentPattern([Windows.Automation.TransformPattern]::Pattern); "
+                // a normal place over a whole monitor (full screen, or a desktop-sized window) would
+                // come back over the taskbar, not maximized: it is maximized on that monitor instead
+                + "if ($s -eq '0') { foreach ($b in [Windows.Forms.Screen]::AllScreens.Bounds) { "
+                + "if ([double]$x -le $b.X * $k -and [double]$y -le $b.Y * $k -and [double]$x + [double]$cx -ge $b.Right * $k "
+                + "-and [double]$y + [double]$cy -ge $b.Bottom * $k) { $s = '1' } } }; "
+                + "$t =$w.GetCurrentPattern([Windows.Automation.TransformPattern]::Pattern); "
                 + "$wp.SetWindowVisualState('Normal'); "
                 // maximized: moved just inside the monitor it was on, then maximized there
                 + "if ($s -eq '1') { $t.Move([double]$x + 40, [double]$y + 40); $wp.SetWindowVisualState('Maximized') } "
