@@ -40,9 +40,10 @@ final class AppFolders {
         Window(String exe, String title) { this(exe, "", "", title); }
     }
 
-    /** "state,x,y,width,height" from UI Automation: state 0 normal, 1 maximized. Minimized
-        windows and windows with no WindowPattern (the taskbar) are not placed. */
-    static final Pattern PLACE = Pattern.compile("[01],-?\\d+,-?\\d+,\\d+,\\d+");
+    /** "state,x,y,width,height" from UI Automation: state 0 normal, 1 maximized, 2 minimized
+        and 3 minimized from maximized, with where it goes back to. Windows with no WindowPattern
+        (the taskbar) are not placed. */
+    static final Pattern PLACE = Pattern.compile("[0-3],-?\\d+,-?\\d+,\\d+,\\d+");
 
     /** What a capture found: exe -> its open folders/files, exe -> the exe's full path
         (Unity installs per version, Blender is rarely on PATH, so resume starts that file),
@@ -400,7 +401,17 @@ final class AppFolders {
                 "ForEach-Object { $e = $_.Current; $q = $p[$e.ProcessId]; if ($e.Name -and $q) { " +
                 // where the window sits, for resume to put it back (AppFolders.PLACE)
                 "$s = ''; try { $s = [int]$_.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern).Current.WindowVisualState } catch { }; " +
-                "$r = $e.BoundingRectangle; $w = '' + $s + ',' + [int]$r.X + ',' + [int]$r.Y + ',' + [int]$r.Width + ',' + [int]$r.Height; " +
+                // a minimized window's rect is empty, which [int] cannot take; $w is reset first or it
+                // kept the window before's place. Where it goes back to comes from GetWindowPlacement
+                // (compiled only when one is minimized), and flag 2 there means back to maximized.
+                // ponytail: that rect is in workspace coordinates, off by the taskbar's width when it
+                // sits at the top or left of the main monitor
+                "$r = $e.BoundingRectangle; $w = ''; if ($s -eq 2) { if (-not ('C.W' -as [type])) { " +
+                "Add-Type -Name W -Namespace C -MemberDefinition ('[DllImport(' + [char]34 + 'user32.dll' + [char]34 + ')] " +
+                "public static extern bool GetWindowPlacement(IntPtr h, int[] p);') }; $g = New-Object int[] 11; $g[0] = 44; " +
+                "if ([C.W]::GetWindowPlacement([IntPtr]$e.NativeWindowHandle, $g)) { if ($g[1] -band 2) { $s = 3 }; " +
+                "$w = '' + $s + ',' + $g[7] + ',' + $g[8] + ',' + ($g[9] - $g[7]) + ',' + ($g[10] - $g[8]) } } " +
+                "elseif (-not $r.IsEmpty) { $w = '' + $s + ',' + [int]$r.X + ',' + [int]$r.Y + ',' + [int]$r.Width + ',' + [int]$r.Height }; " +
                 "$q.ProcessName + '.exe' + $t + $q.Path + $t + $c[$e.ProcessId] + $t + $w + $t + $e.Name } }; " +
                 "(New-Object -ComObject Shell.Application).Windows() | " +
                 "ForEach-Object { 'explorer.exe' + $t + $t + $t + $t + $_.LocationURL }; " +

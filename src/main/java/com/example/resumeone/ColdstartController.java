@@ -4145,8 +4145,12 @@ public class ColdstartController {
                 + "$t =$w.GetCurrentPattern([Windows.Automation.TransformPattern]::Pattern); "
                 + "$wp.SetWindowVisualState('Normal'); "
                 // maximized: moved just inside the monitor it was on, then maximized there
-                + "if ($s -eq '1') { $t.Move([double]$x + 40, [double]$y + 40); $wp.SetWindowVisualState('Maximized') } "
-                + "else { $t.Move([double]$x, [double]$y); $t.Resize([double]$cx, [double]$cy) } "
+                // 3 carries the size it had before maximizing, so un-maximizing goes back there too
+                + "if ($s -eq '1') { $t.Move([double]$x + 40, [double]$y + 40) } "
+                + "else { $t.Move([double]$x, [double]$y); $t.Resize([double]$cx, [double]$cy) }; "
+                + "if ($s -eq '1' -or $s -eq '3') { $wp.SetWindowVisualState('Maximized') }; "
+                // minimized: put back first, so restoring it from the taskbar lands there
+                + "if ($s -eq '2' -or $s -eq '3') { $wp.SetWindowVisualState('Minimized') } "
                 + "} catch { } } }";
     }
 
