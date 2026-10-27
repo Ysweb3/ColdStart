@@ -34,7 +34,7 @@ import java.util.regex.Pattern;
 final class AppFolders {
 
     /** exePath and commandLine are "" when unknown; the command line is only read for the
-        apps that keep their document there (Unity, Blender). */
+        apps that keep their document there (Unity, Blender, Paint). */
     record Window(String exe, String exePath, String commandLine, String place, String title) {
         Window(String exe, String exePath, String commandLine, String title) { this(exe, exePath, commandLine, "", title); }
         Window(String exe, String title) { this(exe, "", "", title); }
@@ -85,7 +85,7 @@ final class AppFolders {
     // the whole path is in the title: "*C:\x\a.txt - Notepad++", "Adobe Premiere Pro 2025 -
     // C:\x\cut.prproj", "Blender* [C:\x\scene.blend]" (Blender gets more tries, see blendFile)
     static final List<String> TITLE_PATH = List.of("notepad++.exe", "adobe premiere pro.exe", "afterfx.exe");
-    static final String BLENDER = "blender.exe", UNITY = "unity.exe", EXPLORER = "explorer.exe";
+    static final String BLENDER = "blender.exe", UNITY = "unity.exe", EXPLORER = "explorer.exe", PAINT = "mspaint.exe";
 
     // asked over COM for every open document (see captureWindows); each comes back as its own
     // line with the document's FullName standing in for the title
@@ -95,7 +95,7 @@ final class AppFolders {
     static boolean knows(String exe) {
         String lower = exe.toLowerCase();
         return VSCODE_FAMILY.containsKey(lower) || JETBRAINS.contains(lower) || TITLE_PATH.contains(lower)
-                || COM_DOCS.contains(lower) || List.of(BLENDER, UNITY, EXPLORER).contains(lower);
+                || COM_DOCS.contains(lower) || List.of(BLENDER, UNITY, EXPLORER, PAINT).contains(lower);
     }
 
     /** The arguments that reopen dir in app: Unity takes it as -projectPath, the rest bare. */
@@ -142,6 +142,8 @@ final class AppFolders {
                 folder = blendFile(w, blendRecent);
             } else if (lower.equals(UNITY)) {
                 folder = unityProject(w.commandLine());
+            } else if (lower.equals(PAINT)) {
+                folder = paintFile(w);
             } else if (lower.equals(EXPLORER)) {
                 folder = explorerFolder(w.title());
             } else if (COM_DOCS.contains(lower)) {
@@ -220,7 +222,27 @@ final class AppFolders {
         return out;
     }
 
-    private static final Pattern PROJECT_PATH = Pattern.compile("(?i)-projectpath\\s+(?:\"([^\"]+)\"|(\\S+))");
+    private static final Pattern ARG = Pattern.compile("\"([^\"]+)\"|(\\S+)");
+
+    /** Paint's title is "name - Paint", with no folder and not always the extension, but a
+        picture opened from Explorer starts Paint with its path on the command line. That path
+        counts only while the title still names it.
+        ponytail: a picture opened with File > Open or saved from Untitled is on neither, and
+        is left out; Paint's recent list is in its settings.dat, locked while Paint runs. */
+    static String paintFile(Window w) {
+        String name = w.title().replaceFirst("^\\*", "").replaceFirst("(?i) - Paint$", "").strip();
+        Matcher arg = ARG.matcher(w.commandLine());
+        while (arg.find()) {
+            File f = new File(arg.group(1) != null ? arg.group(1) : arg.group(2));
+            String file = f.getName();
+            if ((name.equalsIgnoreCase(file) || name.equalsIgnoreCase(file.replaceFirst("\\.[^.]*$", ""))) && f.isFile()) {
+                return f.getPath();
+            }
+        }
+        return null;
+    }
+
+    private static final Pattern PROJECT_PATH =Pattern.compile("(?i)-projectpath\\s+(?:\"([^\"]+)\"|(\\S+))");
 
     /** Unity's title is "Project - Scene - Platform - Unity 6", but the Hub starts it with
         -projectPath, so the folder is on the command line. */
@@ -394,7 +416,7 @@ final class AppFolders {
                 "[Console]::OutputEncoding = [Text.Encoding]::UTF8; $t = [char]9; " +
                 "Add-Type -AssemblyName UIAutomationClient; " +
                 "$p = @{}; Get-Process | ForEach-Object { $p[$_.Id] = $_ }; " +
-                "$c = @{}; Get-CimInstance Win32_Process -Filter 'Name=''Unity.exe'' or Name=''blender.exe''' | " +
+                "$c = @{}; Get-CimInstance Win32_Process -Filter 'Name=''Unity.exe'' or Name=''blender.exe'' or Name=''mspaint.exe''' | " +
                 "ForEach-Object { $c[[int]$_.ProcessId] = $_.CommandLine }; " +
                 "[Windows.Automation.AutomationElement]::RootElement.FindAll(" +
                 "[Windows.Automation.TreeScope]::Children, [Windows.Automation.Condition]::TrueCondition) | " +

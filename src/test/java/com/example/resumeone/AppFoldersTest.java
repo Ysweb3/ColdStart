@@ -85,6 +85,15 @@ class AppFoldersTest {
         assertEquals(blend.getPath(), AppFolders.blendFile(new AppFolders.Window("blender.exe", "C:\\b\\blender.exe",
                 "\"C:\\b\\blender.exe\" \"" + blend.getPath() + "\"", "Blender"), List.of()));
 
+        // Paint: the picture it was started on, while the title (no extension) still names it
+        File png = new File(work, "my photo.png");
+        Files.writeString(png.toPath(), "");
+        String paintCmd = "\"C:\\Users\\x\\AppData\\Local\\Microsoft\\WindowsApps\\mspaint.exe\" \"" + png.getPath() + "\"";
+        assertEquals(png.getPath(), AppFolders.paintFile(new AppFolders.Window("mspaint.exe", "", paintCmd, "*my photo - Paint")));
+        assertEquals(png.getPath(), AppFolders.paintFile(new AppFolders.Window("mspaint.exe", "", paintCmd, "my photo.png - Paint")));
+        assertNull(AppFolders.paintFile(new AppFolders.Window("mspaint.exe", "", paintCmd, "other - Paint")));   // File > Open since
+        assertNull(AppFolders.paintFile(new AppFolders.Window("mspaint.exe", "", "mspaint", "Untitled - Paint")));
+
         // Unity: the Hub's -projectPath, quoted or not
         assertEquals(unity.getPath(), AppFolders.unityProject("Unity.exe -projectpath \"" + unity.getPath() + "\" -useHub"));
         assertEquals(List.of("-projectPath", unity.getPath()), AppFolders.openArgs("Unity.exe", unity.getPath()));
