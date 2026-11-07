@@ -42,8 +42,15 @@ final class AppFolders {
 
     /** "state,x,y,width,height" from UI Automation: state 0 normal, 1 maximized, 2 minimized
         and 3 minimized from maximized, with where it goes back to. Windows with no WindowPattern
-        (the taskbar) are not placed. */
-    static final Pattern PLACE = Pattern.compile("[0-3],-?\\d+,-?\\d+,\\d+,\\d+");
+        (the taskbar) are not placed. A tab and the window's title may follow (placeTitle), so
+        resume can tell an app's windows apart; places saved before that have none. */
+    static final Pattern PLACE = Pattern.compile("[0-3],-?\\d+,-?\\d+,\\d+,\\d+(\\t[^\\t;|\\r\\n]*)?");
+
+    /** A title as it rides along with a place: no tab, ';' or '|' (the placer's separators). */
+    static String placeTitle(String title) {
+        String t = title.replaceAll("[\\t\\r\\n;|]", " ").replaceAll(" {2,}", " ").strip();
+        return t.length() > 160 ? t.substring(0, 160) : t;
+    }
 
     /** What a capture found: exe -> its open folders/files, exe -> the exe's full path
         (Unity installs per version, Blender is rarely on PATH, so resume starts that file),
@@ -122,7 +129,9 @@ final class AppFolders {
             // every windowed app's, not only those with a folder: an app the user moves out of
             // Other is usually on neither PATH nor App Paths, and this is how resume finds it
             if (!w.exePath().isEmpty()) exePaths.put(w.exe(), w.exePath());
-            if (PLACE.matcher(w.place()).matches()) places.computeIfAbsent(w.exe(), k -> new ArrayList<>()).add(w.place());
+            if (PLACE.matcher(w.place()).matches()) {
+                places.computeIfAbsent(w.exe(), k -> new ArrayList<>()).add(w.place() + "\t" + placeTitle(w.title()));
+            }
             boolean dirty = COM_DOCS.contains(lower) ? unsavedDocument(w.title()) || looksUnsaved(w.title())
                     : looksUnsaved(w.title());
             if (dirty && unsaved.stream().noneMatch(w.exe()::equalsIgnoreCase)) unsaved.add(w.exe());

@@ -2213,9 +2213,9 @@ public class ColdstartController {
                         if (watched) {
                             // app is cleared by a browser that handed its tabs to its extension
                             boolean go = step.state == LaunchStep.State.DONE && !step.waiting && step.app != null;
-                            List<String> placed = placer.finish(go, () -> stopRequested);
-                            places.subList(0, Math.min(placed.size(), places.size())).clear();
-                            if (go) r.log.add(placedLine(step.label, placed));
+                            WindowPlacer.Placed placed = placer.finish(go, () -> stopRequested);
+                            placed.used().forEach(places::remove);   // matched by title, so not always the first
+                            if (go) r.log.add(placedLine(step.label, placed.lines()));
                         }
                         Platform.runLater(() -> renderResuming(r));
                         // the gap paces processes landing on the machine: a step that failed or found
@@ -4126,7 +4126,7 @@ public class ColdstartController {
 
     /** "Paint: window put back maximized", one part per window the placer reported. */
     static String placedLine(String label, List<String> placed) {
-        if (placed.isEmpty()) return label + ": no new window within " + WindowPlacer.FIRST_SECONDS + "s, left where it opened";
+        if (placed.isEmpty()) return label + ": no new window to place (it may have opened as a tab)";
         List<String> parts = new ArrayList<>();
         for (String p : placed) {
             String[] f = p.split(" ", 2);

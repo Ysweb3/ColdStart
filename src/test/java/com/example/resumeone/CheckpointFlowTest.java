@@ -197,6 +197,7 @@ class CheckpointFlowTest {
                 new AppFolders.Window("Code.exe", "", "", "1,0,0,-5,600", "d - Visual Studio Code"),       // negative size
                 new AppFolders.Window("Code.exe", "", "", "1,x,0,800,600", "e - Visual Studio Code")),     // garbage
                 new File("nowhere"), "nowhere");
-        assertEquals(List.of(MAXED_RIGHT, "0,-1600,200,1200,900", "2,0,0,800,600"), found.windows().get("Code.exe"));
+        assertEquals(List.of(MAXED_RIGHT + "\ta - Visual Studio Code", "0,-1600,200,1200,900\tb - Visual Studio Code",
+                "2,0,0,800,600\tc - Visual Studio Code"), found.windows().get("Code.exe"));
     }
 }

@@ -165,11 +165,13 @@ class ResumeFlowTest {
         assertEquals("CODE|" + CheckpointFlowTest.MAXED_RIGHT + ";" + CheckpointFlowTest.NORMAL,
                 WindowPlacer.request("CODE.EXE", List.of(CheckpointFlowTest.MAXED_RIGHT, CheckpointFlowTest.NORMAL)));
         String s = WindowPlacer.script();
-        assertTrue(s.contains("$q.RemoveAt(0)"), "each new window takes the next place, once");
+        assertTrue(s.contains("$q.RemoveAt($bi)"), "each new window takes its best-matching place, once");
+        assertTrue(s.contains("if ($sc -gt $bs)"), "a tie keeps the first, which is capture order");
+        assertTrue(s.contains("if ($was) { $wait = " + WindowPlacer.WARM_SECONDS + " }"), "an app already up is not waited on long");
         assertTrue(s.contains("if ($seen[$h] -or"), "windows open before the step are never moved");
         assertTrue(s.contains("Say 'ready'; if ([Console]::In.ReadLine() -ne 'go')"), "noted before the launch, watched after");
         assertTrue(s.contains("$o = Off $w"), "every placed window is read back");
-        assertTrue(s.contains("AddSeconds(" + WindowPlacer.FIRST_SECONDS + ")"));
+        assertTrue(s.contains("$wait = " + WindowPlacer.FIRST_SECONDS + ";"), "a cold start gets the long wait");
     }
 
     @Test
