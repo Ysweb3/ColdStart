@@ -163,7 +163,7 @@ class CheckpointFlowTest {
         Project back = new ColdstartController().gson.fromJson(
                 "{\"projectName\":\"old\",\"apps\":{\"IDE\":[\"idea64.exe\"]},\"urlsByBrowser\":{}}", Project.class);
         assertNull(back.windows);
-        ColdstartController.placeWindows(back.windows);   // returns at once: nothing to place, no PowerShell
+        assertTrue(ColdstartController.placesLeft(back.windows).isEmpty());   // nothing to place, no PowerShell
     }
 
     @Test
@@ -192,10 +192,11 @@ class CheckpointFlowTest {
         var found = AppFolders.resolve(List.of(
                 new AppFolders.Window("Code.exe", "", "", MAXED_RIGHT, "a - Visual Studio Code"),
                 new AppFolders.Window("Code.exe", "", "", "0,-1600,200,1200,900", "b - Visual Studio Code"),   // left of main
-                new AppFolders.Window("Code.exe", "", "", "2,0,0,800,600", "c - Visual Studio Code"),      // minimized
+                new AppFolders.Window("Code.exe", "", "", "2,0,0,800,600", "c - Visual Studio Code"),      // minimized: where it goes back
+                new AppFolders.Window("Code.exe", "", "", "4,0,0,800,600", "f - Visual Studio Code"),      // no such state
                 new AppFolders.Window("Code.exe", "", "", "1,0,0,-5,600", "d - Visual Studio Code"),       // negative size
                 new AppFolders.Window("Code.exe", "", "", "1,x,0,800,600", "e - Visual Studio Code")),     // garbage
                 new File("nowhere"), "nowhere");
-        assertEquals(List.of(MAXED_RIGHT, "0,-1600,200,1200,900"), found.windows().get("Code.exe"));
+        assertEquals(List.of(MAXED_RIGHT, "0,-1600,200,1200,900", "2,0,0,800,600"), found.windows().get("Code.exe"));
     }
 }

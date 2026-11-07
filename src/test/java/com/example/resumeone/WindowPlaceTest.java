@@ -24,16 +24,10 @@ class WindowPlaceTest {
     }
 
     @Test
-    void scriptCarriesValidPlacesQuotedAndDropsTheRest() {
-        HashMap<String, ArrayList<String>> windows = new HashMap<>();
-        windows.put("Code.exe", new ArrayList<>(List.of("1,-8,-8,1936,1048", "0,1,2,3,4'); Remove-Item x; ('")));
-        windows.put("Bob's App.exe", new ArrayList<>(List.of("0,10,20,300,400")));
-        windows.put("bad.exe", new ArrayList<>(List.of("nope")));
-        String s = ColdstartController.placeScript(windows);
-        assertTrue(s.contains("'Code' = [Collections.ArrayList]@('1,-8,-8,1936,1048'); "), s);
-        assertTrue(s.contains("'Bob''s App' = [Collections.ArrayList]@('0,10,20,300,400'); "), s);
-        assertFalse(s.contains("Remove-Item"));
-        assertFalse(s.contains("'bad'"));
-        assertFalse(s.contains("\""), "double quotes break ProcessBuilder's windows quoting");
+    void placesGoInAsDataAndTheScriptHasNoDoubleQuotes() {
+        assertEquals("Code|1,-8,-8,1936,1048", WindowPlacer.request("Code.exe", List.of("1,-8,-8,1936,1048", "0,1,2,3,4'); Remove-Item x; ('")));
+        assertEquals("Bob's App|0,10,20,300,400", WindowPlacer.request("Bob's App.exe", List.of("0,10,20,300,400")));
+        assertNull(WindowPlacer.request("bad.exe", List.of("nope")));
+        assertFalse(WindowPlacer.script().contains("\""), "double quotes break ProcessBuilder's windows quoting");
     }
 }

@@ -160,12 +160,20 @@ final class ResumePlanner {
         /** a browser's tabs its extension says it opened; -1 = no count (command line, an older
             extension), so every saved url counts */
         volatile int opened = -1;
+        /** the exe whose new windows this launch opens, for WindowPlacer; null when it opens none
+            (a browser handing its tabs to its extension clears it as it runs) */
+        volatile String app;
 
         LaunchStep(String label, String command, boolean browser, Launch launch) {
             this.label = label;
             this.command = command;
             this.browser = browser;
             this.launch = launch;
+        }
+
+        LaunchStep opens(String app) {
+            this.app = app;
+            return this;
         }
 
         /** one app failing to launch (bad folder, missing exe, ...) must not abort the rest */
@@ -290,7 +298,8 @@ final class ResumePlanner {
                     List<String> cmd = cliCommand(app, folder, cliInTerminal);
                     // open the CLI on its last chat, in the project folder when there is one
                     steps.add(new LaunchStep(appName(app), String.join(" ", cmd.subList(2, cmd.size())), false, () ->
-                            new ProcessBuilder(cmd).directory(folder == null ? null : new File(folder)).start()));
+                            new ProcessBuilder(cmd).directory(folder == null ? null : new File(folder)).start())
+                            .opens(cliInTerminal ? "WindowsTerminal.exe" : null));
 
                 } else if (appName.equalsIgnoreCase("Code")) {
                     // open VS Code in the project folder; with none it reopens its last
@@ -298,7 +307,7 @@ final class ResumePlanner {
                     List<String> cmd = new ArrayList<>(List.of("cmd.exe", "/c", "code"));
                     if (folder != null) cmd.add(folder);
                     steps.add(new LaunchStep(appName(app), folder == null ? "code" : "code " + folder, false, () ->
-                            new ProcessBuilder(cmd).start()));
+                            new ProcessBuilder(cmd).start()).opens(app));
 
                 } else if (appName.equalsIgnoreCase("WindowsTerminal")) {
                     if (cliInTerminal) {
@@ -308,14 +317,14 @@ final class ResumePlanner {
                     // WindowsTerminal.exe is the process name, but "wt" is the actual
                     // launch command - "start WindowsTerminal" can't resolve it
                     steps.add(new LaunchStep(appName(app), "start wt", false, () ->
-                            new ProcessBuilder("cmd.exe", "/c", "start", "wt").start()));
+                            new ProcessBuilder("cmd.exe", "/c", "start", "wt").start()).opens(app));
 
                 } else if (SHELL_APPS.containsKey(app.toLowerCase())) {
                     // a Store app with no exe on PATH or in App Paths: started by its app id,
                     // the way the Start menu does it - or a launcher by its url
                     String target = SHELL_APPS.get(app.toLowerCase());
                     steps.add(new LaunchStep(appName(app), "start " + appName(app), false, () ->
-                            new ProcessBuilder("explorer.exe", target).start()));
+                            new ProcessBuilder("explorer.exe", target).start()).opens(app));
 
                 } else {
                     // no folder needed: this used to sit under the folderPath guard too, so a
@@ -345,7 +354,7 @@ final class ResumePlanner {
                         // ("Adobe Premiere Pro") arrives quoted and start takes it as the title,
                         // opening an empty console instead of the app
                         new ProcessBuilder("cmd.exe", "/c", "start", "", appName).start();
-                    }));
+                    }).opens(app));
                 }
             }
         }
@@ -378,7 +387,7 @@ final class ResumePlanner {
             // would stall on a full pipe
             new ProcessBuilder(cmd).redirectOutput(ProcessBuilder.Redirect.DISCARD)
                     .redirectError(ProcessBuilder.Redirect.DISCARD).start();
-        });
+        }).opens(app);
     }
 
     // every running claude writes ~/.claude/sessions/<pid>.json with its cwd. a live one for

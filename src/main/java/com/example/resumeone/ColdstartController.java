@@ -2194,21 +2194,37 @@ public class ColdstartController {
                     r.plan = planResume(r.project, captureRunningApps(), liveFolders(r.project), r.log);
                     Platform.runLater(() -> renderResuming(r));
                 }
-                if (r.queued() > 0) placeWindows(r.project.windows);
-                for (LaunchStep step : r.plan.steps()) {
-                    if (step.state != LaunchStep.State.QUEUED) continue;   // ran before the stop
-                    if (stopRequested) {
-                        r.log.add("stopped by user");
-                        break;
+                // one step at a time: the placer notes the windows open, the step launches, and the
+                // next waits until this one's new windows are back where the checkpoint saw them
+                Map<String, ArrayList<String>> left = placesLeft(r.project.windows);
+                try (WindowPlacer placer = left.isEmpty() || r.queued() == 0 ? null : WindowPlacer.start()) {
+                    for (LaunchStep step : r.plan.steps()) {
+                        if (step.state != LaunchStep.State.QUEUED) continue;   // ran before the stop
+                        if (stopRequested) {
+                            r.log.add("stopped by user");
+                            break;
+                        }
+                        step.state = LaunchStep.State.LAUNCHING;
+                        Platform.runLater(() -> renderResuming(r));
+                        ArrayList<String> places = step.app == null ? null : left.get(step.app);
+                        boolean watched = placer != null && places != null && placer.expect(step.app, places);
+                        step.run();
+                        r.log.add(step.logLine());
+                        if (watched) {
+                            // app is cleared by a browser that handed its tabs to its extension
+                            boolean go = step.state == LaunchStep.State.DONE && !step.waiting && step.app != null;
+                            List<String> placed = placer.finish(go, () -> stopRequested);
+                            places.subList(0, Math.min(placed.size(), places.size())).clear();
+                            if (go) r.log.add(placedLine(step.label, placed));
+                        }
+                        Platform.runLater(() -> renderResuming(r));
+                        // the gap paces processes landing on the machine: a step that failed or found
+                        // everything open started none, after the last one it only padded "took", and
+                        // a step whose windows were waited for has landed already
+                        if (!watched && step.state == LaunchStep.State.DONE && !step.waiting && r.queued() > 0) {
+                            Thread.sleep(LAUNCH_GAP_MS);
+                        }
                     }
-                    step.state = LaunchStep.State.LAUNCHING;
-                    Platform.runLater(() -> renderResuming(r));
-                    step.run();
-                    r.log.add(step.logLine());
-                    Platform.runLater(() -> renderResuming(r));
-                    // the gap paces processes landing on the machine: a step that failed or found
-                    // everything open started none, and after the last one it only padded "took"
-                    if (step.state == LaunchStep.State.DONE && !step.waiting && r.queued() > 0) Thread.sleep(LAUNCH_GAP_MS);
                 }
             } catch (IOException ex) {
                 // without the list of open apps there is no telling what would open twice, so
@@ -4014,6 +4030,8 @@ public class ColdstartController {
             LaunchStep[] self = new LaunchStep[1];   // the launch reports the opened count back onto its step
             browserSteps.add(self[0] = new LaunchStep(browser, command, true, () -> {
                 WsContext live = awaitExtension(browser, open);
+                // its tabs go into the windows already there, so there is no window to place
+                if (live != null || open) self[0].app = null;
                 if (live != null) {
                     CompletableFuture<Integer> reply = new CompletableFuture<>();
                     openReplies.put(live, reply);
@@ -4056,7 +4074,7 @@ public class ColdstartController {
                         });
                     }
                 }
-            }));
+            }).opens(exePath == null ? null : new File(exePath).getName()));
         }
 
         ResumePlan apps = appPlan(projectObj, running, openFolders, handledBrowsers, log);
@@ -4091,85 +4109,37 @@ public class ColdstartController {
     }
 
     // == Window placement ====================================================
-    //   A launched app opens wherever it likes (Chrome came back half-size), so a script runs
-    //   beside the resume: it notes the windows already open, then gives each new window of a
-    //   saved app the next place the checkpoint saw that app's windows in - maximized on the
-    //   same monitor, or at the same position and size. Windows that were open before are
-    //   never moved.
+    //   A launched app opens wherever it likes (Chrome came back half-size), so each step's new
+    //   windows are put back where the checkpoint saw them before the next step launches: see
+    //   WindowPlacer.
 
-    /** How long the script waits for windows to appear: IntelliJ can take this long to load. */
-    static final int PLACE_SECONDS = 90;
-
-    /** The script for placeWindows. Prints "ready" once it knows which windows were open.
-        Places that are not AppFolders.PLACE (a hand-edited projects.json) are dropped here,
-        as they are pasted into the script.
-        ponytail: an app's windows take its places in capture order, so two VS Code windows
-        can come back swapped; matching on the folder in the title would fix that.
-        ponytail: UI Automation coordinates in a DPI-unaware PowerShell, read and written the
-        same way; monitors at different scales may land a little off. */
-    static String placeScript(Map<String, ArrayList<String>> windows) {
-        StringBuilder want = new StringBuilder();
+    /** The saved places still to hand out, per exe whatever its case, valid ones only. */
+    static Map<String, ArrayList<String>> placesLeft(Map<String, ArrayList<String>> windows) {
+        Map<String, ArrayList<String>> left = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        if (windows == null) return left;
         windows.forEach((exe, places) -> {
-            List<String> ok = places.stream().filter(p -> AppFolders.PLACE.matcher(p).matches()).toList();
-            if (ok.isEmpty()) return;
-            want.append("'").append(exe.replaceFirst("(?i)\\.exe$", "").replace("'", "''")).append("' = ")
-                    .append("[Collections.ArrayList]@(").append(String.join(",", ok.stream().map(p -> "'" + p + "'").toList()))
-                    .append("); ");
+            ArrayList<String> ok = new ArrayList<>(places.stream().filter(p -> AppFolders.PLACE.matcher(p).matches()).toList());
+            if (!ok.isEmpty()) left.computeIfAbsent(exe, k -> new ArrayList<>()).addAll(ok);
         });
-        return "$ErrorActionPreference = 'SilentlyContinue'; Add-Type -AssemblyName UIAutomationClient, System.Windows.Forms; "
-                + "$want = @{ " + want + "}; "
-                + "$root = [Windows.Automation.AutomationElement]::RootElement; "
-                // monitor bounds into UI Automation's pixels (1 once UIA has made the process DPI aware)
-                + "$k = $root.Current.BoundingRectangle.Width / [Windows.Forms.SystemInformation]::VirtualScreen.Width; "
-                + "$kids = [Windows.Automation.TreeScope]::Children; $any = [Windows.Automation.Condition]::TrueCondition; "
-                + "$seen = @{}; foreach ($w in $root.FindAll($kids, $any)) { $seen[$w.Current.NativeWindowHandle] = 1 }; "
-                + "'ready'; "
-                + "$end = (Get-Date).AddSeconds(" + PLACE_SECONDS + "); "
-                + "while ((Get-Date) -lt $end -and @($want.Values | Where-Object { $_.Count }).Count) { "
-                + "Start-Sleep -Milliseconds 500; $p = @{}; Get-Process | ForEach-Object { $p[$_.Id] = $_.ProcessName }; "
-                + "foreach ($w in $root.FindAll($kids, $any)) { "
-                + "$h = $w.Current.NativeWindowHandle; if ($seen[$h]) { continue }; "
-                + "$q = $want[$p[$w.Current.ProcessId]]; "
-                // untitled (still loading): looked at again next time round
-                + "if (-not $q -or -not $q.Count -or -not $w.Current.Name) { continue }; "
-                + "$seen[$h] = 1; "
-                + "try { $wp = $w.GetCurrentPattern([Windows.Automation.WindowPattern]::Pattern); "
-                // a splash screen or a dialog cannot maximize, and takes no place
-                + "if (-not $wp.Current.CanMaximize -or $wp.Current.IsModal) { continue }; "
-                + "$s, $x, $y, $cx, $cy = ($q[0] -split ','); $q.RemoveAt(0); "
-                // a normal place over a whole monitor (full screen, or a desktop-sized window) would
-                // come back over the taskbar, not maximized: it is maximized on that monitor instead
-                + "if ($s -eq '0') { foreach ($b in [Windows.Forms.Screen]::AllScreens.Bounds) { "
-                + "if ([double]$x -le $b.X * $k -and [double]$y -le $b.Y * $k -and [double]$x + [double]$cx -ge $b.Right * $k "
-                + "-and [double]$y + [double]$cy -ge $b.Bottom * $k) { $s = '1' } } }; "
-                + "$t =$w.GetCurrentPattern([Windows.Automation.TransformPattern]::Pattern); "
-                + "$wp.SetWindowVisualState('Normal'); "
-                // maximized: moved just inside the monitor it was on, then maximized there
-                // 3 carries the size it had before maximizing, so un-maximizing goes back there too
-                + "if ($s -eq '1') { $t.Move([double]$x + 40, [double]$y + 40) } "
-                + "else { $t.Move([double]$x, [double]$y); $t.Resize([double]$cx, [double]$cy) }; "
-                + "if ($s -eq '1' -or $s -eq '3') { $wp.SetWindowVisualState('Maximized') }; "
-                // minimized: put back first, so restoring it from the taskbar lands there
-                + "if ($s -eq '2' -or $s -eq '3') { $wp.SetWindowVisualState('Minimized') } "
-                + "} catch { } } }";
+        return left;
     }
 
-    /** Starts the placement script and returns once it is ready, so the first launch cannot
-        open a window it would take for one that was already there. Never fails a resume. */
-    static void placeWindows(Map<String, ArrayList<String>> windows) {
-        if (windows == null || windows.isEmpty()) return;
-        try {
-            Process process = new ProcessBuilder("powershell.exe", "-NoProfile", "-Command", placeScript(windows))
-                    .redirectError(ProcessBuilder.Redirect.DISCARD).start();
-            CompletableFuture.runAsync(process::destroyForcibly,
-                    CompletableFuture.delayedExecutor(PLACE_SECONDS + 30, TimeUnit.SECONDS));
-            BufferedReader out = new BufferedReader(new InputStreamReader(process.getInputStream()));
-            CompletableFuture.supplyAsync(() -> {
-                try { return out.readLine(); } catch (IOException ex) { return null; }
-            }).get(15, TimeUnit.SECONDS);
-        } catch (Exception ex) {
-            System.err.println("window placement skipped: " + ex);
+    /** "Paint: window put back maximized", one part per window the placer reported. */
+    static String placedLine(String label, List<String> placed) {
+        if (placed.isEmpty()) return label + ": no new window within " + WindowPlacer.FIRST_SECONDS + "s, left where it opened";
+        List<String> parts = new ArrayList<>();
+        for (String p : placed) {
+            String[] f = p.split(" ", 2);
+            String state = switch (f[0]) {
+                case "1" -> "maximized";
+                case "2" -> "minimized";
+                case "3" -> "minimized (maximized)";
+                default -> "at its place";
+            };
+            String how = f.length < 2 || f[1].equals("ok") ? "" : f[1].equals("fixed") ? ", moved back once" : ", still off: " + f[1].substring(4);
+            parts.add(state + how);
         }
+        return label + ": window" + (parts.size() > 1 ? "s" : "") + " put back " + String.join("; ", parts);
     }
 
     /** Native folder picker, opened at `current` when it still exists. Returns the absolute

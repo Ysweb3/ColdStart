@@ -160,31 +160,39 @@ class ResumeFlowTest {
     }
 
     @Test
-    void placementScriptKeepsEachAppsPlacesInCaptureOrder() {
-        LinkedHashMap<String, ArrayList<String>> windows = new LinkedHashMap<>();
-        windows.put("CODE.EXE", new ArrayList<>(List.of(CheckpointFlowTest.MAXED_RIGHT, CheckpointFlowTest.NORMAL)));
-        String s = ColdstartController.placeScript(windows);
+    void eachStepTellsThePlacerItsAppsPlacesInCaptureOrder() {
         // the process name, without .exe in any case, and the places in the order they were seen
-        assertTrue(s.contains("'CODE' = [Collections.ArrayList]@('" + CheckpointFlowTest.MAXED_RIGHT + "','"
-                + CheckpointFlowTest.NORMAL + "'); "), s);
+        assertEquals("CODE|" + CheckpointFlowTest.MAXED_RIGHT + ";" + CheckpointFlowTest.NORMAL,
+                WindowPlacer.request("CODE.EXE", List.of(CheckpointFlowTest.MAXED_RIGHT, CheckpointFlowTest.NORMAL)));
+        String s = WindowPlacer.script();
         assertTrue(s.contains("$q.RemoveAt(0)"), "each new window takes the next place, once");
-        assertTrue(s.contains("if ($seen[$h]) { continue }"), "windows open before the resume are never moved");
-        assertTrue(s.contains("AddSeconds(" + ColdstartController.PLACE_SECONDS + ")"));
+        assertTrue(s.contains("if ($seen[$h] -or"), "windows open before the step are never moved");
+        assertTrue(s.contains("Say 'ready'; if ([Console]::In.ReadLine() -ne 'go')"), "noted before the launch, watched after");
+        assertTrue(s.contains("$o = Off $w"), "every placed window is read back");
+        assertTrue(s.contains("AddSeconds(" + WindowPlacer.FIRST_SECONDS + ")"));
     }
 
     @Test
-    void placementScriptWithNothingValidWantsNothing() {
-        HashMap<String, ArrayList<String>> windows = new HashMap<>();
-        windows.put("Code.exe", new ArrayList<>(List.of("2,0,0,800,600", "")));
-        assertTrue(ColdstartController.placeScript(windows).contains("$want = @{ }; "));
+    void aPlaceThatIsNotOneIsNeverSent() {
+        assertNull(WindowPlacer.request("Code.exe", List.of("5,0,0,800,600", "")));
+        assertNull(WindowPlacer.request("a|b.exe", List.of("0,0,0,800,600")));
+        assertEquals("Code|2,0,0,800,600", WindowPlacer.request("Code.exe", List.of("2,0,0,800,600", "x; Remove-Item")));
     }
 
     @Test
-    void nothingSavedToPlaceStartsNoPowerShell() {
-        long t = System.nanoTime();
-        ColdstartController.placeWindows(null);
-        ColdstartController.placeWindows(new HashMap<>());
-        // a PowerShell start costs ~300ms or more; returning well under that means none was spawned
-        assertTrue(System.nanoTime() - t < 100_000_000L);
+    void nothingSavedToPlaceLeavesNothingToHandOut() {
+        assertTrue(ColdstartController.placesLeft(null).isEmpty());
+        assertTrue(ColdstartController.placesLeft(new HashMap<>(Map.of("Code.exe", new ArrayList<>(List.of("nope"))))).isEmpty());
+        // the step's exe matches whatever case the capture saw it in
+        var left = ColdstartController.placesLeft(new HashMap<>(Map.of("chrome.exe", new ArrayList<>(List.of("1,0,0,9,9")))));
+        assertEquals(List.of("1,0,0,9,9"), left.get("Chrome.EXE"));
+    }
+
+    @Test
+    void theLogSaysWhereEachWindowWent() {
+        assertEquals("Paint: window put back maximized", ColdstartController.placedLine("Paint", List.of("1 ok")));
+        assertEquals("Chrome: windows put back at its place, moved back once; minimized, still off: state 0",
+                ColdstartController.placedLine("Chrome", List.of("0 fixed", "2 off state 0")));
+        assertTrue(ColdstartController.placedLine("Notepad", List.of()).startsWith("Notepad: no new window"));
     }
 }
