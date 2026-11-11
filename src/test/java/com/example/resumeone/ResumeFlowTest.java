@@ -197,5 +197,10 @@ class ResumeFlowTest {
         assertEquals("Chrome: windows put back at its place, moved back once; minimized, still off: state 0",
                 ColdstartController.placedLine("Chrome", List.of("0 fixed", "2 off state 0")));
         assertTrue(ColdstartController.placedLine("Notepad", List.of()).startsWith("Notepad: no new window"));
+        // the last check, once everything has settled
+        assertEquals("VS Code: final check, maximized", ColdstartController.finalLine("VS Code", "1 ok"));
+        assertEquals("VS Code: final check, at its place, moved back once", ColdstartController.finalLine("VS Code", "0 fixed"));
+        assertEquals("Paint: final check, window closed since", ColdstartController.finalLine("Paint", "0 gone"));
+        assertTrue(WindowPlacer.script().contains("Say ('final ' + $d.ex"), "every placed window gets the last check");
     }
 }

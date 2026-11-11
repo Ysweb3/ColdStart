@@ -26,6 +26,8 @@ final class WindowPlacer {
     static final int WARM_SECONDS = 6;
     /** After a placed window, how long the next of the same app may take (Chrome's second). */
     static final int MORE_SECONDS = 2;
+    /** After the last window is placed, how long apps get to settle before the final check. */
+    static final int FINAL_SETTLE_SECONDS = 2;
 
     private final Process process;
     private final PrintWriter in;
@@ -91,19 +93,23 @@ final class WindowPlacer {
     }
 
     /** After the last launch: reports each window as it is placed - (app, "1 ok" / "0 fixed" /
-        "2 off state 0") - and (app, null) for an app none of whose windows came, then stops the
-        script. Blocks until everything waited for has come or timed out. */
+        "2 off state 0") - and (app, null) for an app none of whose windows came; then, once all
+        are placed, the final check of each - (app, "final 1 ok" / ... / "final 0 gone" for one
+        closed since). Blocks until that is done or timed out, then stops the script. */
     void drain(BiConsumer<String, String> report) {
         in.println("end");
         try {
             for (String line; (line = next(FIRST_SECONDS + MORE_SECONDS + 30)) != null && !line.equals("done") && !line.equals("eof"); ) {
-                // "placed <app> <state> <how>" and "none <app>"; an app's name can hold spaces
-                if (line.startsWith("placed ")) {
-                    String[] f = line.substring(7).split(" ");
+                // "placed <app> <state> <how>", "final <app> <state> <how>" (the last check, passed on
+                // with "final " before the state) and "none <app>"; an app's name can hold spaces
+                boolean last = line.startsWith("final ");
+                if (line.startsWith("placed ") || last) {
+                    String[] f = line.substring(last ? 6 : 7).split(" ");
                     int at = 0;
                     while (at < f.length && !f[at].matches("[0-3]")) at++;
                     if (at == 0 || at == f.length) continue;
-                    report.accept(String.join(" ", List.of(f).subList(0, at)), String.join(" ", List.of(f).subList(at, f.length)));
+                    report.accept(String.join(" ", List.of(f).subList(0, at)),
+                            (last ? "final " : "") + String.join(" ", List.of(f).subList(at, f.length)));
                 } else if (line.startsWith("none ")) {
                     report.accept(line.substring(5), null);
                 }
@@ -161,7 +167,7 @@ final class WindowPlacer {
                 + "if ([Math]::Abs($r.X - $x) -gt 2 -or [Math]::Abs($r.Y - $y) -gt 2 -or [Math]::Abs($r.Width - $cx) -gt 2 -or [Math]::Abs($r.Height - $cy) -gt 2) { "
                 + "return '' + [int]$r.X + ',' + [int]$r.Y + ',' + [int]$r.Width + ',' + [int]$r.Height } }; '' }; "
                 + "$in = New-Object IO.StreamReader([Console]::OpenStandardInput()); $next = $in.ReadLineAsync(); $closed = $false; "
-                + "$pool = @{}; "
+                + "$pool = @{}; $done = New-Object Collections.ArrayList; "
                 + "$seen = @{}; foreach ($w in $root.FindAll($kids, $any)) { $seen[$w.Current.NativeWindowHandle] = 1 }; "
                 + "Say 'ready'; "
                 + "while ($true) { "
@@ -207,9 +213,17 @@ final class WindowPlacer {
                 + "if ($o) { Put $w $s $x $y $cx $cy; Start-Sleep -Milliseconds 800; $o = Off $w $s $x $y $cx $cy; "
                 + "$how = 'fixed'; if ($o) { $how = 'off ' + $o } }; "
                 + "$e.n++; Say ('placed ' + $ex + ' ' + $s + ' ' + $how); "
+                + "[void]$done.Add(@{ w = $w; ex = $ex; s = $s; x = $x; y = $y; cx = $cx; cy = $cy }); "
                 + "$more = (Get-Date).AddSeconds(" + MORE_SECONDS + "); if ($more -gt $e.end) { $e.end = $more } "
                 + "} catch { } } }; "
                 + "foreach ($ex in $pool.Keys) { if (-not $pool[$ex].n) { Say ('none ' + $ex) } }; "
+                // the last check, once every window is placed and has had FINAL_SETTLE_SECONDS: an app
+                // that sized itself once its project loaded (IntelliJ) is put back once more
+                + "if ($done.Count) { Start-Sleep -Seconds " + FINAL_SETTLE_SECONDS + " }; "
+                + "foreach ($d in $done) { try { $o = Off $d.w $d.s $d.x $d.y $d.cx $d.cy; $how = 'ok'; "
+                + "if ($o) { Put $d.w $d.s $d.x $d.y $d.cx $d.cy; Start-Sleep -Milliseconds 800; $o = Off $d.w $d.s $d.x $d.y $d.cx $d.cy; "
+                + "$how = 'fixed'; if ($o) { $how = 'off ' + $o } } } catch { $how = 'gone' }; "
+                + "Say ('final ' + $d.ex + ' ' + $d.s + ' ' + $how) }; "
                 + "Say 'done'";
     }
 }

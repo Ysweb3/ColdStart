@@ -4127,8 +4127,11 @@ public class ColdstartController {
     /** After the last launch: the placer finishes the windows it still waits for on its own
         thread, so 1l does not wait on a slow app's window; each lands in the log as it comes. */
     static void finishPlacing(WindowPlacer placer, Map<String, String> labels, List<String> log) {
-        Thread t = new Thread(() -> placer.drain((app, how) -> log.add(placedLine(
-                labels.getOrDefault(app.toLowerCase(), app), how == null ? List.of() : List.of(how)))), "window-placer-drain");
+        Thread t = new Thread(() -> placer.drain((app, how) -> {
+            String label = labels.getOrDefault(app.toLowerCase(), app);
+            log.add(how != null && how.startsWith("final ") ? finalLine(label, how.substring(6))
+                    : placedLine(label, how == null ? List.of() : List.of(how)));
+        }), "window-placer-drain");
         t.setDaemon(true);
         t.start();
     }
@@ -4136,19 +4139,27 @@ public class ColdstartController {
     /** "Paint: window put back maximized", one part per window the placer reported. */
     static String placedLine(String label, List<String> placed) {
         if (placed.isEmpty()) return label + ": no new window to place (it may have opened as a tab)";
-        List<String> parts = new ArrayList<>();
-        for (String p : placed) {
-            String[] f = p.split(" ", 2);
-            String state = switch (f[0]) {
-                case "1" -> "maximized";
-                case "2" -> "minimized";
-                case "3" -> "minimized (maximized)";
-                default -> "at its place";
-            };
-            String how = f.length < 2 || f[1].equals("ok") ? "" : f[1].equals("fixed") ? ", moved back once" : ", still off: " + f[1].substring(4);
-            parts.add(state + how);
-        }
+        List<String> parts = placed.stream().map(ColdstartController::placeWords).toList();
         return label + ": window" + (parts.size() > 1 ? "s" : "") + " put back " + String.join("; ", parts);
+    }
+
+    /** "VS Code: final check, maximized, moved back once": where a window stood once every app
+        had settled, after the resume. */
+    static String finalLine(String label, String p) {
+        return label + ": final check, " + (p.endsWith(" gone") ? "window closed since" : placeWords(p));
+    }
+
+    /** "1 fixed" -> "maximized, moved back once": a placer report in words. */
+    static String placeWords(String p) {
+        String[] f = p.split(" ", 2);
+        String state = switch (f[0]) {
+            case "1" -> "maximized";
+            case "2" -> "minimized";
+            case "3" -> "minimized (maximized)";
+            default -> "at its place";
+        };
+        String how = f.length < 2 || f[1].equals("ok") ? "" : f[1].equals("fixed") ? ", moved back once" : ", still off: " + f[1].substring(4);
+        return state + how;
     }
 
     /** Native folder picker, opened at `current` when it still exists. Returns the absolute
