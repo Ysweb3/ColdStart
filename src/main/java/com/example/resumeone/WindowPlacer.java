@@ -4,20 +4,19 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BooleanSupplier;
+import java.util.function.BiConsumer;
 
-/** Puts a resumed app's windows back, one launch at a time. One PowerShell runs for the whole
-    resume; for each step it is told the exe and its saved places (expect), notes the windows
-    already open, and once the step has launched (go) it waits for that exe's new windows,
-    gives each the saved place whose title is most like its own, then reads it back after it
-    settles - putting it there once more if the app moved it. Windows that were open before
-    are never moved. */
-final class WindowPlacer implements AutoCloseable {
+/** Puts resumed apps' windows back while the resume goes on launching. One PowerShell runs
+    for the whole resume: it notes the windows open before it (never moved), and after each
+    launch it is told the app and its saved places (launched). From then on every new window
+    of that app takes the saved place whose title is most like its own, is read back once it
+    settles, and is put there once more if the app moved it - while the launches after it
+    carry on. When the last step has launched (drain) it finishes what it is waiting for. */
+final class WindowPlacer {
 
     /** How long a cold start has to show its first window: IntelliJ can take this long to load. */
     static final int FIRST_SECONDS = 25;
@@ -25,12 +24,8 @@ final class WindowPlacer implements AutoCloseable {
         launch became a tab in a window already there). Also how long a cold start may go
         without any process of the exe showing up before it is given up on. */
     static final int WARM_SECONDS = 6;
-    /** After a placed window, how long the next of the same launch may take (Chrome's second). */
+    /** After a placed window, how long the next of the same app may take (Chrome's second). */
     static final int MORE_SECONDS = 2;
-
-    /** What one step's windows came to: the report lines ("1 ok", "0 fixed", "2 off state 0")
-        and the places they took, as sent, for the caller to take off its list. */
-    record Placed(List<String> lines, List<String> used) {}
 
     private final Process process;
     private final PrintWriter in;
@@ -51,15 +46,19 @@ final class WindowPlacer implements AutoCloseable {
         reader.start();
     }
 
-    /** Starts the script, or null when PowerShell cannot: a resume never fails over a place. */
+    /** Starts the script and returns once it has noted the open windows, so no launch can open
+        one it would take for one that was already there. Null when it cannot: a resume never
+        fails over a place. */
     static WindowPlacer start() {
         try {
-            return new WindowPlacer(new ProcessBuilder("powershell.exe", "-NoProfile", "-Command", script())
+            WindowPlacer placer = new WindowPlacer(new ProcessBuilder("powershell.exe", "-NoProfile", "-Command", script())
                     .redirectError(ProcessBuilder.Redirect.DISCARD).start());
+            if ("ready".equals(placer.next(15))) return placer;
+            placer.process.destroyForcibly();
         } catch (IOException ex) {
             System.err.println("window placement skipped: " + ex);
-            return null;
         }
+        return null;
     }
 
     /** The places worth sending: AppFolders.PLACE ones (not a hand-edited projects.json's). */
@@ -67,78 +66,75 @@ final class WindowPlacer implements AutoCloseable {
         return places.stream().filter(p -> AppFolders.PLACE.matcher(p).matches()).toList();
     }
 
-    /** "Code|1,-8,-8,1936,1048<tab>a - proj - Visual Studio Code;0,10,20,300,400": what the
-        script is told before a launch. Null when no place is left. It goes in on stdin, so
-        nothing in it is ever run. */
+    /** "Code|1,-8,-8,1936,1048<tab>a - proj - Visual Studio Code;0,10,20,300,400": an app and
+        its places as the script takes them. Null when no place is left. It goes in on stdin,
+        so nothing in it is ever run. */
     static String request(String exe, List<String> places) {
         List<String> ok = sendable(places);
         String name = exe.replaceFirst("(?i)\\.exe$", "");
         return ok.isEmpty() || name.contains("|") ? null : name + "|" + String.join(";", ok);
     }
 
-    /** Out of step with the script (a wait timed out, stop, or it died): no more places this run. */
-    private boolean broken;
-    /** What the last expect sent, which the script's "placed k" lines point into. */
-    private List<String> sent = List.of();
+    /** Was any process of exe up before its launch: an app already running gets the short wait. */
+    static boolean running(String exe) {
+        String tail = "\\" + exe.toLowerCase();
+        return ProcessHandle.allProcesses().anyMatch(p -> p.info().command()
+                .map(c -> c.toLowerCase().endsWith(tail)).orElse(false));
+    }
 
-    /** Before the launch: returns once the script has noted the open windows, or false. */
-    boolean expect(String exe, List<String> places) {
+    /** Right after a step launched exe: its windows are watched for from now. The places count
+        the first time an app is named; a second launch of it (VS Code's next folder) only gives
+        its windows longer to come. */
+    void launched(String exe, boolean wasRunning, List<String> places) {
         String line = request(exe, places);
-        if (broken || line == null) return false;
-        sent = sendable(places);
-        in.println(line);
-        broken = !"ready".equals(next(15, () -> false));
-        return !broken;
+        if (line != null) in.println("want " + (wasRunning ? 1 : 0) + " " + line);
     }
 
-    /** After the launch, only when expect said yes: go (it opened windows to wait for) or skip,
-        then the script's report. Empty when no window came. */
-    Placed finish(boolean go, BooleanSupplier stop) {
-        in.println(go ? "go" : "skip");
-        List<String> lines = new ArrayList<>(), used = new ArrayList<>();
-        String line;
-        while ((line = next(FIRST_SECONDS + 30, stop)) != null && !line.startsWith("done") && !line.equals("eof")) {
-            // "placed <k> <state> <how>": k is the place's index in what expect sent
-            String[] f = line.split(" ", 3);
-            if (f.length < 3 || !f[0].equals("placed")) continue;
-            try {
-                used.add(sent.get(Integer.parseInt(f[1])));
-                lines.add(f[2]);
-            } catch (RuntimeException ex) {
-                // not a line this class asked for
-            }
-        }
-        broken = line == null || line.equals("eof");
-        return new Placed(lines, used);
-    }
-
-    /** The script's next line, or null after `seconds` or once stop is true. */
-    private String next(int seconds, BooleanSupplier stop) {
-        long end = System.nanoTime() + TimeUnit.SECONDS.toNanos(seconds);
+    /** After the last launch: reports each window as it is placed - (app, "1 ok" / "0 fixed" /
+        "2 off state 0") - and (app, null) for an app none of whose windows came, then stops the
+        script. Blocks until everything waited for has come or timed out. */
+    void drain(BiConsumer<String, String> report) {
+        in.println("end");
         try {
-            while (System.nanoTime() < end && !stop.getAsBoolean()) {
-                String line = out.poll(200, TimeUnit.MILLISECONDS);
-                if (line != null) return line;
+            for (String line; (line = next(FIRST_SECONDS + MORE_SECONDS + 30)) != null && !line.equals("done") && !line.equals("eof"); ) {
+                // "placed <app> <state> <how>" and "none <app>"; an app's name can hold spaces
+                if (line.startsWith("placed ")) {
+                    String[] f = line.substring(7).split(" ");
+                    int at = 0;
+                    while (at < f.length && !f[at].matches("[0-3]")) at++;
+                    if (at == 0 || at == f.length) continue;
+                    report.accept(String.join(" ", List.of(f).subList(0, at)), String.join(" ", List.of(f).subList(at, f.length)));
+                } else if (line.startsWith("none ")) {
+                    report.accept(line.substring(5), null);
+                }
             }
+        } finally {
+            in.close();
+            process.destroyForcibly();
+        }
+    }
+
+    /** The script's next line, or null after `seconds`. */
+    private String next(int seconds) {
+        try {
+            return out.poll(seconds, TimeUnit.SECONDS);
         } catch (InterruptedException ex) {
             Thread.currentThread().interrupt();
+            return null;
         }
-        return null;
-    }
-
-    @Override
-    public void close() {
-        in.close();
-        process.destroyForcibly();
     }
 
     /** Places are "state,x,y,w,h" (AppFolders.PLACE): 0 normal, 1 maximized, 2 minimized, 3
         minimized from maximized, the rect being where it goes back to; a tab and the title the
         window had may follow. A new window takes the place whose title shares the most words
         (3+ letters) with its own - the folder in VS Code's, the project in IntelliJ's - and the
-        first of them on a tie, which is capture order.
+        first of them on a tie, which is capture order. Lines in: "want <1 if it was running>
+        <app>|<places>", then "end". Stdin is read without blocking, so windows are placed
+        while the resume is still launching.
         ponytail: two windows whose titles share nothing that tells them apart (two Chrome
         windows on other tabs now) still go in the order they appear.
+        ponytail: windows are placed one after another inside the script, so one that has to
+        be put back twice holds the next for its 1.6s.
         ponytail: UI Automation coordinates; monitors at different scales may land a little off. */
     static String script() {
         return "$ErrorActionPreference = 'SilentlyContinue'; Add-Type -AssemblyName UIAutomationClient, System.Windows.Forms; "
@@ -164,27 +160,38 @@ final class WindowPlacer implements AutoCloseable {
                 + "if ($s -eq '0') { $r = $w.Current.BoundingRectangle; "
                 + "if ([Math]::Abs($r.X - $x) -gt 2 -or [Math]::Abs($r.Y - $y) -gt 2 -or [Math]::Abs($r.Width - $cx) -gt 2 -or [Math]::Abs($r.Height - $cy) -gt 2) { "
                 + "return '' + [int]$r.X + ',' + [int]$r.Y + ',' + [int]$r.Width + ',' + [int]$r.Height } }; '' }; "
-                + "while ($null -ne ($line = [Console]::In.ReadLine())) { "
-                + "$exe, $list = $line -split '\\|', 2; $all = @($list -split ';'); $q = [Collections.ArrayList]@(0..($all.Count - 1)); "
+                + "$in = New-Object IO.StreamReader([Console]::OpenStandardInput()); $next = $in.ReadLineAsync(); $closed = $false; "
+                + "$pool = @{}; "
                 + "$seen = @{}; foreach ($w in $root.FindAll($kids, $any)) { $seen[$w.Current.NativeWindowHandle] = 1 }; "
-                + "$was = @(Get-Process -Name $exe).Count -gt 0; "
                 + "Say 'ready'; "
-                + "if ([Console]::In.ReadLine() -ne 'go') { Say 'done 0'; continue }; "
-                + "$n = 0; $t0 = Get-Date; $wait = " + FIRST_SECONDS + "; if ($was) { $wait = " + WARM_SECONDS + " }; $end = $t0.AddSeconds($wait); "
-                + "while ($q.Count -and (Get-Date) -lt $end) { "
-                + "Start-Sleep -Milliseconds 300; $ids = @{}; Get-Process -Name $exe | ForEach-Object { $ids[$_.Id] = 1 }; "
-                // none of it running by now: the launch handed off and quit, or never started
-                + "if (-not $ids.Count -and ((Get-Date) - $t0).TotalSeconds -gt " + WARM_SECONDS + ") { break }; "
+                + "while ($true) { "
+                // every line that has come in: an app just launched, or the end of the launches
+                + "while (-not $closed -and $next.IsCompleted) { $line = $next.Result; "
+                + "if ($null -eq $line -or $line -eq 'end') { $closed = $true; break }; "
+                + "$null, $was, $rest = $line -split ' ', 3; $ex, $list = $rest -split '\\|', 2; "
+                + "$wait = " + FIRST_SECONDS + "; if ($was -eq '1') { $wait = " + WARM_SECONDS + " }; $until = (Get-Date).AddSeconds($wait); "
+                + "$e = $pool[$ex]; "
+                + "if (-not $e) { $all = @($list -split ';' | Where-Object { $_ }); "
+                + "if ($all.Count) { $pool[$ex] = @{ all = $all; q = [Collections.ArrayList]@(0..($all.Count - 1)); t0 = Get-Date; was = ($was -eq '1'); end = $until; n = 0 } } } "
+                + "else { $e.t0 = Get-Date; $e.was = ($was -eq '1'); if ($until -gt $e.end) { $e.end = $until } }; "
+                + "$next = $in.ReadLineAsync() }; "
+                + "$now = Get-Date; $p = @{}; $names = @{}; Get-Process | ForEach-Object { $p[$_.Id] = $_.ProcessName; $names[$_.ProcessName] = 1 }; "
+                // a cold start with none of it running by now: it handed off and quit, or never started
+                + "foreach ($ex in @($pool.Keys)) { $e = $pool[$ex]; "
+                + "if (-not $e.was -and -not $names[$ex] -and ($now - $e.t0).TotalSeconds -gt " + WARM_SECONDS + ") { $e.end = $now } }; "
+                + "$live = @($pool.Values | Where-Object { $_.q.Count -and $now -lt $_.end }).Count; "
+                + "if ($closed -and -not $live) { break }; "
+                + "Start-Sleep -Milliseconds 300; if (-not $live) { continue }; "
                 + "foreach ($w in $root.FindAll($kids, $any)) { "
-                + "if (-not $q.Count) { break }; "
-                + "$h = $w.Current.NativeWindowHandle; if ($seen[$h] -or -not $ids[$w.Current.ProcessId]) { continue }; "
-                // untitled (still loading): looked at again next time round
-                + "if (-not $w.Current.Name) { continue }; $seen[$h] = 1; "
+                + "$h = $w.Current.NativeWindowHandle; if ($seen[$h]) { continue }; $ex = $p[$w.Current.ProcessId]; $e = $pool[$ex]; "
+                // not one being waited for, or untitled (still loading): looked at again next time round
+                + "if (-not $e -or -not $e.q.Count -or (Get-Date) -gt $e.end -or -not $w.Current.Name) { continue }; "
+                + "$seen[$h] = 1; "
                 + "try { $wp = $w.GetCurrentPattern($wpat); "
                 // a splash screen or a dialog cannot maximize, and takes no place
                 + "if (-not $wp.Current.CanMaximize -or $wp.Current.IsModal) { continue }; "
                 // the place whose saved title is most like this one's; the first on a tie
-                + "$nw = Words $w.Current.Name; $bi = 0; $bs = -1; "
+                + "$q = $e.q; $all = $e.all; $nw = Words $w.Current.Name; $bi = 0; $bs = -1; "
                 + "for ($i = 0; $i -lt $q.Count; $i++) { $tt = ($all[$q[$i]] -split $tab, 2)[1]; "
                 + "$sc = @(Words $tt | Where-Object { $nw -contains $_ }).Count; "
                 + "if ($sc -gt $bs) { $bs = $sc; $bi = $i } }; "
@@ -199,8 +206,10 @@ final class WindowPlacer implements AutoCloseable {
                 + "Put $w $s $x $y $cx $cy; Start-Sleep -Milliseconds 800; $o = Off $w $s $x $y $cx $cy; $how = 'ok'; "
                 + "if ($o) { Put $w $s $x $y $cx $cy; Start-Sleep -Milliseconds 800; $o = Off $w $s $x $y $cx $cy; "
                 + "$how = 'fixed'; if ($o) { $how = 'off ' + $o } }; "
-                + "$n++; Say ('placed ' + $pk + ' ' + $s + ' ' + $how); $end = (Get-Date).AddSeconds(" + MORE_SECONDS + ") "
+                + "$e.n++; Say ('placed ' + $ex + ' ' + $s + ' ' + $how); "
+                + "$more = (Get-Date).AddSeconds(" + MORE_SECONDS + "); if ($more -gt $e.end) { $e.end = $more } "
                 + "} catch { } } }; "
-                + "Say ('done ' + $n) }";
+                + "foreach ($ex in $pool.Keys) { if (-not $pool[$ex].n) { Say ('none ' + $ex) } }; "
+                + "Say 'done'";
     }
 }

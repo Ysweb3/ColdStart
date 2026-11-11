@@ -2194,10 +2194,12 @@ public class ColdstartController {
                     r.plan = planResume(r.project, captureRunningApps(), liveFolders(r.project), r.log);
                     Platform.runLater(() -> renderResuming(r));
                 }
-                // one step at a time: the placer notes the windows open, the step launches, and the
-                // next waits until this one's new windows are back where the checkpoint saw them
+                // the placer notes the windows open now, then each step's new windows are put back
+                // where the checkpoint saw them while the steps after it go on launching
                 Map<String, ArrayList<String>> left = placesLeft(r.project.windows);
-                try (WindowPlacer placer = left.isEmpty() || r.queued() == 0 ? null : WindowPlacer.start()) {
+                WindowPlacer placer = left.isEmpty() || r.queued() == 0 ? null : WindowPlacer.start();
+                Map<String, String> labels = new HashMap<>();   // "code" -> "VS Code", for the log
+                try {
                     for (LaunchStep step : r.plan.steps()) {
                         if (step.state != LaunchStep.State.QUEUED) continue;   // ran before the stop
                         if (stopRequested) {
@@ -2206,25 +2208,23 @@ public class ColdstartController {
                         }
                         step.state = LaunchStep.State.LAUNCHING;
                         Platform.runLater(() -> renderResuming(r));
-                        ArrayList<String> places = step.app == null ? null : left.get(step.app);
-                        boolean watched = placer != null && places != null && placer.expect(step.app, places);
+                        String app = step.app;
+                        boolean wasRunning = placer != null && app != null && left.containsKey(app) && WindowPlacer.running(app);
                         step.run();
                         r.log.add(step.logLine());
-                        if (watched) {
-                            // app is cleared by a browser that handed its tabs to its extension
-                            boolean go = step.state == LaunchStep.State.DONE && !step.waiting && step.app != null;
-                            WindowPlacer.Placed placed = placer.finish(go, () -> stopRequested);
-                            placed.used().forEach(places::remove);   // matched by title, so not always the first
-                            if (go) r.log.add(placedLine(step.label, placed.lines()));
+                        // step.app is cleared by a browser that handed its tabs to its extension
+                        if (placer != null && step.app != null && step.state == LaunchStep.State.DONE && !step.waiting
+                                && left.containsKey(step.app)) {
+                            placer.launched(step.app, wasRunning, left.get(step.app));
+                            labels.put(step.app.replaceFirst("(?i)\\.exe$", "").toLowerCase(), AppCatalog.appName(step.app));
                         }
                         Platform.runLater(() -> renderResuming(r));
                         // the gap paces processes landing on the machine: a step that failed or found
-                        // everything open started none, after the last one it only padded "took", and
-                        // a step whose windows were waited for has landed already
-                        if (!watched && step.state == LaunchStep.State.DONE && !step.waiting && r.queued() > 0) {
-                            Thread.sleep(LAUNCH_GAP_MS);
-                        }
+                        // everything open started none, and after the last one it only padded "took"
+                        if (step.state == LaunchStep.State.DONE && !step.waiting && r.queued() > 0) Thread.sleep(LAUNCH_GAP_MS);
                     }
+                } finally {
+                    if (placer != null) finishPlacing(placer, labels, r.log);
                 }
             } catch (IOException ex) {
                 // without the list of open apps there is no telling what would open twice, so
@@ -4122,6 +4122,15 @@ public class ColdstartController {
             if (!ok.isEmpty()) left.computeIfAbsent(exe, k -> new ArrayList<>()).addAll(ok);
         });
         return left;
+    }
+
+    /** After the last launch: the placer finishes the windows it still waits for on its own
+        thread, so 1l does not wait on a slow app's window; each lands in the log as it comes. */
+    static void finishPlacing(WindowPlacer placer, Map<String, String> labels, List<String> log) {
+        Thread t = new Thread(() -> placer.drain((app, how) -> log.add(placedLine(
+                labels.getOrDefault(app.toLowerCase(), app), how == null ? List.of() : List.of(how)))), "window-placer-drain");
+        t.setDaemon(true);
+        t.start();
     }
 
     /** "Paint: window put back maximized", one part per window the placer reported. */
